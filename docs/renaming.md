@@ -11,7 +11,12 @@ Questi punti contengono il nome in chiaro e vanno aggiornati a mano:
 - **`manifest.json` del plugin**: è generato in fase di build; `id` e `name` provengono da `brand` tramite lo script di build, ma il file committato come modello (se presente) va controllato.
 - **`turbo.json`**: l'elenco `env` (`KAMINO_BUILD_COMMIT`) non può importare `brand`; va aggiornato col prefisso delle variabili.
 - **Workflow CI** (`.github/workflows/*`): nome dell'immagine, nome degli artefatti, filtri `pnpm --filter @kamino/...`.
+- **Comando CLI** `kamino`: campo `bin` di `apps/server/package.json`.
 - **Documentazione** in `docs/` e `README.md`: testi descrittivi scritti a mano.
+
+## Costanti crittografiche: non rinominare
+
+Le stringhe `kamino-kek-id` e `kamino-key-check` (`apps/server/src/crypto/keyring.ts`) sono costanti fisse di separazione di dominio: determinano l'id della chiave e il valore di controllo salvato nel database. **Non vanno rinominate** né derivate da `brand`: cambiarle renderebbe irriconoscibile la master key dei database esistenti e il server non partirebbe.
 
 ## Procedura
 

@@ -1,0 +1,71 @@
+# Scenario 2: Tailscale or Cloudflare Tunnel. TLS is provided by the service; no port is open
+# to the internet. Run from the repository root:
+#   Tailscale:   docker compose -f docker/compose.tunnel.yml up -d --build
+#   Cloudflare:  docker compose -f docker/compose.tunnel.yml --profile cloudflare up -d --build
+#
+# Tailscale: install Tailscale on the host and run
+#   tailscale serve --bg 8080
+# then set KAMINO_PUBLIC_URL to the https://<host>.<tailnet>.ts.net URL. The server only listens
+# on 127.0.0.1 of the host, so Tailscale is the only way in.
+#
+# Cloudflare Tunnel: create a tunnel in Zero Trust, point its public hostname to
+# http://kamino:8080, save the tunnel token in docker/secrets/cloudflared_token and set
+# KAMINO_PUBLIC_URL to the public hostname. Note: Cloudflare sees traffic in clear, and the free
+# plan caps requests at 100 MB (chunks are 4 MiB, so this is fine).
+name: kamino
+
+services:
+  kamino:
+    image: kamino:local
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        KAMINO_BUILD_COMMIT: ${KAMINO_BUILD_COMMIT:-unknown}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KAMINO_PUBLIC_URL: ${KAMINO_PUBLIC_URL:?set KAMINO_PUBLIC_URL (the https URL of the tunnel) in docker/.env}
+      KAMINO_DATABASE_URL: postgres://kamino:${KAMINO_DB_PASSWORD:?set KAMINO_DB_PASSWORD in docker/.env}@postgres:5432/kamino
+      KAMINO_MASTER_KEY_FILE: /run/secrets/kamino_master_key
+      KAMINO_LOG_LEVEL: ${KAMINO_LOG_LEVEL:-info}
+    secrets:
+      - kamino_master_key
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kamino
+      POSTGRES_DB: kamino
+      POSTGRES_PASSWORD: ${KAMINO_DB_PASSWORD:?set KAMINO_DB_PASSWORD in docker/.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kamino -d kamino"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["cloudflare"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token-file /run/secrets/cloudflared_token
+    depends_on:
+      - kamino
+    secrets:
+      - cloudflared_token
+
+secrets:
+  kamino_master_key:
+    file: ./secrets/kamino_master_key
+  cloudflared_token:
+    file: ./secrets/cloudflared_token
+
+volumes:
+  postgres-data:

@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PLUGIN_ID, PRODUCT_NAME } from "@kamino/brand";
-import { PLUGIN_ROOT, pluginVersion } from "./build-constants.js";
+import { pluginVersion } from "./build-constants.js";
 
 /** Lowest Obsidian version we support; recorded in versions.json too. */
 export const MIN_APP_VERSION = "1.5.0";
@@ -23,8 +23,4 @@ export function writeManifest(distDir: string): void {
     resolve(distDir, "manifest.json"),
     `${JSON.stringify(buildManifest(), null, 2)}\n`,
   );
-}
-
-if (import.meta.url === new URL(`file:///${process.argv[1]?.replaceAll("\\", "/")}`).href) {
-  writeManifest(resolve(PLUGIN_ROOT, "dist"));
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { App, moment, PluginSettingTab } from "obsidian";
 import { SettingsTab } from "../src/settings/SettingsTab.js";
 import { detectLanguage } from "../src/i18n/index.js";
@@ -17,6 +17,10 @@ describe("SettingsTab", () => {
 });
 
 describe("language", () => {
+  afterEach(() => {
+    moment.locale("en");
+  });
+
   it.each([
     ["it", "it"],
     ["it-ch", "it"],
@@ -33,6 +37,5 @@ describe("language", () => {
     const tab = new SettingsTab(app, { app } as never);
     tab.display();
     expect(tab.containerEl.textContent).toContain("Versione");
-    moment.locale("en");
   });
 });

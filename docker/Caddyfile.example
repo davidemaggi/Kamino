@@ -1,0 +1,7 @@
+# Used by compose.caddy.yml. {$KAMINO_DOMAIN} is read from the container environment.
+# Caddy obtains and renews the Let's Encrypt certificate automatically; WebSocket
+# upgrades are proxied without extra configuration.
+{$KAMINO_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy kamino:8080
+}

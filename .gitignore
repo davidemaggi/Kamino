@@ -10,3 +10,5 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 apps/server/src/build-info.generated.ts
+
+docker/secrets/

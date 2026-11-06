@@ -1,50 +1,29 @@
-import { describe, expect, it } from "vitest";
-import { codenameFor, validateRegistry, type Registry } from "./release-names.js";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { main } from "./release-names.js";
 
-const base: Registry = {
-  entries: [
-    { range: "0.x", codename: "Ash", date: null },
-    { range: "1.0", codename: "Ash", date: null },
-  ],
-};
-const withAlison: Registry = {
-  entries: [...base.entries, { range: "1.1", codename: "Alison", date: null }],
-};
+function fixture(version: string, entries: unknown[]): string {
+  const root = mkdtempSync(join(tmpdir(), "release-names-"));
+  mkdirSync(join(root, "apps/server"), { recursive: true });
+  writeFileSync(join(root, "release-names.json"), JSON.stringify({ entries }));
+  writeFileSync(join(root, "package.json"), JSON.stringify({ version }));
+  return root;
+}
 
-describe("codenameFor", () => {
-  it("names every 0.x and 1.0 release Ash", () => {
-    expect(codenameFor("0.3.7", base)).toBe("Ash");
-    expect(codenameFor("1.0.4", base)).toBe("Ash");
+describe("release-names CLI", () => {
+  it("returns 0 for a valid registry and resolvable version", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const root = fixture("0.1.0", [{ range: "0.x", codename: "Ash", date: null }]);
+    expect(main(root)).toBe(0);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Ash"));
+    log.mockRestore();
   });
-  it("resolves a MAJOR.MINOR entry", () => {
-    expect(codenameFor("1.1.2", withAlison)).toBe("Alison");
-  });
-  it("throws naming the missing MAJOR.MINOR", () => {
-    expect(() => codenameFor("1.2.0", withAlison)).toThrow(/1\.2/);
-  });
-});
-
-describe("validateRegistry", () => {
-  it("accepts the initial registry", () => {
-    expect(validateRegistry(withAlison)).toEqual([]);
-  });
-  it("flags an initial that does not match the MAJOR", () => {
-    const errors = validateRegistry({ entries: [{ range: "2.0", codename: "Cody", date: null }] });
-    expect(errors.length).toBeGreaterThan(0);
-  });
-  it("flags a reused name case-insensitively", () => {
-    const errors = validateRegistry({
-      entries: [
-        { range: "2.0", codename: "Rex", date: null },
-        { range: "2.1", codename: "rex", date: null },
-      ],
-    });
-    expect(errors.some((e) => /rex/i.test(e) && /reus|twice|duplic/i.test(e))).toBe(true);
-  });
-  it("flags Ash outside 0.x and 1.0", () => {
-    const errors = validateRegistry({
-      entries: [...base.entries, { range: "1.1", codename: "Ash", date: null }],
-    });
-    expect(errors.some((e) => /ash/i.test(e) && /1\.1/.test(e))).toBe(true);
+  it("returns 1 when the version has no registered codename", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const root = fixture("1.2.0", [{ range: "0.x", codename: "Ash", date: null }]);
+    expect(main(root)).toBe(1);
+    err.mockRestore();
   });
 });

@@ -6,6 +6,7 @@ import { MasterKeyError, parseMasterKey, type Kek } from "./crypto/keyring.js";
 import { createDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { createLogger } from "./observability/logger.js";
+import { resolveWebRoot } from "./web.js";
 
 async function main(): Promise<void> {
   let loaded;
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
     throw e;
   }
 
-  const app = buildApp({ config, db, logger, buildInfo });
+  const app = buildApp({ config, db, logger, buildInfo, webRoot: resolveWebRoot() });
 
   const shutdown = async (): Promise<void> => {
     try {

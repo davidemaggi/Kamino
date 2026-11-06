@@ -18,6 +18,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@fastify/static": "^10.1.10",
     "@kamino/brand": "workspace:*",
     "@kamino/protocol": "workspace:*",
     "drizzle-orm": "^0.45.4",

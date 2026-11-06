@@ -1,6 +1,8 @@
 import { buildApp } from "./app.js";
 import { buildInfo } from "./build-info.js";
 import { ConfigError, loadConfig } from "./config/load.js";
+import { ensureKeyCheck } from "./crypto/key-check.js";
+import { MasterKeyError, parseMasterKey, type Kek } from "./crypto/keyring.js";
 import { createDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { createLogger } from "./observability/logger.js";
@@ -18,11 +20,34 @@ async function main(): Promise<void> {
   }
   const { config } = loaded;
   const logger = createLogger(config.logLevel);
+  // Fail fast on a malformed key before touching the database. Never log the key itself.
+  let kek: Kek;
+  try {
+    kek = parseMasterKey(config.masterKey);
+  } catch (e) {
+    if (e instanceof MasterKeyError) {
+      logger.error(e.message);
+      process.exit(1);
+    }
+    throw e;
+  }
+
   const db = createDb(config.databaseUrl);
 
-  // TODO(task-6): verify the master key (key_check) here, before running migrations.
-
+  // key_check is created by the migrations, so they run first; the port stays closed
+  // until the master key has been verified against this database.
   await runMigrations(db);
+  try {
+    const result = await ensureKeyCheck(db, kek);
+    logger.info({ kekId: kek.id, result }, "master key verified");
+  } catch (e) {
+    if (e instanceof MasterKeyError) {
+      logger.error(e.message);
+      await db.$client.end({ timeout: 5 });
+      process.exit(1);
+    }
+    throw e;
+  }
 
   const app = buildApp({ config, db, logger, buildInfo });
 

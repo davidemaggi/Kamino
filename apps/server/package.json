@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "main": "./dist/main.js",
+  "bin": {
+    "kamino": "dist/cli/index.js"
+  },
   "scripts": {
     "gen:build-info": "tsx scripts/gen-build-info.ts",
     "build": "tsx scripts/gen-build-info.ts && tsc -p tsconfig.build.json",

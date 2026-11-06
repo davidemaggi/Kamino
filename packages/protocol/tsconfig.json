@@ -1,0 +1,4 @@
+{
+  "extends": "@kamino/tsconfig/node.json",
+  "include": ["src"]
+}

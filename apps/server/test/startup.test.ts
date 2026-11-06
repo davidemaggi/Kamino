@@ -29,6 +29,58 @@ function canConnect(port: number): Promise<boolean> {
   });
 }
 
+/** Minimal environment: no inherited KAMINO_* variables can change behaviour. */
+function baseEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const k of [
+    "PATH",
+    "Path",
+    "SystemRoot",
+    "SYSTEMROOT",
+    "TEMP",
+    "TMP",
+    "HOME",
+    "USERPROFILE",
+  ]) {
+    const v = process.env[k];
+    if (v !== undefined) env[k] = v;
+  }
+  return env;
+}
+
+async function runServer(
+  port: number,
+  vars: Record<string, string>,
+): Promise<{ code: number | null; everConnected: boolean; output: string }> {
+  const child = spawn(process.execPath, ["--import", "tsx", "src/main.ts"], {
+    env: {
+      ...baseEnv(),
+      KAMINO_PUBLIC_URL: "http://localhost",
+      KAMINO_PORT: String(port),
+      ...vars,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  child.stdout.on("data", (d: Buffer) => (output += d.toString()));
+  child.stderr.on("data", (d: Buffer) => (output += d.toString()));
+  let exited = false;
+  const exit = new Promise<number | null>((resolve) =>
+    child.once("exit", (code) => {
+      exited = true;
+      resolve(code);
+    }),
+  );
+  let everConnected = false;
+  while (!exited) {
+    if (await canConnect(port)) everConnected = true;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  const code = await exit;
+  if (await canConnect(port)) everConnected = true;
+  return { code, everConnected, output };
+}
+
 describe("server startup", () => {
   let pg: TestPostgres;
 
@@ -48,39 +100,31 @@ describe("server startup", () => {
     } finally {
       await db.$client.end();
     }
-    const port = await freePort();
     const wrong = generateMasterKey();
-    const child = spawn(process.execPath, ["--import", "tsx", "src/main.ts"], {
-      env: {
-        ...process.env,
-        KAMINO_PUBLIC_URL: "http://localhost",
-        KAMINO_PORT: String(port),
-        KAMINO_DATABASE_URL: url,
-        KAMINO_MASTER_KEY: wrong,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
+    const r = await runServer(await freePort(), {
+      KAMINO_DATABASE_URL: url,
+      KAMINO_MASTER_KEY: wrong,
     });
-    let output = "";
-    child.stdout.on("data", (d: Buffer) => (output += d.toString()));
-    child.stderr.on("data", (d: Buffer) => (output += d.toString()));
-    let exited = false;
-    const exit = new Promise<number | null>((resolve) =>
-      child.once("exit", (code) => {
-        exited = true;
-        resolve(code);
-      }),
-    );
-    let everConnected = false;
-    while (!exited) {
-      if (await canConnect(port)) everConnected = true;
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    const code = await exit;
-    expect(code).not.toBeNull();
-    expect(code).not.toBe(0);
-    expect(everConnected).toBe(false);
-    expect(await canConnect(port)).toBe(false);
-    expect(output).toContain("master key does not match this database");
-    expect(output).not.toContain(wrong);
+    expect(r.code).not.toBeNull();
+    expect(r.code).not.toBe(0);
+    expect(r.everConnected).toBe(false);
+    expect(r.output).toContain("master key does not match this database");
+    expect(r.output).not.toContain(wrong);
+  }, 120_000);
+
+  it("exits non-zero before any database connection when the master key is malformed", async () => {
+    const hex = "ef".repeat(32);
+    // Port 1 is unreachable: a DB connection attempt would surface a different error.
+    const r = await runServer(await freePort(), {
+      KAMINO_DATABASE_URL: "postgres://user:secretpw@127.0.0.1:1/db",
+      KAMINO_MASTER_KEY: hex,
+    });
+    expect(r.code).not.toBeNull();
+    expect(r.code).not.toBe(0);
+    expect(r.everConnected).toBe(false);
+    expect(r.output).toContain("base64");
+    expect(r.output).not.toContain(hex);
+    expect(r.output).not.toContain("secretpw");
+    expect(r.output).not.toMatch(/ECONNREFUSED/);
   }, 120_000);
 });

@@ -9,3 +9,4 @@ coverage/
 !.env.example
 *.tsbuildinfo
 .DS_Store
+apps/server/src/build-info.generated.ts

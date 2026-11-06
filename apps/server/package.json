@@ -1,0 +1,30 @@
+{
+  "name": "@kamino/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "gen:build-info": "tsx scripts/gen-build-info.ts",
+    "build": "tsx scripts/gen-build-info.ts && tsc -p tsconfig.build.json",
+    "dev": "tsx scripts/gen-build-info.ts && tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsx scripts/gen-build-info.ts && tsc --noEmit",
+    "lint": "eslint .",
+    "test": "tsx scripts/gen-build-info.ts && vitest run",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@kamino/brand": "workspace:*",
+    "@kamino/protocol": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.8",
+    "pino": "^10.4.0",
+    "postgres": "^4.1.0"
+  },
+  "devDependencies": {
+    "@kamino/tsconfig": "workspace:*",
+    "@testcontainers/postgresql": "^12.2.1",
+    "drizzle-kit": "^0.31.11"
+  }
+}

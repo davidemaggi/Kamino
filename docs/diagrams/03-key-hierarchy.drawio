@@ -1,0 +1,40 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="keys" name="Gerarchia delle chiavi">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="kek" value="&lt;b&gt;KEK — master key&lt;/b&gt;&lt;br&gt;256 bit · Docker secret / env&lt;br&gt;solo in memoria · mai nel DB né nei backup&lt;br&gt;verificata all'avvio (key_check)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="420" y="40" width="300" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="sys" value="&lt;b&gt;k_system&lt;/b&gt; (HKDF)&lt;br&gt;segreti TOTP · password SMTP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="120" y="200" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="dek" value="&lt;b&gt;DEK del vault&lt;/b&gt; (casuale, 256 bit)&lt;br&gt;salvata come dek_wrapped = AES-256-GCM(KEK, AAD = vaultId ‖ kekId)&lt;br&gt;distrutta = crypto-shredding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="420" y="200" width="300" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="kc" value="&lt;b&gt;k_content&lt;/b&gt;&lt;br&gt;blob: AEAD a segmenti (STREAM)&lt;br&gt;chiave per blob = HKDF(k_content, salt)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="160" y="360" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="km" value="&lt;b&gt;k_meta&lt;/b&gt;&lt;br&gt;path · nomi · impostazioni&lt;br&gt;AES-256-GCM, AAD = tabella‖colonna‖id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="380" y="360" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="kp" value="&lt;b&gt;k_pathmac&lt;/b&gt;&lt;br&gt;HMAC(collisionKey)&lt;br&gt;unicità dei path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="600" y="360" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="kb" value="&lt;b&gt;k_blobid&lt;/b&gt;&lt;br&gt;HMAC(contentHash)&lt;br&gt;ID blob · dedup solo nel vault" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="800" y="360" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="rot" value="Rotazione KEK: re-wrap di tutte le DEK e dei segreti di sistema; i contenuti non vengono ricifrati" style="shape=note;whiteSpace=wrap;html=1;size=12;fillColor=#f5f5f5;" vertex="1" parent="1">
+          <mxGeometry x="780" y="50" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="HKDF" style="endArrow=classic;html=1;" edge="1" parent="1" source="kek" target="sys"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" value="wrap" style="endArrow=classic;html=1;" edge="1" parent="1" source="kek" target="dek"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" value="HKDF" style="endArrow=classic;html=1;" edge="1" parent="1" source="dek" target="kc"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" value="HKDF" style="endArrow=classic;html=1;" edge="1" parent="1" source="dek" target="km"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" value="HKDF" style="endArrow=classic;html=1;" edge="1" parent="1" source="dek" target="kp"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e6" value="HKDF" style="endArrow=classic;html=1;" edge="1" parent="1" source="dek" target="kb"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

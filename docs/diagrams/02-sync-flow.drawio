@@ -1,0 +1,47 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="syncflow" name="Flusso di sync">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="lA" value="Dispositivo A&#xa;(plugin)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="40" width="140" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="lS" value="Server&#xa;(sync + blobs)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="420" y="40" width="140" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="lP" value="Postgres +&#xa;storage" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="680" y="40" width="140" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="lB" value="Dispositivo B&#xa;(plugin, WS aperto)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="940" y="40" width="140" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="n0" value="A: modifica nota → debounce 5 s → op 'put' in outbox (durevole)" style="shape=note;whiteSpace=wrap;html=1;size=10;fillColor=#f5f5f5;" vertex="1" parent="1">
+          <mxGeometry x="20" y="110" width="260" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="m1" value="POST blobs/check {hash}" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="150" y="180" as="sourcePoint" /><mxPoint x="490" y="180" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m2" value="{ missing: [hash] }" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="490" y="210" as="sourcePoint" /><mxPoint x="150" y="210" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m3" value="POST uploads · PUT chunks (riprendibili)" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="150" y="250" as="sourcePoint" /><mxPoint x="490" y="250" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m4" value="cifra ogni chunk all'arrivo → staging" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="490" y="280" as="sourcePoint" /><mxPoint x="750" y="280" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m5" value="POST uploads/:id/complete (verifica SHA-256, fsync)" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="150" y="320" as="sourcePoint" /><mxPoint x="490" y="320" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m6" value="POST commits { put fileId, versionId, base=V1 }" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="150" y="380" as="sourcePoint" /><mxPoint x="490" y="380" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="n1" value="TX: lock vault · opId visto? · base == head? · insert version · head_seq+1 · insert journal · quota · COMMIT · NOTIFY" style="shape=note;whiteSpace=wrap;html=1;size=10;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="560" y="400" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m7" value="accepted { seq: 42 }" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="490" y="490" as="sourcePoint" /><mxPoint x="150" y="490" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="n2" value="A: rimuove op dall'outbox, aggiorna index (base = V2)" style="shape=note;whiteSpace=wrap;html=1;size=10;fillColor=#f5f5f5;" vertex="1" parent="1">
+          <mxGeometry x="20" y="510" width="260" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="m8" value="WS changes { seq 42: file_put }" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="490" y="590" as="sourcePoint" /><mxPoint x="1010" y="590" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="m9" value="GET blobs/:hash (Range, decifrato)" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1010" y="640" as="sourcePoint" /><mxPoint x="490" y="640" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="n3" value="B: file non modificato localmente? → scrittura atomica + index&#xa;modificato localmente? → NON sovrascrive, il suo put riceverà 'conflict'" style="shape=note;whiteSpace=wrap;html=1;size=10;fillColor=#f5f5f5;" vertex="1" parent="1">
+          <mxGeometry x="820" y="670" width="320" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m10" value="WS ack { seq: 42 } → cursor B = 42" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1010" y="770" as="sourcePoint" /><mxPoint x="490" y="770" as="targetPoint" /></mxGeometry></mxCell>
+        <mxCell id="n4" value="Dispositivo offline: alla riconnessione hello { cursor: N } → changes dopo N (o snapshot se cursor_too_old)" style="shape=note;whiteSpace=wrap;html=1;size=10;fillColor=#e1d5e7;" vertex="1" parent="1">
+          <mxGeometry x="380" y="840" width="440" height="50" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

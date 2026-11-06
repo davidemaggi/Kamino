@@ -1,0 +1,17 @@
+{
+  "about": {
+    "title": "Informazioni",
+    "version": "Versione",
+    "codename": "Nome in codice",
+    "protocol": "Protocollo",
+    "commit": "Build",
+    "loading": "Caricamento...",
+    "error": "Impossibile caricare le informazioni sulla versione."
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Chiaro",
+    "dark": "Scuro",
+    "system": "Sistema"
+  }
+}

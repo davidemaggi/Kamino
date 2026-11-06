@@ -1,0 +1,17 @@
+{
+  "about": {
+    "title": "About",
+    "version": "Version",
+    "codename": "Codename",
+    "protocol": "Protocol",
+    "commit": "Build",
+    "loading": "Loading...",
+    "error": "Could not load version information."
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  }
+}

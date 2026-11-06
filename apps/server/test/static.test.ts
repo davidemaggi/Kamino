@@ -67,6 +67,19 @@ describe("web static serving", () => {
     expect(res.body).toBe(INDEX);
   });
 
+  it("returns 404 for missing files instead of the SPA shell", async () => {
+    for (const url of ["/assets/x.js", "/assets/missing-abc123.js", "/favicon.png"]) {
+      const res = await app.inject({ method: "GET", url });
+      expect(res.statusCode, url).toBe(404);
+      expect(res.body, url).not.toContain("<title>spa</title>");
+    }
+  });
+
+  it("falls back for HEAD on client routes", async () => {
+    const res = await app.inject({ method: "HEAD", url: "/some/client/route" });
+    expect(res.statusCode).toBe(200);
+  });
+
   it("keeps API routes working", async () => {
     const live = await app.inject({ method: "GET", url: "/health/live" });
     expect(live.statusCode).toBe(200);

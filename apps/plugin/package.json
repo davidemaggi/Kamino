@@ -1,0 +1,22 @@
+{
+  "name": "@kamino/plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsx esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kamino/brand": "workspace:*"
+  },
+  "devDependencies": {
+    "@kamino/tsconfig": "workspace:*",
+    "esbuild": "^0.28.2",
+    "jsdom": "^31.0.0",
+    "obsidian": "^1.14.4",
+    "vitest": "^5.1.0"
+  }
+}

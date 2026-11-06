@@ -36,6 +36,8 @@ async function main(): Promise<void> {
 
   // key_check is created by the migrations, so they run first; the port stays closed
   // until the master key has been verified against this database.
+  // TODO: when the first application migration lands, run the key_check migration and verify
+  // the key BEFORE applying the rest (ruling R16).
   await runMigrations(db);
   try {
     const result = await ensureKeyCheck(db, kek);

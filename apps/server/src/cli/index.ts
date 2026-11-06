@@ -35,7 +35,11 @@ export async function main(
     return 2;
   }
   try {
-    return await run(two ? rest : [b, ...rest].filter((x): x is string => x !== undefined), env, io);
+    return await run(
+      two ? rest : [b, ...rest].filter((x): x is string => x !== undefined),
+      env,
+      io,
+    );
   } catch {
     io.stderr("command failed\n");
     return 1;

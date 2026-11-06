@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { isNull } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { keyCheck } from "../db/schema.js";
 import { KEY_CHECK_PLAINTEXT, MasterKeyError, type Kek } from "./keyring.js";
@@ -32,46 +32,59 @@ function opens(kek: Kek, blob: Buffer): boolean {
   }
 }
 
-async function activeRows(db: Db) {
-  return db.select().from(keyCheck).where(isNull(keyCheck.retiredAt));
-}
-
+/** Any active check for a different key means this database belongs to another master key. */
 function verifyRows(rows: { kekId: string; checkValue: Buffer }[], kek: Kek): void {
+  if (rows.some((r) => r.kekId !== kek.id)) throw new MasterKeyError(MISMATCH_MESSAGE);
   const row = rows.find((r) => r.kekId === kek.id);
   if (!row || !opens(kek, row.checkValue)) throw new MasterKeyError(MISMATCH_MESSAGE);
 }
 
+/** Arbitrary constant for the transaction-level advisory lock serializing key-check creation. */
+export const KEY_CHECK_LOCK_ID = 7_243_650_067n;
+
 /**
  * Empty table: creates the check ("created"). Matching active row that decrypts:
- * "verified". Anything else: MasterKeyError. The insert is "on conflict do nothing"
- * followed by a re-read, so two instances racing on an empty table both end up verified.
+ * "verified". Anything else (including any active row for a different key): MasterKeyError.
+ * Check and insert run in one transaction under an advisory lock, so two instances racing
+ * on an empty table with different keys cannot both create a check: the loser sees the
+ * winner's row and fails.
  */
 export async function ensureKeyCheck(db: Db, kek: Kek): Promise<"created" | "verified"> {
-  const rows = await activeRows(db);
-  if (rows.length > 0) {
-    verifyRows(rows, kek);
-    return "verified";
-  }
-  const inserted = await db
-    .insert(keyCheck)
-    .values({ kekId: kek.id, checkValue: seal(kek) })
-    .onConflictDoNothing()
-    .returning({ kekId: keyCheck.kekId });
-  const after = await activeRows(db);
-  verifyRows(after, kek);
-  return inserted.length > 0 ? "created" : "verified";
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${KEY_CHECK_LOCK_ID.toString()}::bigint)`);
+    const rows = await tx.select().from(keyCheck).where(isNull(keyCheck.retiredAt));
+    if (rows.length > 0) {
+      verifyRows(rows, kek);
+      return "verified";
+    }
+    await tx.insert(keyCheck).values({ kekId: kek.id, checkValue: seal(kek) });
+    return "created";
+  });
 }
 
-/** Read-only variant for `keys verify`: never writes. Missing table or row throws. */
+const UNDEFINED_TABLE = "42P01";
+
+function isUndefinedTable(e: unknown): boolean {
+  for (let cur: unknown = e, i = 0; cur && typeof cur === "object" && i < 5; i++) {
+    if ((cur as { code?: unknown }).code === UNDEFINED_TABLE) return true;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+/**
+ * Read-only variant for `keys verify`: never writes. A missing table (SQLSTATE 42P01) or
+ * zero active rows throws MISSING_MESSAGE; any other database error propagates unchanged.
+ */
 export async function verifyKeyCheck(db: Db, kek: Kek): Promise<"verified"> {
   let rows;
   try {
     rows = await db.select().from(keyCheck).where(isNull(keyCheck.retiredAt));
-  } catch {
-    throw new MasterKeyError(MISSING_MESSAGE);
+  } catch (e) {
+    if (isUndefinedTable(e)) throw new MasterKeyError(MISSING_MESSAGE);
+    throw e;
   }
   if (rows.length === 0) throw new MasterKeyError(MISSING_MESSAGE);
   verifyRows(rows, kek);
   return "verified";
 }
-

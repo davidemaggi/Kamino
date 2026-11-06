@@ -1,0 +1,6 @@
+{
+  "entries": [
+    { "range": "0.x", "codename": "Ash", "date": null, "notes": "pre-release" },
+    { "range": "1.0", "codename": "Ash", "date": null, "notes": "prima release stabile" }
+  ]
+}

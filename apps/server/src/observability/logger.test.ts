@@ -21,6 +21,10 @@ describe("createLogger", () => {
       masterKey: "SECRET-MASTER",
       headers: { authorization: "Bearer SECRET-BEARER", cookie: "sid=SECRET-COOKIE" },
       req: { headers: { authorization: "Bearer SECRET-REQ", cookie: "sid=SECRET-REQCOOKIE" } },
+      token: "SECRET-TOPTOKEN",
+      password: "SECRET-TOPPASSWORD",
+      databaseUrl: "SECRET-TOPDB",
+      config: { databaseUrl: "SECRET-DB" },
       session: { token: "SECRET-TOKEN", password: "SECRET-PASSWORD" },
     });
     const out = output();

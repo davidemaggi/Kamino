@@ -2,13 +2,13 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { codenameFor, type Registry } from "@kamino/brand";
+import { codenameFor, envName, type Registry } from "@kamino/brand";
 
 const serverRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(serverRoot, "../..");
 
 function resolveCommit(): string {
-  const fromEnv = process.env["KAMINO_BUILD_COMMIT"];
+  const fromEnv = process.env[envName("BUILD_COMMIT")];
   if (fromEnv) return fromEnv;
   try {
     return (

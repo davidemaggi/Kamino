@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title">
+  <title id="title">Kamino</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A1A33"/>
+      <stop offset="1" stop-color="#0E4A62"/>
+    </linearGradient>
+    <radialGradient id="planet" cx="0.38" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#6FF2E4"/>
+      <stop offset="0.55" stop-color="#22A9C2"/>
+      <stop offset="1" stop-color="#145E86"/>
+    </radialGradient>
+    <clipPath id="planet-clip">
+      <circle cx="256" cy="256" r="118"/>
+    </clipPath>
+    <marker id="arrow" viewBox="0 0 10 10" refX="4" refY="5" markerWidth="2.4" markerHeight="2.4" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#E6FFFA"/>
+    </marker>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- ocean planet -->
+  <circle cx="256" cy="256" r="118" fill="url(#planet)"/>
+  <g clip-path="url(#planet-clip)" fill="none" stroke="#E6FFFA" stroke-width="9" stroke-linecap="round" opacity="0.38">
+    <path d="M120 226 q34 -20 68 0 t68 0 t68 0 t68 0"/>
+    <path d="M100 266 q34 -20 68 0 t68 0 t68 0 t68 0 t68 0"/>
+    <path d="M120 306 q34 -20 68 0 t68 0 t68 0 t68 0"/>
+  </g>
+
+  <!-- sync orbit: two arcs chasing each other -->
+  <g fill="none" stroke="#E6FFFA" stroke-width="20" stroke-linecap="round">
+    <path d="M94.4 197.2 A172 172 0 0 1 409.3 177.9" marker-end="url(#arrow)"/>
+    <path d="M417.6 314.8 A172 172 0 0 1 102.7 334.1" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- two clones in orbit -->
+  <circle cx="256" cy="84" r="15" fill="#6FF2E4"/>
+  <circle cx="256" cy="428" r="15" fill="#6FF2E4"/>
+</svg>

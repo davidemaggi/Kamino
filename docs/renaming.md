@@ -9,6 +9,7 @@ Questi punti contengono il nome in chiaro e vanno aggiornati a mano:
 - **Nomi dei pacchetti npm** `@kamino/*`: campo `name` di ogni `package.json`, dipendenze `workspace:*` e import nei sorgenti.
 - **Immagine Docker** `kamino`: `Dockerfile`, `docker-compose*.yml`, riferimenti nella documentazione.
 - **`manifest.json` del plugin**: è generato in fase di build; `id` e `name` provengono da `brand` tramite lo script di build, ma il file committato come modello (se presente) va controllato.
+- **`turbo.json`**: l'elenco `env` (`KAMINO_BUILD_COMMIT`) non può importare `brand`; va aggiornato col prefisso delle variabili.
 - **Workflow CI** (`.github/workflows/*`): nome dell'immagine, nome degli artefatti, filtri `pnpm --filter @kamino/...`.
 - **Documentazione** in `docs/` e `README.md`: testi descrittivi scritti a mano.
 

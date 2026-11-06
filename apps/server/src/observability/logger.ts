@@ -7,8 +7,12 @@ export type { Logger };
 export const REDACT_PATHS = [
   "masterKey",
   "*.masterKey",
+  "token",
   "*.token",
+  "password",
   "*.password",
+  "databaseUrl",
+  "*.databaseUrl",
   "headers.authorization",
   "headers.cookie",
   "req.headers.authorization",

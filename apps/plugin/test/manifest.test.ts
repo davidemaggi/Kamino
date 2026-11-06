@@ -55,8 +55,8 @@ describe("plugin build output", () => {
 
   it("bundle uses no Node/Electron modules", () => {
     const bundle = read("dist/main.js");
-    for (const mod of ["fs", "path", "electron", "crypto"]) {
-      expect(bundle).not.toMatch(new RegExp(`require[(]["']${mod}["'][)]`));
-    }
+    const forbidden =
+      /require[(]\s*["'](?:node:)?(?:fs|path|crypto|os|net|http|https|child_process|electron)["']\s*[)]/;
+    expect(bundle).not.toMatch(forbidden);
   });
 });

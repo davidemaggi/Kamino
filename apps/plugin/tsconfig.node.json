@@ -1,0 +1,6 @@
+{
+  "extends": "@kamino/tsconfig/obsidian.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["src/globals.d.ts", "scripts", "test", "vitest.config.ts", "esbuild.config.mjs"],
+  "exclude": []
+}

@@ -4,6 +4,8 @@ Sistema self-hosted per sincronizzare vault Obsidian: plugin (desktop + mobile),
 
 ## Prima di toccare qualcosa
 
+- **Leggi [`docs/HANDOVER.md`](docs/HANDOVER.md)**: stato corrente, prossimo passo, decisioni prese. Tienilo **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
+- Commit sempre come `Davide Maggi <davide.maggi@live.com>` (imposta `git config user.email` locale al repo).
 - Leggi i documenti pertinenti in `docs/`: visione (`00`), requisiti (`01`), architettura (`02`), protocollo di sync (`03`), threat model (`04`), modello dati (`05`), roadmap (`06`), [ADR](docs/adr/).
 - Le **ADR accettate non si modificano**: se una decisione va cambiata, proponi una nuova ADR che la sostituisce.
 - Lavora a piani: ogni milestone ha un piano in `docs/superpowers/plans/`. Esegui un task alla volta, con TDD.

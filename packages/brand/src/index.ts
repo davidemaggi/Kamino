@@ -16,3 +16,4 @@ export const PACKAGE_SCOPE = "@kamino";
 export function envName(key: string): string {
   return `${ENV_PREFIX}${key}`;
 }
+export * from "./release-names.js";

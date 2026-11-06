@@ -20,6 +20,7 @@
     "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.4",
     "@eslint/js": "^10.0.1",
+    "@kamino/brand": "workspace:*",
     "@types/node": "^22.20.5",
     "eslint": "^10.14.0",
     "prettier": "^3.9.10",

@@ -14,22 +14,23 @@ Sistema self-hosted per sincronizzare vault Obsidian: plugin (desktop + mobile),
 ## Struttura
 
 ```
-apps/server     Fastify + Drizzle + pg-boss; moduli in src/<modulo>/; crypto isolato in src/crypto/
-apps/web        React + Vite + shadcn/ui + Tailwind + TanStack Query + react-i18next
+apps/server     Fastify + Drizzle; moduli in src/<modulo>/ (oggi: cli, config, crypto, db, observability, routes); pg-boss dai milestone di sync
+apps/web        React + Vite + Tailwind + react-i18next; shadcn/ui e TanStack Query arrivano con le prime schermate
 apps/plugin     plugin Obsidian (esbuild)
 packages/brand      nome prodotto, PLUGIN_ID, prefissi — UNICA fonte
 packages/protocol   schemi zod, PROTOCOL_VERSION, catalogo errori
-packages/sync-core  logica di sync pura, senza I/O (property-based testing)
-packages/ui-diff    diff/merge su @codemirror/merge (web + plugin)
-packages/i18n       stringhe condivise
+packages/tsconfig   preset tsconfig condivisi
+packages/sync-core  (da M1) logica di sync pura, senza I/O (property-based testing)
+packages/ui-diff    (milestone successive) diff/merge su @codemirror/merge (web + plugin)
+packages/i18n       (milestone successive) stringhe condivise
 docker/         Dockerfile e compose (lan, tunnel, caddy)
-docs/           documentazione di progetto (in italiano)
+docs/           documentazione di progetto (in italiano); HANDOVER.md = stato corrente
 release-names.json  registro dei nomi in codice delle release
 ```
 
 ## Comandi
 
-> Disponibili dopo M0 (task 1–10); verificati nel task 11 del piano M0.
+> Verificati il 2026-11-07 (task 11 di M0). Richiede Node ≥ 22.12 e pnpm 10 (`packageManager`).
 
 ```bash
 pnpm install
@@ -37,12 +38,13 @@ pnpm build          # turbo run build
 pnpm typecheck
 pnpm lint
 pnpm test           # Vitest; i test di integrazione usano Postgres via testcontainers (serve Docker)
-pnpm format
+pnpm format         # prettier --write .; in CI/verifica: pnpm exec prettier --check .
 pnpm release-names:check
-pnpm --filter @kamino/server dev
-pnpm --filter @kamino/web dev
-pnpm --filter @kamino/plugin build      # output in apps/plugin/dist
-pnpm changeset                          # una per ogni modifica rilasciabile
+pnpm --filter @kamino/server dev        # serve KAMINO_PUBLIC_URL, KAMINO_DATABASE_URL, KAMINO_MASTER_KEY (o *_FILE); Postgres raggiungibile
+pnpm --filter @kamino/web dev           # Vite su http://localhost:5173
+pnpm --filter @kamino/plugin build      # output in apps/plugin/dist (main.js, manifest.json, styles.css)
+pnpm changeset                          # interattivo; una per ogni modifica rilasciabile
+# prima: docker/.env e docker/secrets/kamino_master_key (vedi Quick start nel README e docs/self-hosting.md)
 docker compose -f docker/compose.lan.yml up -d --build
 ```
 

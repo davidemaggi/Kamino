@@ -2,7 +2,7 @@
 // counts create/modify/delete/rename events and times the burst while the
 // tester moves a folder with thousands of files.
 import { Notice, TFolder, type App, type EventRef, type TAbstractFile } from "obsidian";
-import { nowIso, Report } from "./report.ts";
+import { nowIso, Report, RESULTS_DIR } from "./report.ts";
 import { ms, Progress, yieldToUi } from "./util.ts";
 
 export const R5_DIR = "kamino-spike-mass";
@@ -79,8 +79,8 @@ export class EventCounter {
     return this.#refs.length > 0;
   }
 
+  /** Always resets the counters; registers the listeners only once. */
   start(): void {
-    if (this.running) return;
     this.#counts = { create: 0, modify: 0, delete: 0, rename: 0 };
     this.#renameFolders = 0;
     this.#renameIntoTarget = 0;
@@ -88,24 +88,28 @@ export class EventCounter {
     this.#maxGapMs = 0;
     this.#perSecond.clear();
     this.#startedAt = performance.now();
-    const vault = this.app.vault;
-    this.#refs = [
-      vault.on("create", () => this.#hit("create")),
-      vault.on("modify", () => this.#hit("modify")),
-      vault.on("delete", () => this.#hit("delete")),
-      vault.on("rename", (file: TAbstractFile) => {
-        this.#hit("rename");
-        if (file instanceof TFolder) this.#renameFolders++;
-        if (file.path.startsWith(`${R5_TARGET}/`)) this.#renameIntoTarget++;
-      }),
-    ];
+    if (!this.running) {
+      const vault = this.app.vault;
+      this.#refs = [
+        vault.on("create", (f: TAbstractFile) => this.#hit("create", f)),
+        vault.on("modify", (f: TAbstractFile) => this.#hit("modify", f)),
+        vault.on("delete", (f: TAbstractFile) => this.#hit("delete", f)),
+        vault.on("rename", (f: TAbstractFile) => {
+          if (!this.#hit("rename", f)) return;
+          if (f instanceof TFolder) this.#renameFolders++;
+          if (f.path.startsWith(`${R5_TARGET}/`)) this.#renameIntoTarget++;
+        }),
+      ];
+    }
     new Notice(
       `R-5 counting vault events. Now move "${R5_MOVE}" into "${R5_TARGET}" with the file explorer.`,
       10000,
     );
   }
 
-  #hit(kind: Kind): void {
+  /** Returns false for events on the spike's own result notes, which are not counted. */
+  #hit(kind: Kind, file: TAbstractFile): boolean {
+    if (file.path === RESULTS_DIR || file.path.startsWith(`${RESULTS_DIR}/`)) return false;
     const now = performance.now();
     if (this.#last !== null) this.#maxGapMs = Math.max(this.#maxGapMs, now - this.#last);
     this.#first ??= now;
@@ -113,10 +117,11 @@ export class EventCounter {
     this.#counts[kind]++;
     const bucket = Math.floor((now - this.#startedAt) / 1000);
     this.#perSecond.set(bucket, (this.#perSecond.get(bucket) ?? 0) + 1);
+    return true;
   }
 
   async dump(device: string, stop: boolean): Promise<void> {
-    // Snapshot first: writing the report note itself fires vault events.
+    // Snapshot first (result notes are also excluded from the counts in #hit).
     const counts = { ...this.#counts };
     const renameFolders = this.#renameFolders;
     const renameIntoTarget = this.#renameIntoTarget;

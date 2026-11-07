@@ -77,7 +77,13 @@ cd spikes
 pnpm server                        # porta 8787 (oppure: pnpm server --port 9000, o SPIKE_PORT=9000)
 ```
 
-All'avvio stampa gli URL di rete locale (`LAN URL: http://192.168.x.y:8787`); ogni richiesta e ogni connessione WebSocket viene registrata con data e ora. Consentire Node nel firewall del computer se richiesto. Prova rapida dal computer: `pnpm smoke http://localhost:8787` deve stampare `SMOKE OK`.
+All'avvio stampa gli URL di rete locale (`LAN URL: http://192.168.x.y:8787`); ogni richiesta e ogni connessione WebSocket viene registrata con data e ora. Prova rapida dal computer: avviare il server con un ticker veloce (`pnpm server --interval 20`) e lanciare `pnpm smoke http://localhost:8787`: deve stampare `SMOKE OK` (upload a chunk + 20 riconnessioni WebSocket con catch-up contiguo). Per le prove sui dispositivi riavviare il server con l'intervallo predefinito (1 s).
+
+**Se il telefono non raggiunge il server** (`requestUrl` fallisce, il WebSocket non si apre) controllare, prima di passare a HTTPS:
+
+- **Windows Firewall:** al primo avvio Windows chiede se consentire Node.js sulle reti _private_ e/o _pubbliche_. Se la rete Wi-Fi di casa è classificata come _pubblica_ e si è consentito solo _privato_ (o si è annullato), le connessioni in ingresso vengono bloccate. Verificare in _Impostazioni › Rete e Internet › Wi-Fi › (rete) › Tipo di profilo di rete_ e in _Windows Defender Firewall › Consenti app_ che `node.exe` sia abilitato per il profilo in uso.
+- **iOS, rete locale:** al primo accesso a un indirizzo LAN, iOS chiede "Obsidian vorrebbe trovare e connettersi ai dispositivi sulla rete locale": rispondere _Consenti_. Se si è negato, riabilitare in _Impostazioni › Obsidian › Rete locale_ (oppure _Impostazioni › Privacy e sicurezza › Rete locale › Obsidian_). Senza questo permesso le richieste verso `192.168.x.y` falliscono senza un errore chiaro.
+- Telefono e computer sulla **stessa rete** (non la rete ospiti, non isolamento dei client attivo sul router).
 
 ### 5. Note di rete: HTTP o HTTPS
 

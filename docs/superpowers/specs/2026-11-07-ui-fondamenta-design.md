@@ -50,7 +50,7 @@ Pacchetto `@kamino/status`, TypeScript puro, **nessuna dipendenza di runtime**, 
 | Decisione | `decision` | `git-compare-arrows` | Conflitti da risolvere: entrambe le versioni sono conservate. Non è un pericolo. | viola |
 | Bloccato | `blocked` | `octagon-alert` | Il sync non può proseguire senza intervento. Sempre con motivo e azione. | rosso |
 
-Ordine di gravità: `blocked` > `decision` > `attention` > `working` > `safe`. I nomi delle icone sono quelli di Lucide, comuni a `lucide-react` e a `setIcon` di Obsidian; un test verifica che ogni nome esista in `lucide-react`. Obsidian include una propria versione di Lucide, che può non avere i nomi più recenti: nella galleria del plugin l'indicatore controlla `getIconIds()` e, se un nome manca, lo segnala in console e usa un'icona di riserva per livello (`check`, `clock`, `alert-triangle`, `git-compare`, `x-octagon`). La verifica sul `minAppVersion` scelto fa parte della revisione della galleria.
+Ordine di gravità: `blocked` > `decision` > `attention` > `working` > `safe`. I nomi delle icone sono quelli di Lucide, comuni a `lucide-react` e a `setIcon` di Obsidian; nella web app la mappa nome → componente di `lucide-react` è un `Record` sul tipo dei nomi, quindi un nome mancante è un errore di compilazione. Obsidian include una propria versione di Lucide, che può non avere i nomi più recenti: nella galleria del plugin l'indicatore controlla `getIconIds()` e, se un nome manca, lo segnala in console e usa un'icona di riserva per livello (`check`, `clock`, `alert-triangle`, `git-compare`, `x-octagon`). La verifica sul `minAppVersion` scelto fa parte della revisione della galleria.
 
 ### 3.2 Tipi
 
@@ -107,9 +107,9 @@ Proprietà garantite (testate con fast-check):
 
 ### 3.4 Testi e formattazione
 
-- `STATUS_MESSAGES`: oggetti `{ it, en }` con le chiavi `status.*` nel formato di i18next (plurali con `_one`/`_other`), che web e plugin uniscono alle proprie risorse. Il futuro `packages/i18n` potrà assorbirli.
-- Testi di partenza (it): "Tutto al sicuro"; "{{count}} in attesa"; "Invio {{count}} modifiche…"; "Mai sincronizzato"; "Server non raggiungibile da {{age}} · {{count}} non salvate"; "{{count}} modifiche non salvate da {{age}}"; "Spazio quasi esaurito ({{percent}}%)"; "{{count}} conflitti da risolvere"; "Spazio esaurito · {{count}} non salvate"; "Dispositivo revocato"; "Accesso scaduto: accedi di nuovo"; "Aggiorna il plugin: versione non compatibile con il server". Gli equivalenti inglesi seguono lo stesso senso.
-- `formatAge(ms, locale)`: durata compatta e identica sulle due superfici ("2 min", "3 h", "2 g" / "2 min", "3 h", "2 d"), con `Intl.NumberFormat` e unità a soglie fisse. Usata per il parametro `age`.
+- `STATUS_MESSAGES`: testi `it`/`en` per ogni chiave di stato (chiavi senza prefisso, es. `working.queued`), con forme `zero`/`one`/`other` dove serve. **I testi li formatta il pacchetto stesso** con `formatStatusMessage(message, lang)` (plurali con `Intl.PluralRules`, parametri `{count}`, `{age}`, `{percent}`): il plugin non usa i18next, e così web e plugin producono la stessa stringa per costruzione. `formatLastConfirmed(lastConfirmedAt, now, lang)` produce "Ultimo sync confermato: 2 min fa" / "Mai sincronizzato con il server". Il futuro `packages/i18n` potrà assorbirli.
+- Testi di partenza (it): "Tutto al sicuro"; "{count} modifiche in attesa"; "Invio di {count} modifiche…"; "Mai sincronizzato"; "Server non raggiungibile da {age} · {count} modifiche non salvate"; "{count} modifiche non salvate da {age}"; "Spazio quasi esaurito ({percent}%)"; "{count} conflitti da risolvere"; "Spazio esaurito · {count} modifiche non salvate"; "Dispositivo revocato: il sync è fermo"; "Accesso scaduto: accedi di nuovo"; "Aggiorna il plugin: versione non compatibile con il server". Gli equivalenti inglesi seguono lo stesso senso.
+- `formatAge(ms, lang)`: durata compatta e identica sulle due superfici ("meno di 1 min", "2 min", "3 h", "2 g" / "under 1 min", "2 min", "3 h", "2 d"), con soglie fisse (< 1 min, < 1 h, < 24 h, giorni) e arrotondamento per difetto. Usata per il parametro `age`.
 - Nessun termine del lessico a tema nei testi (test di lessico esistente esteso alle nuove chiavi).
 
 ### 3.5 Snapshot di esempio
@@ -204,7 +204,7 @@ Registrato solo se la costante `__DEV__` (iniettata da esbuild, `false` nella bu
 
 ## 6. Test
 
-- `packages/status`: Vitest + fast-check per P1–P4; un caso d'esempio per ogni `EXAMPLE_SNAPSHOTS` (livello e chiave attesi); `formatAge` alle soglie; parità chiavi it/en e plurali; nomi icona esistenti in `lucide-react`.
+- `packages/status`: Vitest + fast-check per P1–P4; un caso d'esempio per ogni `EXAMPLE_SNAPSHOTS` (livello e chiave attesi); `formatAge` alle soglie; parità chiavi it/en e plurali; forme plurali coerenti tra it e en.
 - Web: Testing Library per `StatusBadge` (ogni livello: testo, `role`, tooltip), `ThemeSwitcher`, modalità sistema; test di `theme-init.js` in jsdom; test sulla build (galleria assente, nessun font esterno).
 - **Contrasto:** test unitario che legge i token di stato da `index.css` e calcola il rapporto WCAG di ogni coppia testo/superficie e di `--foreground`/`--muted-foreground` su `--background` e `--card`, in chiaro e in scuro: ≥ 4.5:1, altrimenti fallisce.
 - Plugin: jsdom per `renderStatusIndicator`, `shouldShowHeaderAction`, aggiornamento dei punti di visualizzazione al cambio di livello; test sulla build di produzione (comando galleria assente).

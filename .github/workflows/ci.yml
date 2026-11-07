@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, m0-fondamenta]
+    branches: ['**']
   pull_request:
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   verify:
@@ -45,8 +45,16 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
         run: pnpm exec commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose
       - name: Commitlint (pushed commits)
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
-        run: pnpm exec commitlint --from "${{ github.event.before }}" --to "${{ github.sha }}" --verbose
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          # Skip on a new branch (all-zero "before") or after a force push (old tip not fetched).
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "No usable previous commit ($BEFORE); skipping commitlint for this push."
+            exit 0
+          fi
+          pnpm exec commitlint --from "$BEFORE" --to "$GITHUB_SHA" --verbose
 
   docker:
     name: docker build

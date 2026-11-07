@@ -5,6 +5,13 @@ import { describe, expect, it } from "vitest";
 const dir = join(import.meta.dirname, "locales");
 const THEMED = /clone|jango|ordine 66|kaminoan|jedi/i;
 
+function keyPaths(node: unknown, prefix = ""): string[] {
+  if (node && typeof node === "object") {
+    return Object.entries(node).flatMap(([k, v]) => keyPaths(v, `${prefix}${k}.`));
+  }
+  return [prefix];
+}
+
 function values(node: unknown): string[] {
   if (typeof node === "string") return [node];
   if (node && typeof node === "object") return Object.values(node).flatMap(values);
@@ -25,7 +32,7 @@ describe("translations", () => {
   }
   it("it and en have the same keys", () => {
     const keys = (f: string) =>
-      Object.keys(JSON.parse(readFileSync(join(dir, f), "utf8")).about).sort();
+      keyPaths(JSON.parse(readFileSync(join(dir, f), "utf8"))).sort();
     expect(keys("it.json")).toEqual(keys("en.json"));
   });
 });

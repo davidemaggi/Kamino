@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-07 — **M0 completata** sul branch `m0-fondamenta` (revisione finale superata). Merge su `main` in attesa di decisione del committente.
+**Ultimo aggiornamento:** 2026-11-07 — **M0 completata** sul branch `m0-fondamenta` (revisione finale superata). Aperta la **PR #1** (https://github.com/davidemaggi/Kamino/pull/1) verso `main`: il merge spetta al committente.
 
 ## Dove siamo
 
@@ -38,7 +38,7 @@
 
 ## Prossimi passi
 
-1. **Merge di `m0-fondamenta` su `main`** (decisione del committente): consigliata una PR su GitHub, così la CI gira anche sull'evento `pull_request` (commitlint dei commit della PR).
+1. **Merge della PR #1** (`m0-fondamenta` → `main`, committente): PR aperta il 2026-11-07; il merge si fa quando la CI della PR è verde (anche commitlint su tutti i commit della PR).
 2. **Spike sui dispositivi** (committente): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI** (da `docs/06-roadmap.md`): design system e schermate con le skill UI/UX Pro Max + impeccable, poi piano M1 con superpowers:writing-plans.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
@@ -94,6 +94,7 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 | R19 | Pubblicazione di manifest/`versions.json` per BRAT e store rinviata alla fase di release (M7) | lavoro di release |
 | R28 | Revisione finale: un solo giro di correzioni per l'importante (file segreti UTF-16 da PowerShell 5.1) e tutti i minori economici | — |
 | R29 | CI su push di **tutti** i branch + PR; `cancel-in-progress` tranne che su `main` | run doppie sui branch con PR |
+| R30 | Prima della PR, riscritto il messaggio di un commit (`docs: PowerShell key generation…` → `docs: key generation on PowerShell…`) che non passava `subject-case` di commitlint; force push il 2026-11-07, contenuto invariato | checkout precedenti da riallineare |
 | R21 | Quick start del README allineato alla sequenza verificata nel task 9 (`docker run … keys generate` dopo la build dell'immagine) | — |
 
 ## Punti aperti (rinviati, con milestone)
@@ -109,12 +110,12 @@ Esito della revisione finale di M0: questi restano aperti di proposito.
 
 ## In sospeso lato committente
 
-- Descrizione e topic del repo GitHub (testo proposto in chat; `gh` non autenticato su questo PC).
-- Decidere il merge di `m0-fondamenta` su `main` (consigliata PR).
+- Descrizione e topic del repo GitHub (ancora vuoti; `gh` ora è autenticato sul Mac, si possono impostare con `gh repo edit`).
+- Merge della PR #1 su `main`.
 - Spike su iPhone/Android reali (task 12): seguire `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`, compilando le tabelle.
 
 ## Note sull'ambiente
 
 - Macchina di sviluppo lenta: eslint impiega 10–20 s ad avviarsi, le build Docker diversi minuti.
 - Docker: Rancher Desktop (WSL). Va avviato prima dei test.
-- Storia del branch riscritta il 2026-11-06 per correggere l'email dell'autore (force push): eventuali checkout precedenti di `m0-fondamenta` vanno riallineati con `git fetch && git reset --hard origin/m0-fondamenta`.
+- Storia del branch riscritta il 2026-11-06 (email dell'autore) e di nuovo il 2026-11-07 (R30, messaggio di un commit): eventuali checkout precedenti di `m0-fondamenta` vanno riallineati con `git fetch && git reset --hard origin/m0-fondamenta`.

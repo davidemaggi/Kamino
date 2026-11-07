@@ -26,7 +26,7 @@ Tutti i comandi si eseguono dalla radice del repository.
    cp docker/.env.example docker/.env
    ```
 
-3. Generare la master key (vedi sotto) in `docker/secrets/kamino_master_key`.
+3. Generare la master key (vedi sotto; **su Windows PowerShell 5.1 usare la forma con `Out-File -Encoding ascii`**) in `docker/secrets/kamino_master_key`.
 
 4. Avviare lo scenario scelto, ad esempio:
 
@@ -34,6 +34,8 @@ Tutti i comandi si eseguono dalla radice del repository.
    docker compose -f docker/compose.lan.yml up -d --build
    curl -fsS http://localhost:8080/health/ready
    ```
+
+**Password del database.** `KAMINO_DB_PASSWORD` non ha un valore di default: lasciarla vuota fa fallire `docker compose` con un errore esplicito. Postgres la imposta solo alla prima inizializzazione del volume `postgres-data`: **cambiarla in `docker/.env` dopo il primo avvio non cambia la password del database** e il server non riesce più ad autenticarsi. Per cambiarla correttamente, prima aggiornare la password in Postgres (`docker compose -f docker/compose.lan.yml exec postgres psql -U kamino -c "ALTER USER kamino PASSWORD 'nuova'"`) e poi il valore in `docker/.env`, quindi riavviare; solo per un'installazione senza dati da conservare si può invece eliminare il volume (`docker compose ... down -v`).
 
 Nello scenario LAN `KAMINO_PUBLIC_URL` deve essere l'indirizzo IP o il nome host del server visibile agli altri computer della rete (ad esempio `http://192.168.1.10:8080`); il default `http://localhost:8080` va bene solo per provare il server sulla stessa macchina. Nello scenario Caddy impostare anche `KAMINO_DOMAIN` in `docker/.env`. Nello scenario tunnel impostare `KAMINO_PUBLIC_URL` con l'URL HTTPS pubblico; per Cloudflare salvare il token del tunnel in `docker/secrets/cloudflared_token` e aggiungere `--profile cloudflare`. I dettagli per Tailscale (`tailscale serve --bg 8080`) e Cloudflare sono nei commenti di `compose.tunnel.yml`.
 
@@ -48,6 +50,15 @@ mkdir -p docker/secrets
 docker run --rm kamino:local keys generate > docker/secrets/kamino_master_key
 ```
 
+Windows PowerShell 5.1 (il default di Windows 10/11): l'operatore `>` scrive in UTF-16 con BOM. Il server lo decodifica, ma per sicurezza (e per altri strumenti) è preferibile forzare ASCII:
+
+```powershell
+New-Item -ItemType Directory -Force docker/secrets | Out-Null
+docker run --rm kamino:local keys generate | Out-File -Encoding ascii docker/secrets/kamino_master_key
+```
+
+PowerShell 7 e Git Bash scrivono UTF-8 e non hanno questo problema.
+
 Alternativa con compose, a immagine già costruita; serve solo che la cartella `docker/secrets/` esista (`mkdir -p docker/secrets`), il file viene creato dal redirect:
 
 ```sh
@@ -59,7 +70,8 @@ Custodia:
 - conservare una copia **fuori dal server** (password manager, cassaforte), separata dai backup del database;
 - `docker/secrets/` è ignorata da git; non committare mai la chiave né `docker/.env`;
 - se la chiave non corrisponde al database, il container esce con codice 1 e, per via di `restart: unless-stopped`, `docker compose ps` lo mostra come `Restarting (1)`. Diagnosi: `docker compose -f docker/compose.lan.yml logs kamino` e cercare `master key does not match this database`; ripristinare la chiave originale in `docker/secrets/kamino_master_key`;
-- un newline finale nel file è accettato;
+- un newline finale nel file è accettato, così come un BOM UTF-8 o UTF-16 (file creati da PowerShell);
+- **permessi del file**: il container gira come utente `node` (uid 1000) e il file è montato con i permessi dell'host, quindi deve essere leggibile da quell'uid. Su Linux, ad esempio: `sudo chown 1000:1000 docker/secrets/kamino_master_key && chmod 600 docker/secrets/kamino_master_key`; su un host fidato basta anche `chmod 644`. Un file `600` di proprietà di root produce l'errore `KAMINO_MASTER_KEY_FILE points to a file that cannot be read`. Su Docker Desktop (Windows/macOS) non serve nulla;
 - per verificare che la chiave corrisponda a un database esistente: `docker compose -f docker/compose.lan.yml run --rm --no-deps kamino keys verify` (con le variabili del compose).
 
 ## 3. Immagine

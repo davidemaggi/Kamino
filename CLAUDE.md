@@ -24,6 +24,7 @@ packages/sync-core  (da M1) logica di sync pura, senza I/O (property-based testi
 packages/ui-diff    (milestone successive) diff/merge su @codemirror/merge (web + plugin)
 packages/i18n       (milestone successive) stringhe condivise
 docker/         Dockerfile e compose (lan, tunnel, caddy)
+spikes/         prototipi usa-e-getta R-1..R-5, fuori dal workspace; da rimuovere alla chiusura degli spike
 docs/           documentazione di progetto (in italiano); HANDOVER.md = stato corrente
 release-names.json  registro dei nomi in codice delle release
 ```

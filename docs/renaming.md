@@ -7,9 +7,11 @@ Il nome del prodotto, lo slug, l'id del plugin, il prefisso delle variabili d'am
 Questi punti contengono il nome in chiaro e vanno aggiornati a mano:
 
 - **Nomi dei pacchetti npm** `@kamino/*`: campo `name` di ogni `package.json`, dipendenze `workspace:*` e import nei sorgenti.
-- **Immagine Docker** `kamino`: `Dockerfile`, `docker-compose*.yml`, riferimenti nella documentazione.
+- **Immagine Docker** `kamino`: `docker/Dockerfile`, `docker/compose.lan.yml`, `docker/compose.tunnel.yml`, `docker/compose.caddy.yml`, riferimenti nella documentazione.
 - **`manifest.json` del plugin**: è generato in fase di build; `id` e `name` provengono da `brand` tramite lo script di build, ma il file committato come modello (se presente) va controllato.
 - **`turbo.json`**: l'elenco `env` (`KAMINO_BUILD_COMMIT`) non può importare `brand`; va aggiornato col prefisso delle variabili.
+- **Altri file di `docker/` con il prefisso `KAMINO_`/il nome**: `docker/entrypoint.sh`, `docker/.env.example`, `docker/Caddyfile.example`, e l'`HEALTHCHECK` del `Dockerfile` (`KAMINO_PORT`); nei compose anche variabili (`KAMINO_DB_PASSWORD`, `KAMINO_DOMAIN`...), nomi di segreti e utente/database Postgres.
+- **`turbo.json`**: anche `globalDependencies` non dipende dal nome, ma l'`env` sì (già elencato sopra).
 - **Workflow CI** (`.github/workflows/*`): nome dell'immagine, nome degli artefatti, filtri `pnpm --filter @kamino/...`.
 - **Comando CLI** `kamino`: campo `bin` di `apps/server/package.json`.
 - **Documentazione** in `docs/` e `README.md`: testi descrittivi scritti a mano.

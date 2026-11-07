@@ -162,9 +162,9 @@ Proprietà verificate con fast-check, tra cui: **convergenza** (N client simulat
 ## 8. Deploy
 
 - Immagine `kamino` multi-stage (Node LTS su base Alpine o distroless), utente non root, `HEALTHCHECK` su `/health/live`.
-- All'avvio: verifica master key → migrazioni (advisory lock) → avvio worker → apertura porta.
+- All'avvio: la master key viene validata nel formato (prima di ogni connessione al database), poi migrazioni (advisory lock) → verifica/inizializzazione del key check → avvio worker → apertura porta. Oggi l'ordine è migrazioni → verifica, perché l'unica migrazione crea `key_check`; con la prima migrazione applicativa andrà riordinato (migrazione di `key_check` → verifica → resto), vedi la decisione R16 e il TODO in `apps/server/src/main.ts`.
 - Volumi: `kamino-data` (blob su fs, se scelto), `postgres-data`.
-- Configurazione completa via `KAMINO_*` e Docker secret (`KAMINO_MASTER_KEY_FILE`, `KAMINO_DB_PASSWORD_FILE`, `KAMINO_SMTP_PASSWORD_FILE`...). L'elenco completo delle variabili sarà generato dallo schema zod di `config` e pubblicato nella documentazione.
+- Configurazione completa via `KAMINO_*` e Docker secret (`KAMINO_MASTER_KEY_FILE`, `KAMINO_DATABASE_URL_FILE`, `KAMINO_SMTP_PASSWORD_FILE`...; la password del Postgres incluso nei compose arriva da `KAMINO_DB_PASSWORD` in `docker/.env` ed è incorporata nell'URL del database). L'elenco completo delle variabili sarà generato dallo schema zod di `config` e pubblicato nella documentazione.
 - Tag immagine numerici: `2.1.0`, `2.1`, `2`, `latest`.
 
 ## 9. Versionamento e compatibilità

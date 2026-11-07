@@ -95,6 +95,7 @@ cp docker/.env.example docker/.env
 docker build -f docker/Dockerfile -t kamino:local .
 mkdir -p docker/secrets
 docker run --rm kamino:local keys generate > docker/secrets/kamino_master_key
+# Windows PowerShell 5.1: use  | Out-File -Encoding ascii  instead of  >  (see docs/self-hosting.md)
 
 # 3. Start Kamino + Postgres
 docker compose -f docker/compose.lan.yml up -d

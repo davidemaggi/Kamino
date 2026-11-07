@@ -37,11 +37,11 @@ RUN apk add --no-cache libstdc++ \
 COPY --from=node-slim /usr/local/bin/node /usr/local/bin/node
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build --chown=node:node /out/package.json ./package.json
-COPY --from=build --chown=node:node /out/node_modules ./node_modules
-COPY --from=build --chown=node:node /out/dist ./dist
-COPY --from=build --chown=node:node /out/drizzle ./drizzle
-COPY --from=build --chown=node:node /out/public ./public
+COPY --from=build /out/package.json ./package.json
+COPY --from=build /out/node_modules ./node_modules
+COPY --from=build /out/dist ./dist
+COPY --from=build /out/drizzle ./drizzle
+COPY --from=build /out/public ./public
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 USER node
 EXPOSE 8080

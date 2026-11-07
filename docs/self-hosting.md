@@ -35,7 +35,7 @@ Tutti i comandi si eseguono dalla radice del repository.
    curl -fsS http://localhost:8080/health/ready
    ```
 
-Nello scenario Caddy impostare anche `KAMINO_DOMAIN` in `docker/.env`. Nello scenario tunnel impostare `KAMINO_PUBLIC_URL` con l'URL HTTPS pubblico; per Cloudflare salvare il token del tunnel in `docker/secrets/cloudflared_token` e aggiungere `--profile cloudflare`. I dettagli per Tailscale (`tailscale serve --bg 8080`) e Cloudflare sono nei commenti di `compose.tunnel.yml`.
+Nello scenario LAN `KAMINO_PUBLIC_URL` deve essere l'indirizzo IP o il nome host del server visibile agli altri computer della rete (ad esempio `http://192.168.1.10:8080`); il default `http://localhost:8080` va bene solo per provare il server sulla stessa macchina. Nello scenario Caddy impostare anche `KAMINO_DOMAIN` in `docker/.env`. Nello scenario tunnel impostare `KAMINO_PUBLIC_URL` con l'URL HTTPS pubblico; per Cloudflare salvare il token del tunnel in `docker/secrets/cloudflared_token` e aggiungere `--profile cloudflare`. I dettagli per Tailscale (`tailscale serve --bg 8080`) e Cloudflare sono nei commenti di `compose.tunnel.yml`.
 
 ## 2. La master key
 
@@ -48,7 +48,7 @@ mkdir -p docker/secrets
 docker run --rm kamino:local keys generate > docker/secrets/kamino_master_key
 ```
 
-Alternativa con compose, a immagine già costruita e con il file `kamino_master_key` già presente (anche vuoto, compose lo richiede per montare il secret):
+Alternativa con compose, a immagine già costruita; serve solo che la cartella `docker/secrets/` esista (`mkdir -p docker/secrets`), il file viene creato dal redirect:
 
 ```sh
 docker compose -f docker/compose.lan.yml run --rm -T --no-deps kamino keys generate > docker/secrets/kamino_master_key
@@ -58,6 +58,7 @@ Custodia:
 
 - conservare una copia **fuori dal server** (password manager, cassaforte), separata dai backup del database;
 - `docker/secrets/` è ignorata da git; non committare mai la chiave né `docker/.env`;
+- se la chiave non corrisponde al database, il container esce con codice 1 e, per via di `restart: unless-stopped`, `docker compose ps` lo mostra come `Restarting (1)`. Diagnosi: `docker compose -f docker/compose.lan.yml logs kamino` e cercare `master key does not match this database`; ripristinare la chiave originale in `docker/secrets/kamino_master_key`;
 - un newline finale nel file è accettato;
 - per verificare che la chiave corrisponda a un database esistente: `docker compose -f docker/compose.lan.yml run --rm --no-deps kamino keys verify` (con le variabili del compose).
 

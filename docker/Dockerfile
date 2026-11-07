@@ -25,7 +25,9 @@ RUN pnpm --filter @kamino/server deploy --prod --config.inject-workspace-package
     && find /out/node_modules -type f \( -name "*.map" -o -name "*.d.ts" -o -name "*.d.mts" -o -name "*.d.cts" \) -delete
 
 # ---- node-slim: the official node binary, stripped of debug symbols (~18 MB smaller) ----
-FROM node:24-alpine AS node-slim
+# Same Alpine release as the runtime stage, so the binary links against matching libs.
+# strip removes debug symbols, so native crash reports are less informative.
+FROM node:24-alpine3.24 AS node-slim
 RUN apk add --no-cache binutils && strip /usr/local/bin/node
 
 # ---- runtime ----

@@ -22,7 +22,7 @@ Your notes, every device, your server. No subscriptions, no black boxes, no sile
 </div>
 
 > [!WARNING]
-> **Kamino is in early development (milestone M0).** The foundations are being laid and sync does not work yet. Star or watch the repo to follow along, and don't trust it with your only copy of a vault until 1.0 ships.
+> **Kamino is in early development.** The foundations (milestone M0) are in place, but sync does not work yet. Star or watch the repo to follow along, and don't trust it with your only copy of a vault until 1.0 ships.
 
 ---
 

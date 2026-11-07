@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-07 — durante M0, tutti i 12 task di M0 completati; revisione finale del branch in corso.
+**Ultimo aggiornamento:** 2026-11-07 — **M0 completata** sul branch `m0-fondamenta` (revisione finale superata). Merge su `main` in attesa di decisione del committente.
 
 ## Dove siamo
 
@@ -11,11 +11,12 @@
 |---|---|
 | Brainstorming e design (`docs/00`–`05`, ADR) | ✅ approvato 2026-11-06 |
 | Roadmap (`docs/06-roadmap.md`) | ✅ proposta |
-| **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | 🚧 in corso |
-| Fase UI, M1…M7 | ⏳ |
+| **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
+| Fase UI | ⏳ **prossima** (skill UI/UX Pro Max e impeccable installate) |
+| M1…M7 | ⏳ |
 
-**Branch di lavoro:** `m0-fondamenta` (pushato su `origin`). `main` contiene solo il commit iniziale.
-**Metodo:** superpowers *subagent-driven-development* — un subagente implementa ogni task, un revisore lo controlla (spec + qualità), eventuali giri di correzione, poi il task successivo. Alla fine una revisione complessiva del branch.
+**Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
+**Metodo:** superpowers *subagent-driven-development* — un subagente implementa ogni task, un revisore lo controlla (spec + qualità), eventuali giri di correzione, poi il task successivo; alla fine una revisione complessiva del branch.
 
 ### Task di M0
 
@@ -25,25 +26,47 @@
 | 2 | `packages/brand` | ✅ |
 | 3 | `packages/protocol` | ✅ |
 | 4 | Release tooling + registro nomi in codice | ✅ |
-| 5 | Server: config, health, version, DB, migrazioni | ✅ (1 giro di correzioni) |
-| 6 | Server: master key, verifica all'avvio, CLI | ✅ (1 giro di correzioni) |
-| 7 | Web app: scheletro | ✅ (1 giro di correzioni) |
-| 8 | Plugin: scheletro | ✅ (1 giro di correzioni) |
-| 9 | Docker + compose (LAN, tunnel, Caddy) + `docs/self-hosting.md` | ✅ (1 giro di correzioni) |
-| 10 | CI GitHub Actions | ✅ (run verde su ubuntu, windows, docker) |
-| 11 | Verifica comandi di `CLAUDE.md` | ✅ (+ controllo formattazione in CI) |
-| 12 | Spike R-1…R-5 (prototipi + istruzioni; misure su dispositivi reali a cura del committente) | ✅ prototipi e istruzioni (`spikes/`, `docs/spikes/`); ⏳ esecuzione su dispositivi e chiusura |
-| — | Revisione finale dell'intero branch | ⏳ |
+| 5 | Server: config, health, version, DB, migrazioni | ✅ |
+| 6 | Server: master key, verifica all'avvio, CLI | ✅ |
+| 7 | Web app: scheletro | ✅ |
+| 8 | Plugin: scheletro | ✅ |
+| 9 | Docker + compose (LAN, tunnel, Caddy) + `docs/self-hosting.md` | ✅ |
+| 10 | CI GitHub Actions | ✅ |
+| 11 | Verifica comandi di `CLAUDE.md` | ✅ (+ `pnpm format:check` in CI) |
+| 12 | Spike R-1…R-5 | ✅ prototipi e istruzioni (`spikes/`, `docs/spikes/`); ⏳ esecuzione su dispositivi e chiusura |
+| — | Revisione finale dell'intero branch | ✅ 0 critici, 1 importante + 9 minori corretti in un giro, ricontrollati |
+
+## Prossimi passi
+
+1. **Merge di `m0-fondamenta` su `main`** (decisione del committente): consigliata una PR su GitHub, così la CI gira anche sull'evento `pull_request` (commitlint dei commit della PR).
+2. **Spike sui dispositivi** (committente): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
+3. **Fase UI** (da `docs/06-roadmap.md`): design system e schermate con le skill UI/UX Pro Max + impeccable, poi piano M1 con superpowers:writing-plans.
+4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
 
 ## Come riprendere su un altro PC
 
-1. `git clone https://github.com/davidemaggi/Kamino.git && cd Kamino && git checkout m0-fondamenta`
-2. **Identità git del repo** (la config globale del PC di lavoro usa un'altra email):
-   `git config user.name "Davide Maggi" && git config user.email "davide.maggi@live.com"`
-3. Node ≥ 22.12 (24 LTS consigliato), `corepack enable` (pnpm 10), Docker avviato (i test di integrazione usano Testcontainers).
-4. `pnpm install && pnpm build && pnpm test`
-5. In Claude Code: "leggi `docs/HANDOVER.md` e riprendi M0 dal primo task non completato con subagent-driven-development".
-   Il registro dettagliato del controller (`.superpowers/sdd/…/progress.md`) **non è versionato**: le informazioni necessarie per riprendere sono riportate qui sotto.
+1. Prerequisiti: Git, **Node 24 LTS** (minimo 22.12), **Docker** (Rancher Desktop o Docker Desktop) avviato, Claude Code con il plugin **superpowers** e le skill **UI/UX Pro Max** e **impeccable**.
+2. Clona e posizionati sul branch:
+   ```bash
+   git clone https://github.com/davidemaggi/Kamino.git
+   cd Kamino
+   git checkout m0-fondamenta   # oppure main, se il merge è già stato fatto
+   ```
+3. **Identità git del repo** (va impostata su ogni PC; mai l'email di lavoro):
+   ```bash
+   git config user.name "Davide Maggi"
+   git config user.email "davide.maggi@live.com"
+   ```
+4. Toolchain e verifica:
+   ```bash
+   corepack enable          # attiva pnpm 10 da packageManager
+   pnpm install
+   pnpm build
+   pnpm test                # i test DB avviano Postgres con Testcontainers (serve Docker)
+   ```
+5. In Claude Code, dalla cartella del repo: *"leggi `docs/HANDOVER.md` e riprendi dal primo dei prossimi passi"*.
+   Il registro dettagliato del controller (`.superpowers/sdd/…`) non è versionato: tutto ciò che serve per riprendere è in questo file.
+6. Opzionale, per provare l'immagine: quick start del `README.md` (su Windows PowerShell 5.1 genera la chiave con `| Out-File -Encoding ascii …`, vedi `docs/self-hosting.md`).
 
 ## Decisioni prese durante l'esecuzione (ruling)
 
@@ -69,24 +92,26 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 | R25 | `pnpm format:check` (prettier) aggiunto alla CI dopo aver trovato 13 file non formattati | — |
 | R26 | `spikes/` è un progetto separato fuori dal workspace pnpm (installazione con `pnpm install --ignore-workspace` dentro `spikes/`), escluso da lint/prettier/test/CI; resta finché gli spike non sono chiusi | una cartella in più fino alla chiusura |
 | R19 | Pubblicazione di manifest/`versions.json` per BRAT e store rinviata alla fase di release (M7) | lavoro di release |
+| R28 | Revisione finale: un solo giro di correzioni per l'importante (file segreti UTF-16 da PowerShell 5.1) e tutti i minori economici | — |
+| R29 | CI su push di **tutti** i branch + PR; `cancel-in-progress` tranne che su `main` | run doppie sui branch con PR |
 | R21 | Quick start del README allineato alla sequenza verificata nel task 9 (`docker run … keys generate` dopo la build dell'immagine) | — |
 
-## Punti aperti per la revisione finale (minori rinviati)
+## Punti aperti (rinviati, con milestone)
 
-- Server: errore di unlock del lock migrazioni può mascherare l'errore originale; shutdown esce sempre con 0; nessun `statement_timeout` sul ping di readiness; `databaseUrl` annidato a più livelli non redatto.
-- Master key: rotazione (M7) dovrà cambiare di proposito la regola "qualsiasi riga attiva di un'altra chiave → rifiuto"; tabella con sole righe ritirate trattata come vuota; gap minori di rigore del base64 (nessun impatto di sicurezza).
-- Release: CLI `release-names:check` con errori non gestiti (stack trace); test del registro poco stringenti.
-- Web: flash del tema chiaro al caricamento; modalità "sistema" non testata; chiavi `theme.*` non usate.
-- Plugin: `versions.json` statico (serve uno script in release); estensioni di import miste; test di build con output nascosto.
-- Docker: password DB in env (in futuro `*_FILE`); file dell'app scrivibili dall'utente runtime; `cloudflared` non pinnato e `--token-file` non provato; `self-hosting.md` §3 cita `node:24-alpine` (ora `node:24-alpine3.24`).
-- CI: commitlint sul push fallisce dopo un force push (SHA `before` orfano); primo push di un branch non controllato; lista branch fissa (`m0-fondamenta` da togliere dopo M0); `cancel-in-progress` anche su `main`; build Docker senza cache.
-- Plugin (dagli spike): la wildcard `@codemirror/*` negli external di `apps/plugin/esbuild.config.mjs` escluderebbe anche `@codemirror/merge` (Obsidian non lo fornisce): usare una lista esplicita quando arriva `ui-diff`. Lo streaming di R-1 usa `appendBinary` (Obsidian ≥ 1.12.3) mentre `minAppVersion` è 1.5.0.
-- pnpm segnala "ignored build scripts" (esbuild): valutare `onlyBuiltDependencies`.
+Esito della revisione finale di M0: questi restano aperti di proposito.
+
+- **M1:** R16 (ordine migrazioni/verifica chiave) insieme a: errore di unlock del lock migrazioni che può mascherare l'errore originale; snapshot completo di `ErrorCode` quando le rotte iniziano a emetterli; verificare se typescript-eslint supporta TS 7. Decidere `minAppVersion` del plugin con gli esiti di R-1 (`appendBinary` richiede Obsidian ≥ 1.12.3).
+- **M2:** negoziazione protocollo (euristica intervalli invertiti, schema zod `ProtocolRange`); shutdown con exit code corretto e scadenza (oggi esce sempre con 0; `docker stop` durante le migrazioni attende 10 s).
+- **M3 (`ui-diff`):** sostituire la wildcard `@codemirror/*` negli external di `apps/plugin/esbuild.config.mjs` con una lista esplicita (Obsidian non fornisce `@codemirror/merge`).
+- **Fase UI:** flash del tema al caricamento, modalità "sistema" non testata, chiavi `theme.*` non usate, `<title>`/`lang` vuoti.
+- **M7 (hardening/release):** CLI `release-names` con errori non gestiti e test deboli; `statement_timeout` sul ping di readiness; redazione di `databaseUrl` annidato; rigore del base64 della chiave; rotazione chiave (regola "riga attiva di altra chiave → rifiuto", tabella con sole righe ritirate); `versions.json` del plugin generato in release (R19); password DB via `*_FILE`; `cloudflared` da pinnare e `--token-file` da provare; `compose run … keys generate` da provare; commitlint sul primo push di un branch; cache della build Docker in CI.
+- **Cosmetici:** estensioni di import miste e output nascosto nel test di build del plugin; riga lunga e data fissa in `CLAUDE.md`; file segreto UTF-16BE di lunghezza dispari segnalato come "illeggibile"; il suggerimento `docker compose run` nel messaggio d'errore della chiave non riporta `-T`/`-f`.
 
 ## In sospeso lato committente
 
 - Descrizione e topic del repo GitHub (testo proposto in chat; `gh` non autenticato su questo PC).
-- Spike su iPhone/Android reali (task 12): seguire `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`, compilando le tabelle. Con i risultati si fa la chiusura: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, cancellare `spikes/`.
+- Decidere il merge di `m0-fondamenta` su `main` (consigliata PR).
+- Spike su iPhone/Android reali (task 12): seguire `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`, compilando le tabelle.
 
 ## Note sull'ambiente
 

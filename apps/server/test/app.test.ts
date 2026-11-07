@@ -7,7 +7,7 @@ import { buildApp } from "../src/app.js";
 import { buildInfo } from "../src/build-info.js";
 import type { Config } from "../src/config/schema.js";
 import { createDb, type Db } from "../src/db/client.js";
-import { startPostgres, type TestPostgres } from "./helpers/postgres.js";
+import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
 
 const config: Config = {
   publicUrl: "http://localhost:8080",
@@ -18,7 +18,7 @@ const config: Config = {
 };
 const logger = pino({ level: "silent" });
 
-describe("app", () => {
+describe.skipIf(dockerUnavailable)("app", () => {
   let pg: TestPostgres;
   let upDb: Db;
   let downDb: Db;

@@ -9,9 +9,9 @@ import {
 } from "../src/crypto/keyring.js";
 import { createDb } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
-import { startPostgres, type TestPostgres } from "./helpers/postgres.js";
+import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
 
-describe("key check", () => {
+describe.skipIf(dockerUnavailable)("key check", () => {
   let pg: TestPostgres;
 
   beforeAll(async () => {

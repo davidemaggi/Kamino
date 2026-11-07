@@ -3,9 +3,9 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
-import { startPostgres, type TestPostgres } from "./helpers/postgres.js";
+import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
 
-describe("runMigrations", () => {
+describe.skipIf(dockerUnavailable)("runMigrations", () => {
   let pg: TestPostgres;
 
   beforeAll(async () => {

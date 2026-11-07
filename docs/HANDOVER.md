@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-07 — durante M0, task 9 completato, task 10 (CI) in corso.
+**Ultimo aggiornamento:** 2026-11-07 — durante M0, task 10 completato (CI verde), task 11 in corso.
 
 ## Dove siamo
 
@@ -30,8 +30,8 @@
 | 7 | Web app: scheletro | ✅ (1 giro di correzioni) |
 | 8 | Plugin: scheletro | ✅ (1 giro di correzioni) |
 | 9 | Docker + compose (LAN, tunnel, Caddy) + `docs/self-hosting.md` | ✅ (1 giro di correzioni) |
-| 10 | CI GitHub Actions | 🚧 |
-| 11 | Verifica comandi di `CLAUDE.md` | ⏳ |
+| 10 | CI GitHub Actions | ✅ (run verde su ubuntu, windows, docker) |
+| 11 | Verifica comandi di `CLAUDE.md` | 🚧 |
 | 12 | Spike R-1…R-5 (prototipi + istruzioni; misure su dispositivi reali a cura del committente) | ⏳ |
 | — | Revisione finale dell'intero branch | ⏳ |
 
@@ -65,6 +65,7 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 | R14 | Le etichette crittografiche `kamino-kek-id` / `kamino-key-check` **non** cambiano con il nome pubblico (renderebbero illeggibili i DB esistenti) | — |
 | R16 | **Da fare in M1:** quando arriva la prima migrazione applicativa, applicare prima la migrazione `key_check`, verificare la chiave, poi il resto (TODO in `apps/server/src/main.ts`) | migrazioni eseguite con chiave sbagliata |
 | R18 | Fallback SPA solo per percorsi senza estensione: gli URL della web app usano **ID**, mai nomi di file | un percorso con punto dà 404 al reload |
+| R23 | In CI su Windows i test che richiedono Docker vengono saltati (`dockerUnavailable` in `apps/server/test/helpers/postgres.ts`); in locale su Windows con Docker girano | test DB non coperti su Windows in CI |
 | R19 | Pubblicazione di manifest/`versions.json` per BRAT e store rinviata alla fase di release (M7) | lavoro di release |
 | R21 | Quick start del README allineato alla sequenza verificata nel task 9 (`docker run … keys generate` dopo la build dell'immagine) | — |
 
@@ -76,6 +77,7 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 - Web: flash del tema chiaro al caricamento; modalità "sistema" non testata; chiavi `theme.*` non usate.
 - Plugin: `versions.json` statico (serve uno script in release); estensioni di import miste; test di build con output nascosto.
 - Docker: password DB in env (in futuro `*_FILE`); file dell'app scrivibili dall'utente runtime; `cloudflared` non pinnato e `--token-file` non provato; `self-hosting.md` §3 cita `node:24-alpine` (ora `node:24-alpine3.24`).
+- CI: commitlint sul push fallisce dopo un force push (SHA `before` orfano); primo push di un branch non controllato; lista branch fissa (`m0-fondamenta` da togliere dopo M0); `cancel-in-progress` anche su `main`; build Docker senza cache.
 - pnpm segnala "ignored build scripts" (esbuild): valutare `onlyBuiltDependencies`.
 
 ## In sospeso lato committente

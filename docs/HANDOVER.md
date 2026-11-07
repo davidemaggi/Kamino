@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-07 — durante M0, task 11 completato, task 12 (spike) in corso.
+**Ultimo aggiornamento:** 2026-11-07 — durante M0, tutti i 12 task di M0 completati; revisione finale del branch in corso.
 
 ## Dove siamo
 
@@ -32,7 +32,7 @@
 | 9 | Docker + compose (LAN, tunnel, Caddy) + `docs/self-hosting.md` | ✅ (1 giro di correzioni) |
 | 10 | CI GitHub Actions | ✅ (run verde su ubuntu, windows, docker) |
 | 11 | Verifica comandi di `CLAUDE.md` | ✅ (+ controllo formattazione in CI) |
-| 12 | Spike R-1…R-5 (prototipi + istruzioni; misure su dispositivi reali a cura del committente) | 🚧 |
+| 12 | Spike R-1…R-5 (prototipi + istruzioni; misure su dispositivi reali a cura del committente) | ✅ prototipi e istruzioni (`spikes/`, `docs/spikes/`); ⏳ esecuzione su dispositivi e chiusura |
 | — | Revisione finale dell'intero branch | ⏳ |
 
 ## Come riprendere su un altro PC
@@ -67,6 +67,7 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 | R18 | Fallback SPA solo per percorsi senza estensione: gli URL della web app usano **ID**, mai nomi di file | un percorso con punto dà 404 al reload |
 | R23 | In CI su Windows i test che richiedono Docker vengono saltati (`dockerUnavailable` in `apps/server/test/helpers/postgres.ts`); in locale su Windows con Docker girano | test DB non coperti su Windows in CI |
 | R25 | `pnpm format:check` (prettier) aggiunto alla CI dopo aver trovato 13 file non formattati | — |
+| R26 | `spikes/` è un progetto separato fuori dal workspace pnpm (installazione con `pnpm install --ignore-workspace` dentro `spikes/`), escluso da lint/prettier/test/CI; resta finché gli spike non sono chiusi | una cartella in più fino alla chiusura |
 | R19 | Pubblicazione di manifest/`versions.json` per BRAT e store rinviata alla fase di release (M7) | lavoro di release |
 | R21 | Quick start del README allineato alla sequenza verificata nel task 9 (`docker run … keys generate` dopo la build dell'immagine) | — |
 
@@ -79,12 +80,13 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 - Plugin: `versions.json` statico (serve uno script in release); estensioni di import miste; test di build con output nascosto.
 - Docker: password DB in env (in futuro `*_FILE`); file dell'app scrivibili dall'utente runtime; `cloudflared` non pinnato e `--token-file` non provato; `self-hosting.md` §3 cita `node:24-alpine` (ora `node:24-alpine3.24`).
 - CI: commitlint sul push fallisce dopo un force push (SHA `before` orfano); primo push di un branch non controllato; lista branch fissa (`m0-fondamenta` da togliere dopo M0); `cancel-in-progress` anche su `main`; build Docker senza cache.
+- Plugin (dagli spike): la wildcard `@codemirror/*` negli external di `apps/plugin/esbuild.config.mjs` escluderebbe anche `@codemirror/merge` (Obsidian non lo fornisce): usare una lista esplicita quando arriva `ui-diff`. Lo streaming di R-1 usa `appendBinary` (Obsidian ≥ 1.12.3) mentre `minAppVersion` è 1.5.0.
 - pnpm segnala "ignored build scripts" (esbuild): valutare `onlyBuiltDependencies`.
 
 ## In sospeso lato committente
 
 - Descrizione e topic del repo GitHub (testo proposto in chat; `gh` non autenticato su questo PC).
-- Spike su iPhone/Android reali (task 12).
+- Spike su iPhone/Android reali (task 12): seguire `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`, compilando le tabelle. Con i risultati si fa la chiusura: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, cancellare `spikes/`.
 
 ## Note sull'ambiente
 

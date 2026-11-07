@@ -27,7 +27,18 @@ export class WsSpike {
   #retry: number | null = null;
   #watchdog: number | null = null;
   #running = false;
-  #stats = { opens: 0, closes: 0, errors: 0, gaps: 0, missedLive: 0, caughtUp: 0, stale: 0 };
+  /** False from OPEN until the first catch-up of the current socket: live events are ignored meanwhile. */
+  #synced = false;
+  #stats = {
+    opens: 0,
+    closes: 0,
+    errors: 0,
+    gaps: 0,
+    missedLive: 0,
+    caughtUp: 0,
+    stale: 0,
+    preSyncIgnored: 0,
+  };
 
   constructor(
     private readonly app: App,
@@ -106,7 +117,9 @@ export class WsSpike {
     }
     this.#ws = ws;
     ws.onopen = () => {
+      if (this.#ws !== ws) return;
       this.#stats.opens++;
+      this.#synced = false;
       this.#openedAt = performance.now();
       this.#lastMessageAt = Date.now();
       this.#backoff = 1_000;
@@ -118,7 +131,9 @@ export class WsSpike {
       this.#disconnectedAt = null;
       ws.send(JSON.stringify({ type: "hello", lastSeq: this.#lastSeq }));
     };
-    ws.onmessage = (ev: MessageEvent) => this.#onMessage(String(ev.data));
+    ws.onmessage = (ev: MessageEvent) => {
+      if (this.#ws === ws) this.#onMessage(String(ev.data)); // ignore superseded sockets
+    };
     ws.onerror = () => {
       this.#stats.errors++;
       void this.#log(`ERROR event (readyState ${ws.readyState}, online=${navigator.onLine})`);
@@ -153,10 +168,16 @@ export class WsSpike {
       if (last) this.#lastSeq = last.seq;
       else this.#lastSeq ??= msg.to ?? 0;
       this.#stats.caughtUp += events.length;
+      this.#synced = true;
       void this.#log(
         `CATCH-UP ${events.length} events (${msg.from}→${msg.to}) in ${Math.round(performance.now() - this.#openedAt)} ms since open; contiguous=${contiguous && startsRight}, truncated=${msg.truncated}`,
       );
     } else if (msg.type === "event" && msg.seq !== undefined) {
+      if (!this.#synced) {
+        // Covered by the pending catch-up (its "to" is >= this seq): never count it as a gap.
+        this.#stats.preSyncIgnored++;
+        return;
+      }
       if (this.#lastSeq !== null && msg.seq <= this.#lastSeq) return; // already got it via catch-up
       if (this.#lastSeq !== null && msg.seq !== this.#lastSeq + 1) {
         this.#stats.gaps++;

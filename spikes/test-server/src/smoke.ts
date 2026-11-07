@@ -1,4 +1,5 @@
 // Smoke test against a running test server: pnpm smoke [http://localhost:8787]
+// Best with a fast ticker (pnpm server --interval 20) to stress the reconnect race.
 // Uploads 10 MiB of random bytes in 4 MiB chunks and checks the SHA-256, then
 // connects to the WebSocket, disconnects, reconnects and checks the catch-up.
 import { createHash, randomBytes } from "node:crypto";
@@ -45,27 +46,39 @@ interface Msg {
   truncated?: boolean;
 }
 
-function connect(
-  lastSeq: number | null,
-  wantEvents: number,
-): Promise<{ last: number; caught: number[] }> {
+interface Session {
+  /** Every seq received, in arrival order: catch-up events first, then live ones. */
+  seqs: number[];
+  caught: number;
+  liveBeforeCatchUp: number;
+  last: number;
+}
+
+/** Strict client: does not dedupe, so any live-before-catch-up race shows up as a non-contiguous sequence. */
+function connect(lastSeq: number | null, wantLive: number): Promise<Session> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`${base.replace(/^http/, "ws")}/ws`);
+    const seqs: number[] = [];
+    let caughtUp = false;
+    let caught = 0;
+    let live = 0;
+    let liveBeforeCatchUp = 0;
     let last = lastSeq ?? 0;
-    let seen = 0;
-    const caught: number[] = [];
     ws.on("open", () => ws.send(JSON.stringify({ type: "hello", lastSeq })));
     ws.on("message", (raw) => {
-      const msg = JSON.parse(String(raw)) as Msg;
+      const msg = JSON.parse(String(raw)) as Msg & { to?: number };
       if (msg.type === "catchup") {
-        for (const e of msg.events ?? []) caught.push(e.seq);
-        if (caught.length) last = caught[caught.length - 1]!;
+        caughtUp = true;
+        for (const e of msg.events ?? []) seqs.push(e.seq);
+        caught = msg.events?.length ?? 0;
+        last = seqs[seqs.length - 1] ?? msg.to ?? last;
       } else if (msg.type === "event" && msg.seq !== undefined) {
-        if (msg.seq <= last) return;
+        if (!caughtUp) liveBeforeCatchUp++;
+        seqs.push(msg.seq);
         last = msg.seq;
-        if (++seen >= wantEvents) {
+        if (++live >= wantLive) {
           ws.close();
-          resolve({ last, caught });
+          resolve({ seqs, caught, liveBeforeCatchUp, last });
         }
       }
     });
@@ -73,16 +86,30 @@ function connect(
   });
 }
 
+function assertContiguous(label: string, after: number | null, s: Session): void {
+  const ok =
+    s.liveBeforeCatchUp === 0 &&
+    s.seqs.every((seq, i) => (i === 0 ? after === null || seq === after + 1 : seq === s.seqs[i - 1]! + 1));
+  if (!ok) throw new Error(`${label}: not contiguous after ${after}: ${JSON.stringify(s)}`);
+}
+
 async function smokeWebSocket(): Promise<void> {
-  const first = await connect(null, 2);
+  const first = await connect(null, 5);
+  assertContiguous("first session", null, first);
   console.log(`ws first session: last seq ${first.last}`);
-  await new Promise((r) => setTimeout(r, 2500));
-  const second = await connect(first.last, 1);
-  const contiguous = second.caught.every((s, i) => s === first.last + 1 + i);
-  if (second.caught.length < 2 || !contiguous) {
-    throw new Error(`catch-up wrong: ${JSON.stringify(second.caught)} after ${first.last}`);
+  // Reconnect repeatedly while the server ticker keeps running (run the server with a
+  // short --interval, e.g. 20 ms, to make the live/catch-up race likely if it existed).
+  let last = first.last;
+  let caughtTotal = 0;
+  for (let round = 0; round < 20; round++) {
+    await new Promise((r) => setTimeout(r, 100 + (round % 5) * 37));
+    const s = await connect(last, 3);
+    assertContiguous(`reconnect #${round + 1}`, last, s);
+    caughtTotal += s.caught;
+    last = s.last;
   }
-  console.log(`ws catch-up OK: ${second.caught.length} events (${second.caught.join(",")})`);
+  if (caughtTotal === 0) throw new Error("no event was ever caught up");
+  console.log(`ws catch-up OK: 20 reconnects, ${caughtTotal} events caught up, all contiguous, last seq ${last}`);
 }
 
 await smokeUpload();

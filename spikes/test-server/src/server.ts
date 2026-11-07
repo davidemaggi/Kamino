@@ -8,7 +8,7 @@
 //   POST /upload/:id/finish               -> { sha256, bytes, chunks, ms, sizeMatches }
 //   POST /log  {text}                     -> 204 (lets the plugin echo lines to the server console)
 // WebSocket /ws
-//   server -> client  { type: "event", seq, ts } every --interval ms
+//   server -> client  { type: "event", seq, ts } every --interval ms, only after the client's hello
 //   client -> server  { type: "hello", lastSeq }  -> { type: "catchup", from, to, truncated, events }
 //   client -> server  { type: "ping", t }         -> { type: "pong", t, serverTs }
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -115,6 +115,9 @@ const server = createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: "/ws" });
 let nextClientId = 1;
 const alive = new WeakMap<WebSocket, boolean>();
+// Sockets receive live events only after their hello/catch-up: the catch-up is
+// always sent before any live event, so clients never see live-before-catch-up.
+const subscribed = new Set<WebSocket>();
 
 wss.on("connection", (ws, req) => {
   const id = nextClientId++;
@@ -131,13 +134,17 @@ wss.on("connection", (ws, req) => {
     if (msg.type === "hello") {
       const from = typeof msg.lastSeq === "number" ? msg.lastSeq : feed.lastSeq;
       const { events, truncated } = feed.since(from);
+      // Synchronous between since() and add(): no tick can interleave, so the
+      // first live event this socket gets is exactly lastSeq+1 after the catch-up.
       ws.send(JSON.stringify({ type: "catchup", from, to: feed.lastSeq, truncated, events }));
+      subscribed.add(ws);
       log(`[R-4] ws #${id} hello lastSeq=${from} -> catch-up ${events.length} events`);
     } else if (msg.type === "ping") {
       ws.send(JSON.stringify({ type: "pong", t: msg.t, serverTs: Date.now() }));
     }
   });
   ws.on("close", (code, reason) => {
+    subscribed.delete(ws);
     log(`[R-4] ws #${id} close code=${code} reason=${String(reason) || "-"}`);
   });
   ws.on("error", (err) => log(`[R-4] ws #${id} error ${String(err)}`));
@@ -158,7 +165,7 @@ const keepalive = setInterval(() => {
 const ticker = setInterval(() => {
   const event = feed.next();
   const payload = JSON.stringify({ type: "event", ...event });
-  for (const ws of wss.clients) if (ws.readyState === ws.OPEN) ws.send(payload);
+  for (const ws of subscribed) if (ws.readyState === ws.OPEN) ws.send(payload);
 }, intervalMs);
 
 server.listen(port, "0.0.0.0", () => {

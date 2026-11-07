@@ -72,7 +72,7 @@ export default class SpikePlugin extends Plugin {
     this.cmd("r5-generate", "R-5: generate synthetic vault subtree", () =>
       generateVault(this.app, device(), this.settings.massFileCount, this.settings.massMoveCount),
     );
-    this.cmd("r5-count-start", "R-5: start counting vault events", async () =>
+    this.cmd("r5-count-start", "R-5: start counting vault events (resets counters)", async () =>
       this.#counter!.start(),
     );
     this.cmd("r5-move-api", "R-5: move the folder via API (alternative to drag and drop)", () =>

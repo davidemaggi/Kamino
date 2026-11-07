@@ -13,6 +13,7 @@
     "lint": "turbo run lint && eslint scripts",
     "test": "turbo run test && vitest run --root scripts",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "release-names:check": "tsx scripts/release-names.ts"
   },
   "devDependencies": {

@@ -1,0 +1,53 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="containers" name="Contesto e container">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="user" value="Utente&#xa;(desktop + mobile)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="200" width="40" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="admin" value="Admin&#xa;(solo aggregati)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="440" width="40" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="plugin" value="&lt;b&gt;Obsidian + plugin Kamino&lt;/b&gt;&lt;br&gt;TypeScript, esbuild&lt;br&gt;watcher · scanner · index · outbox · applier · ui&lt;br&gt;requestUrl · WebSocket · WebCrypto" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="160" y="160" width="240" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="web" value="&lt;b&gt;Web app (browser)&lt;/b&gt;&lt;br&gt;React · Vite · shadcn/ui&lt;br&gt;TanStack Query · react-i18next" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="160" y="400" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="proxy" value="Reverse proxy TLS&lt;br&gt;(Caddy / Traefik / nginx)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="470" y="290" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="boundary" value="docker compose" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=none;verticalAlign=top;align=left;spacingLeft=8;strokeColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="680" y="80" width="460" height="640" as="geometry" />
+        </mxCell>
+        <mxCell id="server" value="&lt;b&gt;kamino&lt;/b&gt; (container)&lt;br&gt;Fastify: REST /api/v1 · WS /api/v1/ws · static web&lt;br&gt;moduli: auth · users · quota · vaults · devices · pairing · sync · blobs · conflicts · history · admin · mail · audit&lt;br&gt;&lt;b&gt;crypto&lt;/b&gt; (keyring KEK/DEK, isolato)&lt;br&gt;pg-boss workers · CLI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="720" y="250" width="380" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="pg" value="&lt;b&gt;PostgreSQL&lt;/b&gt;&lt;br&gt;metadati (cifrati) · journal · DEK cifrate · pg-boss · audit" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=12;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="720" y="480" width="180" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="blob" value="&lt;b&gt;Blob storage&lt;/b&gt;&lt;br&gt;filesystem (volume) o S3/MinIO&lt;br&gt;contenuti cifrati" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=12;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="930" y="480" width="170" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="kek" value="Master key (KEK)&lt;br&gt;Docker secret / env&lt;br&gt;mai nel DB" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="720" y="120" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="smtp" value="SMTP (opzionale)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="940" y="130" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" style="endArrow=none;html=1;" edge="1" parent="1" source="user" target="plugin"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" style="endArrow=none;html=1;" edge="1" parent="1" source="user" target="web"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" style="endArrow=none;html=1;" edge="1" parent="1" source="admin" target="web"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" value="HTTPS REST + WSS" style="endArrow=classic;startArrow=classic;html=1;" edge="1" parent="1" source="plugin" target="proxy"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" value="HTTPS (cookie)" style="endArrow=classic;startArrow=classic;html=1;" edge="1" parent="1" source="web" target="proxy"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e6" value="HTTP" style="endArrow=classic;html=1;" edge="1" parent="1" source="proxy" target="server"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e7" value="SQL · LISTEN/NOTIFY" style="endArrow=classic;startArrow=classic;html=1;" edge="1" parent="1" source="server" target="pg"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e8" value="blob cifrati" style="endArrow=classic;startArrow=classic;html=1;" edge="1" parent="1" source="server" target="blob"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e9" value="all'avvio" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="kek" target="server"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e10" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="server" target="smtp"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

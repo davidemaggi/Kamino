@@ -1,0 +1,16 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["release-names.json"],
+  "tasks": {
+    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "@kamino/server#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "env": ["KAMINO_BUILD_COMMIT"],
+      "cache": false
+    },
+    "typecheck": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"], "env": ["KAMINO_BUILD_COMMIT"] },
+    "lint": {}
+  }
+}

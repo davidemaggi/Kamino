@@ -1,0 +1,9 @@
+.turbo
+dist
+coverage
+node_modules
+pnpm-lock.yaml
+docs/**
+kickstart.md
+.claude
+spikes

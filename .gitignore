@@ -1,0 +1,14 @@
+.superpowers/
+node_modules/
+dist/
+coverage/
+.turbo/
+*.log
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.DS_Store
+apps/server/src/build-info.generated.ts
+
+docker/secrets/

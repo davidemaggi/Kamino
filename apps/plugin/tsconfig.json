@@ -1,0 +1,5 @@
+{
+  "extends": "@kamino/tsconfig/obsidian.json",
+  "compilerOptions": { "types": [] },
+  "include": ["src"]
+}

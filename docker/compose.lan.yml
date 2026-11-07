@@ -1,0 +1,50 @@
+# Scenario 1: home / LAN, plain HTTP, desktop clients only.
+# Setup: see docs/self-hosting.md. Run from the repository root:
+#   docker compose -f docker/compose.lan.yml up -d --build
+# KAMINO_PUBLIC_URL must be the server's LAN IP/hostname (e.g. http://192.168.1.10:8080) for other
+# desktops to use it; the localhost default only works on this machine.
+name: kamino
+
+services:
+  kamino:
+    image: kamino:local
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        KAMINO_BUILD_COMMIT: ${KAMINO_BUILD_COMMIT:-unknown}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KAMINO_PUBLIC_URL: ${KAMINO_PUBLIC_URL:-http://localhost:8080}
+      KAMINO_DATABASE_URL: postgres://kamino:${KAMINO_DB_PASSWORD:?set KAMINO_DB_PASSWORD in docker/.env}@postgres:5432/kamino
+      KAMINO_MASTER_KEY_FILE: /run/secrets/kamino_master_key
+      KAMINO_LOG_LEVEL: ${KAMINO_LOG_LEVEL:-info}
+    secrets:
+      - kamino_master_key
+    ports:
+      - "8080:8080"
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kamino
+      POSTGRES_DB: kamino
+      POSTGRES_PASSWORD: ${KAMINO_DB_PASSWORD:?set KAMINO_DB_PASSWORD in docker/.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kamino -d kamino"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+secrets:
+  kamino_master_key:
+    file: ./secrets/kamino_master_key
+
+volumes:
+  postgres-data:

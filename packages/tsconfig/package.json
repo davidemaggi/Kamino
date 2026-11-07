@@ -1,0 +1,11 @@
+{
+  "name": "@kamino/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "base.json",
+    "node.json",
+    "react.json",
+    "obsidian.json"
+  ]
+}

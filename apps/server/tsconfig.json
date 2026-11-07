@@ -1,0 +1,4 @@
+{
+  "extends": "@kamino/tsconfig/node.json",
+  "include": ["src", "test", "scripts", "drizzle.config.ts", "vitest.config.ts"]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "kamino",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck && tsc --noEmit -p scripts/tsconfig.json",
+    "lint": "turbo run lint && eslint scripts",
+    "test": "turbo run test && vitest run --root scripts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "release-names:check": "tsx scripts/release-names.ts"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@eslint/js": "^10.0.1",
+    "@kamino/brand": "workspace:*",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.14.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.1.0"
+  }
+}

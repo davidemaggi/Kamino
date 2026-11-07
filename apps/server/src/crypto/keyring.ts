@@ -24,7 +24,8 @@ export class MasterKeyError extends Error {
 function formatError(): MasterKeyError {
   return new MasterKeyError(
     `master key must be base64 (standard or URL-safe) of exactly ${KEY_BYTES} bytes; ` +
-      `generate one with \`${PRODUCT_SLUG} keys generate\``,
+      `generate one with \`${PRODUCT_SLUG} keys generate\` ` +
+      `(Docker: \`docker run --rm <image> keys generate\` or \`docker compose run --rm kamino keys generate\`)`,
   );
 }
 

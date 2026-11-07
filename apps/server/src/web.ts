@@ -13,10 +13,6 @@ export function isApiPath(url: string): boolean {
 }
 
 /**
- * Where the web build lives: `public/` next to the server's dist (Docker image),
- * else the monorepo build at apps/web/dist. Returns undefined when neither exists.
- */
-/**
  * SPA fallback rule: only GET/HEAD for non-API paths whose last segment has no file
  * extension (client routes). Paths like /assets/x.js or /favicon.png are missing files -> 404.
  * Trade-off: a client route whose last segment contains a dot (e.g. /vault/my.note) 404s on a hard reload.
@@ -29,6 +25,10 @@ export function isSpaRoute(method: string, url: string): boolean {
   return !last.includes(".");
 }
 
+/**
+ * Where the web build lives: `public/` next to the server's dist (Docker image),
+ * else the monorepo build at apps/web/dist. Returns undefined when neither exists.
+ */
 export function resolveWebRoot(
   fromDir: string = dirname(fileURLToPath(import.meta.url)),
 ): string | undefined {

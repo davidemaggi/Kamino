@@ -78,9 +78,48 @@ describe("loadConfig", () => {
   });
 
   it("collects every issue and never echoes secret values", () => {
+    const secretUrl = "postgres://user:s3cr3t-pw-value@h/db";
+    const secretKey = "s3cr3t-key-value";
     const issues = issuesOf(() =>
-      loadConfig({ KAMINO_PORT: "abc", KAMINO_MASTER_KEY: "", KAMINO_DATABASE_URL: "" }),
+      loadConfig({
+        KAMINO_PORT: "abc",
+        KAMINO_MASTER_KEY: secretKey,
+        KAMINO_MASTER_KEY_FILE: "/run/secrets/k",
+        KAMINO_DATABASE_URL: secretUrl,
+        KAMINO_DATABASE_URL_FILE: "/run/secrets/d",
+        KAMINO_PUBLIC_URL: "not a url",
+      }),
     );
-    expect(issues.length).toBeGreaterThanOrEqual(3);
+    expect(issues.length).toBeGreaterThanOrEqual(4);
+    const all = issues.join("\n");
+    expect(all).not.toContain("s3cr3t-pw-value");
+    expect(all).not.toContain(secretKey);
+  });
+
+  it("strips trailing slashes from KAMINO_PUBLIC_URL", () => {
+    const { config } = loadConfig({ ...minimal, KAMINO_PUBLIC_URL: "https://sync.example.com//" });
+    expect(config.publicUrl).toBe("https://sync.example.com");
+  });
+
+  describe("secret files with a byte-order mark", () => {
+    const withFile = (buf: Buffer) => {
+      const { KAMINO_MASTER_KEY: _omit, ...rest } = minimal;
+      void _omit;
+      return loadConfig({ ...rest, KAMINO_MASTER_KEY_FILE: "/k" }, () => buf).config.masterKey;
+    };
+    const key = "abcDEF0123456789abcDEF0123456789abcDEF01234";
+    it("decodes UTF-16LE with BOM (Windows PowerShell 5.1 redirection)", () => {
+      const buf = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(`${key}\r\n`, "utf16le")]);
+      expect(withFile(buf)).toBe(key);
+    });
+    it("decodes UTF-16BE with BOM", () => {
+      const le = Buffer.from(`${key}\n`, "utf16le");
+      const be = Buffer.from(le).swap16();
+      expect(withFile(Buffer.concat([Buffer.from([0xfe, 0xff]), be]))).toBe(key);
+    });
+    it("strips a UTF-8 BOM", () => {
+      const buf = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(`${key}\n`)]);
+      expect(withFile(buf)).toBe(key);
+    });
   });
 });

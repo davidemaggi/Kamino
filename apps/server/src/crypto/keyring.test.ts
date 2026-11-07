@@ -39,6 +39,7 @@ describe("parseMasterKey", () => {
     expect(msg).toContain("base64");
     expect(msg).toContain("32 bytes");
     expect(msg).toContain("kamino keys generate");
+    expect(msg).toContain("docker compose run --rm kamino keys generate");
     expect(msg).not.toContain(hex);
   });
 

@@ -11,6 +11,9 @@ export const migrate: Command = async (_args, env, io) => {
     await runMigrations(db);
     io.stdout("migrations applied\n");
     return 0;
+  } catch {
+    io.stderr("migration failed: could not reach the database or apply migrations\n");
+    return 1;
   } finally {
     await db.$client.end({ timeout: 5 });
   }

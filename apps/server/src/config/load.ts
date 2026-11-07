@@ -27,11 +27,25 @@ function read(env: Env, name: string): string | undefined {
   return v === undefined || v === "" ? undefined : v;
 }
 
+/**
+ * Decodes a secret file. Windows PowerShell 5.1 redirection writes UTF-16LE with a BOM, so
+ * UTF-16 (LE/BE) is detected by its BOM; a UTF-8 BOM is stripped.
+ */
+function decodeSecret(raw: Buffer | string): string {
+  if (typeof raw === "string") return raw.replace(/^\uFEFF/, "");
+  if (raw.length >= 2 && raw[0] === 0xff && raw[1] === 0xfe)
+    return raw.subarray(2).toString("utf16le");
+  if (raw.length >= 2 && raw[0] === 0xfe && raw[1] === 0xff) {
+    return Buffer.from(raw.subarray(2)).swap16().toString("utf16le");
+  }
+  return raw.toString("utf8").replace(/^\uFEFF/, "");
+}
+
 /** Resolves `NAME` or `NAME_FILE` (Docker secret); setting both is an error. */
 function readSecret(
   env: Env,
   key: string,
-  readFile: (p: string) => string,
+  readFile: (p: string) => Buffer | string,
   issues: string[],
 ): Resolved {
   const name = envName(key);
@@ -45,7 +59,7 @@ function readSecret(
   if (direct !== undefined) return { value: direct, source: "env" };
   if (path !== undefined) {
     try {
-      const content = readFile(path).replace(/[\r\n]+$/, "");
+      const content = decodeSecret(readFile(path)).replace(/[\r\n]+$/, "");
       if (content === "") {
         issues.push(`${fileName} points to an empty file`);
         return undefined;
@@ -62,7 +76,7 @@ function readSecret(
 
 export function loadConfig(
   env: Env,
-  readFile: (p: string) => string = (p) => readFileSync(p, "utf8"),
+  readFile: (p: string) => Buffer | string = (p) => readFileSync(p),
 ): { config: Config; sources: Record<keyof Config, ConfigSource> } {
   const issues: string[] = [];
 
@@ -74,7 +88,7 @@ export function loadConfig(
     try {
       const u = new URL(publicUrlRaw);
       if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("protocol");
-      publicUrl = publicUrlRaw;
+      publicUrl = publicUrlRaw.replace(/\/+$/, "");
     } catch {
       issues.push(`${envName("PUBLIC_URL")} must be an absolute http(s) URL`);
     }

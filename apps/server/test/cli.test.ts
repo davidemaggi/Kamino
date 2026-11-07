@@ -84,6 +84,18 @@ describe.skipIf(dockerUnavailable)("cli", () => {
     expect(r.err).not.toContain(hex);
   });
 
+  it("migrate with an unreachable database exits 1 with a generic message", async () => {
+    const r = await run(
+      ["migrate"],
+      envFor("postgres://user:secretpw@127.0.0.1:1/db", generateMasterKey()),
+    );
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("could not reach the database");
+    expect(r.err).not.toContain("secretpw");
+    expect(r.err).not.toContain("127.0.0.1");
+    expect(r.err).not.toContain("ECONNREFUSED");
+  });
+
   it("keys verify with an unreachable database exits 1 with a generic message", async () => {
     const r = await run(
       ["keys", "verify"],

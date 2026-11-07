@@ -20,10 +20,14 @@ interface Manifest {
 describe("plugin build output", () => {
   let manifest: Manifest;
   beforeAll(() => {
-    execFileSync(process.execPath, [resolve(root, "../../node_modules/tsx/dist/cli.mjs"), "esbuild.config.mjs"], {
-      cwd: root,
-      stdio: "ignore",
-    });
+    execFileSync(
+      process.execPath,
+      [resolve(root, "../../node_modules/tsx/dist/cli.mjs"), "esbuild.config.mjs"],
+      {
+        cwd: root,
+        stdio: "ignore",
+      },
+    );
     manifest = JSON.parse(read("dist/manifest.json")) as Manifest;
   });
 

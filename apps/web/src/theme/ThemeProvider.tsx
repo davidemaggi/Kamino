@@ -18,7 +18,10 @@ function readStored(): Theme {
 }
 
 function prefersDark(): boolean {
-  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
 }
 
 function applyTheme(theme: Theme): void {

@@ -38,18 +38,18 @@ Kamino is built around one promise:
 
 ## Features
 
-| | |
-|---|---|
-| ⚡ **Near real-time sync** | Changes reach connected devices within seconds over WebSocket. Offline devices catch up the moment they reconnect, whether they were gone for minutes or months. |
-| 🚨 **No silent failures** | Every device shows when it last synced and how many changes haven't reached the server yet. If something stalls, Kamino warns you persistently. |
-| 🧭 **Conflicts you can read** | When two devices edit the same note, you see what's coming in next to your own version, then keep yours, take theirs, or keep both. You can do this right inside Obsidian. No version is ever thrown away. |
-| 📱 **Pair a phone in seconds** | Scan a QR code or tap a magic link. The device that created the link confirms the pairing with a short verification code. There are no config files to copy around. |
-| 🔐 **Encrypted at rest** | File contents, paths and vault names are encrypted with per-vault keys wrapped by a master key that never touches the database. A stolen database dump or storage bucket is useless on its own. |
-| 🙈 **Admins can't peek** | Kamino is multi-user and each user sees only their own vaults. Admins manage users and quotas but never see note names or contents, in the UI or in the API. |
-| 🗄️ **Safety net built in** | A mandatory 7-day trash, per-vault version history of up to 90 days, a ZIP export of any vault (even "as it was on date X"), and the ability to rebuild the server from any device. |
-| 🎛️ **Sync your way** | Live, periodic or manual sync per device. Optional, per-category sync of `.obsidian` settings. Large attachments can be limited to Wi-Fi only. |
-| 🐳 **One command to self-host** | `docker compose up` gives you two containers: the app and Postgres. Reference setups cover LAN, Tailscale, Cloudflare Tunnel and Caddy with Let's Encrypt. |
-| 🌍 **Built to be shared** | English and Italian out of the box, light and dark themes, SemVer releases, and every major and minor release named after a famous clone. |
+|                                 |                                                                                                                                                                                                            |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⚡ **Near real-time sync**      | Changes reach connected devices within seconds over WebSocket. Offline devices catch up the moment they reconnect, whether they were gone for minutes or months.                                           |
+| 🚨 **No silent failures**       | Every device shows when it last synced and how many changes haven't reached the server yet. If something stalls, Kamino warns you persistently.                                                            |
+| 🧭 **Conflicts you can read**   | When two devices edit the same note, you see what's coming in next to your own version, then keep yours, take theirs, or keep both. You can do this right inside Obsidian. No version is ever thrown away. |
+| 📱 **Pair a phone in seconds**  | Scan a QR code or tap a magic link. The device that created the link confirms the pairing with a short verification code. There are no config files to copy around.                                        |
+| 🔐 **Encrypted at rest**        | File contents, paths and vault names are encrypted with per-vault keys wrapped by a master key that never touches the database. A stolen database dump or storage bucket is useless on its own.            |
+| 🙈 **Admins can't peek**        | Kamino is multi-user and each user sees only their own vaults. Admins manage users and quotas but never see note names or contents, in the UI or in the API.                                               |
+| 🗄️ **Safety net built in**      | A mandatory 7-day trash, per-vault version history of up to 90 days, a ZIP export of any vault (even "as it was on date X"), and the ability to rebuild the server from any device.                        |
+| 🎛️ **Sync your way**            | Live, periodic or manual sync per device. Optional, per-category sync of `.obsidian` settings. Large attachments can be limited to Wi-Fi only.                                                             |
+| 🐳 **One command to self-host** | `docker compose up` gives you two containers: the app and Postgres. Reference setups cover LAN, Tailscale, Cloudflare Tunnel and Caddy with Let's Encrypt.                                                 |
+| 🌍 **Built to be shared**       | English and Italian out of the box, light and dark themes, SemVer releases, and every major and minor release named after a famous clone.                                                                  |
 
 ## How it works
 
@@ -111,38 +111,38 @@ See [docs/self-hosting.md](docs/self-hosting.md) for Tailscale, Cloudflare Tunne
 
 ## Kamino vs. the alternatives
 
-| | Kamino | Git-based sync | CouchDB-based plugins | Obsidian Sync |
-|---|:---:|:---:|:---:|:---:|
-| Self-hosted | ✅ | ✅ | ✅ | ❌ |
-| Free | ✅ | ✅ | ✅ | ❌ (subscription) |
-| Real-time | ✅ | ❌ | ✅ | ✅ |
-| Painless on mobile | ✅ | ❌ | ⚠️ | ✅ |
-| Side-by-side conflict resolution | ✅ | ⚠️ (merge markers) | ⚠️ | ⚠️ |
-| Multi-user, with admins blind to content | ✅ | ❌ | ⚠️ | n/a |
-| Pair a device by QR | ✅ | ❌ | ⚠️ | ❌ |
-| End-to-end encryption | ❌ (at rest) | ⚠️ | ✅ | ✅ |
+|                                          |    Kamino    |   Git-based sync   | CouchDB-based plugins |   Obsidian Sync   |
+| ---------------------------------------- | :----------: | :----------------: | :-------------------: | :---------------: |
+| Self-hosted                              |      ✅      |         ✅         |          ✅           |        ❌         |
+| Free                                     |      ✅      |         ✅         |          ✅           | ❌ (subscription) |
+| Real-time                                |      ✅      |         ❌         |          ✅           |        ✅         |
+| Painless on mobile                       |      ✅      |         ❌         |          ⚠️           |        ✅         |
+| Side-by-side conflict resolution         |      ✅      | ⚠️ (merge markers) |          ⚠️           |        ⚠️         |
+| Multi-user, with admins blind to content |      ✅      |         ❌         |          ⚠️           |        n/a        |
+| Pair a device by QR                      |      ✅      |         ❌         |          ⚠️           |        ❌         |
+| End-to-end encryption                    | ❌ (at rest) |         ⚠️         |          ✅           |        ✅         |
 
 Kamino deliberately chooses **encryption at rest over end-to-end encryption**. The server can read your notes, which is what makes the web diff view, ZIP export and future server-side merge possible. A database or storage dump on its own is still useless. If you need protection from the person running the server, an E2EE tool is the better fit.
 
 ## Roadmap
 
-| Milestone | What it brings | Status |
-|---|---|---|
-| **M0** | Monorepo, CI, Docker, server foundations, master-key verification, plugin and web skeletons | 🚧 in progress |
-| **UI** | Design system and screens | ⏳ |
-| **M1** | Single-device sync: upload a vault, get it back intact | ⏳ |
-| **M2** | Multi-device real-time sync, sync modes, `.obsidian` categories | ⏳ |
-| **M3** | Conflicts, trash and version history | ⏳ |
-| **M4** | User web dashboard: devices, conflicts, ZIP export, 2FA | ⏳ |
-| **M5** | Admin, quotas, email/SMTP | ⏳ |
-| **M6** | QR code and magic-link pairing | ⏳ |
-| **M7** | Hardening, backups, key rotation → **1.0.0 "Ash"** | ⏳ |
+| Milestone | What it brings                                                                              | Status         |
+| --------- | ------------------------------------------------------------------------------------------- | -------------- |
+| **M0**    | Monorepo, CI, Docker, server foundations, master-key verification, plugin and web skeletons | 🚧 in progress |
+| **UI**    | Design system and screens                                                                   | ⏳             |
+| **M1**    | Single-device sync: upload a vault, get it back intact                                      | ⏳             |
+| **M2**    | Multi-device real-time sync, sync modes, `.obsidian` categories                             | ⏳             |
+| **M3**    | Conflicts, trash and version history                                                        | ⏳             |
+| **M4**    | User web dashboard: devices, conflicts, ZIP export, 2FA                                     | ⏳             |
+| **M5**    | Admin, quotas, email/SMTP                                                                   | ⏳             |
+| **M6**    | QR code and magic-link pairing                                                              | ⏳             |
+| **M7**    | Hardening, backups, key rotation → **1.0.0 "Ash"**                                          | ⏳             |
 
 Full plan: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ### Release names
 
-Every MAJOR and MINOR release is named after a famous clone. The first letter follows the major version: 1.x is A, 2.x is B, and so on. Everything up to and including 1.0 is called **Ash**, after *Alien*. After that come names like Alison, Boba, Cody, Dolly… See [docs/release-names.md](docs/release-names.md).
+Every MAJOR and MINOR release is named after a famous clone. The first letter follows the major version: 1.x is A, 2.x is B, and so on. Everything up to and including 1.0 is called **Ash**, after _Alien_. After that come names like Alison, Boba, Cody, Dolly… See [docs/release-names.md](docs/release-names.md).
 
 ## Tech stack
 

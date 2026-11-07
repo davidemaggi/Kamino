@@ -127,17 +127,17 @@ Kamino deliberately chooses **encryption at rest over end-to-end encryption**. T
 
 ## Roadmap
 
-| Milestone | What it brings                                                                              | Status         |
-| --------- | ------------------------------------------------------------------------------------------- | -------------- |
-| **M0**    | Monorepo, CI, Docker, server foundations, master-key verification, plugin and web skeletons | 🚧 in progress |
-| **UI**    | Design system and screens                                                                   | ⏳             |
-| **M1**    | Single-device sync: upload a vault, get it back intact                                      | ⏳             |
-| **M2**    | Multi-device real-time sync, sync modes, `.obsidian` categories                             | ⏳             |
-| **M3**    | Conflicts, trash and version history                                                        | ⏳             |
-| **M4**    | User web dashboard: devices, conflicts, ZIP export, 2FA                                     | ⏳             |
-| **M5**    | Admin, quotas, email/SMTP                                                                   | ⏳             |
-| **M6**    | QR code and magic-link pairing                                                              | ⏳             |
-| **M7**    | Hardening, backups, key rotation → **1.0.0 "Ash"**                                          | ⏳             |
+| Milestone | What it brings                                                                              | Status  |
+| --------- | ------------------------------------------------------------------------------------------- | ------- |
+| **M0**    | Monorepo, CI, Docker, server foundations, master-key verification, plugin and web skeletons | ✅ done |
+| **UI**    | Design system and screens                                                                   | ⏳      |
+| **M1**    | Single-device sync: upload a vault, get it back intact                                      | ⏳      |
+| **M2**    | Multi-device real-time sync, sync modes, `.obsidian` categories                             | ⏳      |
+| **M3**    | Conflicts, trash and version history                                                        | ⏳      |
+| **M4**    | User web dashboard: devices, conflicts, ZIP export, 2FA                                     | ⏳      |
+| **M5**    | Admin, quotas, email/SMTP                                                                   | ⏳      |
+| **M6**    | QR code and magic-link pairing                                                              | ⏳      |
+| **M7**    | Hardening, backups, key rotation → **1.0.0 "Ash"**                                          | ⏳      |
 
 Full plan: [docs/06-roadmap.md](docs/06-roadmap.md).
 

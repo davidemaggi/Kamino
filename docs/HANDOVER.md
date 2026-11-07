@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-07 — durante M0, task 10 completato (CI verde), task 11 in corso.
+**Ultimo aggiornamento:** 2026-11-07 — durante M0, task 11 completato, task 12 (spike) in corso.
 
 ## Dove siamo
 
@@ -31,8 +31,8 @@
 | 8 | Plugin: scheletro | ✅ (1 giro di correzioni) |
 | 9 | Docker + compose (LAN, tunnel, Caddy) + `docs/self-hosting.md` | ✅ (1 giro di correzioni) |
 | 10 | CI GitHub Actions | ✅ (run verde su ubuntu, windows, docker) |
-| 11 | Verifica comandi di `CLAUDE.md` | 🚧 |
-| 12 | Spike R-1…R-5 (prototipi + istruzioni; misure su dispositivi reali a cura del committente) | ⏳ |
+| 11 | Verifica comandi di `CLAUDE.md` | ✅ (+ controllo formattazione in CI) |
+| 12 | Spike R-1…R-5 (prototipi + istruzioni; misure su dispositivi reali a cura del committente) | 🚧 |
 | — | Revisione finale dell'intero branch | ⏳ |
 
 ## Come riprendere su un altro PC
@@ -66,6 +66,7 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 | R16 | **Da fare in M1:** quando arriva la prima migrazione applicativa, applicare prima la migrazione `key_check`, verificare la chiave, poi il resto (TODO in `apps/server/src/main.ts`) | migrazioni eseguite con chiave sbagliata |
 | R18 | Fallback SPA solo per percorsi senza estensione: gli URL della web app usano **ID**, mai nomi di file | un percorso con punto dà 404 al reload |
 | R23 | In CI su Windows i test che richiedono Docker vengono saltati (`dockerUnavailable` in `apps/server/test/helpers/postgres.ts`); in locale su Windows con Docker girano | test DB non coperti su Windows in CI |
+| R25 | `pnpm format:check` (prettier) aggiunto alla CI dopo aver trovato 13 file non formattati | — |
 | R19 | Pubblicazione di manifest/`versions.json` per BRAT e store rinviata alla fase di release (M7) | lavoro di release |
 | R21 | Quick start del README allineato alla sequenza verificata nel task 9 (`docker run … keys generate` dopo la build dell'immagine) | — |
 
@@ -84,7 +85,6 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 
 - Descrizione e topic del repo GitHub (testo proposto in chat; `gh` non autenticato su questo PC).
 - Spike su iPhone/Android reali (task 12).
-- Installare le skill **UI/UX Pro Max** e **impeccable** prima della Fase UI.
 
 ## Note sull'ambiente
 

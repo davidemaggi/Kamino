@@ -38,7 +38,7 @@ pnpm build          # turbo run build
 pnpm typecheck
 pnpm lint
 pnpm test           # Vitest; i test di integrazione usano Postgres via testcontainers (serve Docker)
-pnpm format         # prettier --write .; in CI/verifica: pnpm exec prettier --check .
+pnpm format         # prettier --write .; pnpm format:check = solo verifica (usato in CI)
 pnpm release-names:check
 pnpm --filter @kamino/server dev        # serve KAMINO_PUBLIC_URL, KAMINO_DATABASE_URL, KAMINO_MASTER_KEY (o *_FILE); Postgres raggiungibile
 pnpm --filter @kamino/web dev           # Vite su http://localhost:5173

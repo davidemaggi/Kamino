@@ -4,7 +4,7 @@ import { ensureKeyCheck } from "../src/crypto/key-check.js";
 import { generateMasterKey, parseMasterKey } from "../src/crypto/keyring.js";
 import { createDb } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
-import { startPostgres, type TestPostgres } from "./helpers/postgres.js";
+import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
 
 async function run(argv: string[], env: Record<string, string> = {}) {
   let out = "";
@@ -16,7 +16,7 @@ async function run(argv: string[], env: Record<string, string> = {}) {
   return { code, out, err };
 }
 
-describe("cli", () => {
+describe.skipIf(dockerUnavailable)("cli", () => {
   let pg: TestPostgres;
 
   beforeAll(async () => {

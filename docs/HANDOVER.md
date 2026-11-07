@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-06 — durante M0, task 9 in corso.
+**Ultimo aggiornamento:** 2026-11-07 — durante M0, task 9 completato, task 10 (CI) in corso.
 
 ## Dove siamo
 
@@ -29,8 +29,8 @@
 | 6 | Server: master key, verifica all'avvio, CLI | ✅ (1 giro di correzioni) |
 | 7 | Web app: scheletro | ✅ (1 giro di correzioni) |
 | 8 | Plugin: scheletro | ✅ (1 giro di correzioni) |
-| 9 | Docker + compose (LAN, tunnel, Caddy) + `docs/self-hosting.md` | 🚧 implementazione in corso (non ancora committato) |
-| 10 | CI GitHub Actions | ⏳ |
+| 9 | Docker + compose (LAN, tunnel, Caddy) + `docs/self-hosting.md` | ✅ (1 giro di correzioni) |
+| 10 | CI GitHub Actions | 🚧 |
 | 11 | Verifica comandi di `CLAUDE.md` | ⏳ |
 | 12 | Spike R-1…R-5 (prototipi + istruzioni; misure su dispositivi reali a cura del committente) | ⏳ |
 | — | Revisione finale dell'intero branch | ⏳ |
@@ -66,6 +66,7 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 | R16 | **Da fare in M1:** quando arriva la prima migrazione applicativa, applicare prima la migrazione `key_check`, verificare la chiave, poi il resto (TODO in `apps/server/src/main.ts`) | migrazioni eseguite con chiave sbagliata |
 | R18 | Fallback SPA solo per percorsi senza estensione: gli URL della web app usano **ID**, mai nomi di file | un percorso con punto dà 404 al reload |
 | R19 | Pubblicazione di manifest/`versions.json` per BRAT e store rinviata alla fase di release (M7) | lavoro di release |
+| R21 | Quick start del README allineato alla sequenza verificata nel task 9 (`docker run … keys generate` dopo la build dell'immagine) | — |
 
 ## Punti aperti per la revisione finale (minori rinviati)
 
@@ -74,6 +75,7 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 - Release: CLI `release-names:check` con errori non gestiti (stack trace); test del registro poco stringenti.
 - Web: flash del tema chiaro al caricamento; modalità "sistema" non testata; chiavi `theme.*` non usate.
 - Plugin: `versions.json` statico (serve uno script in release); estensioni di import miste; test di build con output nascosto.
+- Docker: password DB in env (in futuro `*_FILE`); file dell'app scrivibili dall'utente runtime; `cloudflared` non pinnato e `--token-file` non provato; `self-hosting.md` §3 cita `node:24-alpine` (ora `node:24-alpine3.24`).
 - pnpm segnala "ignored build scripts" (esbuild): valutare `onlyBuiltDependencies`.
 
 ## In sospeso lato committente
@@ -81,7 +83,6 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 - Descrizione e topic del repo GitHub (testo proposto in chat; `gh` non autenticato su questo PC).
 - Spike su iPhone/Android reali (task 12).
 - Installare le skill **UI/UX Pro Max** e **impeccable** prima della Fase UI.
-- Il comando di quick start nel README (`keys generate` via compose) va allineato con quello verificato nel task 9.
 
 ## Note sull'ambiente
 

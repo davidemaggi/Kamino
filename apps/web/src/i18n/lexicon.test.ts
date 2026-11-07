@@ -31,8 +31,7 @@ describe("translations", () => {
     });
   }
   it("it and en have the same keys", () => {
-    const keys = (f: string) =>
-      keyPaths(JSON.parse(readFileSync(join(dir, f), "utf8"))).sort();
+    const keys = (f: string) => keyPaths(JSON.parse(readFileSync(join(dir, f), "utf8"))).sort();
     expect(keys("it.json")).toEqual(keys("en.json"));
   });
 });

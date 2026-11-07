@@ -29,7 +29,9 @@ export function isSpaRoute(method: string, url: string): boolean {
   return !last.includes(".");
 }
 
-export function resolveWebRoot(fromDir: string = dirname(fileURLToPath(import.meta.url))): string | undefined {
+export function resolveWebRoot(
+  fromDir: string = dirname(fileURLToPath(import.meta.url)),
+): string | undefined {
   const candidates = [resolve(fromDir, "../public"), resolve(fromDir, "../../web/dist")];
   return candidates.find((dir) => existsSync(resolve(dir, "index.html")));
 }

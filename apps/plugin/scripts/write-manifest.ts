@@ -19,8 +19,5 @@ export function buildManifest() {
 }
 
 export function writeManifest(distDir: string): void {
-  writeFileSync(
-    resolve(distDir, "manifest.json"),
-    `${JSON.stringify(buildManifest(), null, 2)}\n`,
-  );
+  writeFileSync(resolve(distDir, "manifest.json"), `${JSON.stringify(buildManifest(), null, 2)}\n`);
 }

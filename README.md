@@ -88,13 +88,18 @@ Want the details? Read the [sync protocol](docs/03-sync-protocol.md) and the [th
 git clone https://github.com/davidemaggi/Kamino.git
 cd Kamino
 
-# 1. Generate a master key and keep a copy somewhere safe and offline
-docker compose -f docker/compose.lan.yml run --rm kamino keys generate > docker/secrets/kamino_master_key
+# 1. Configure: set KAMINO_DB_PASSWORD (URL-safe characters only) in docker/.env
+cp docker/.env.example docker/.env
 
-# 2. Start Kamino + Postgres
+# 2. Build the image and generate a master key; keep a copy somewhere safe and offline
+docker build -f docker/Dockerfile -t kamino:local .
+mkdir -p docker/secrets
+docker run --rm kamino:local keys generate > docker/secrets/kamino_master_key
+
+# 3. Start Kamino + Postgres
 docker compose -f docker/compose.lan.yml up -d
 
-# 3. Check it's alive
+# 4. Check it's alive
 curl http://localhost:8080/health/ready
 curl http://localhost:8080/version
 ```

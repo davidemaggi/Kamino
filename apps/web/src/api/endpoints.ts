@@ -1,4 +1,20 @@
 import {
+  ConflictDetail,
+  ConflictList,
+  Device,
+  DeviceList,
+  FileList,
+  FileVersions,
+  PairingOffer,
+  PairingState,
+  ResolveAllResponse,
+  TrashList,
+  Vault,
+  VaultList,
+  VersionContent,
+  type BulkStrategy,
+  type Resolution,
+  type VaultPatch,
   ForgotResponse,
   InviteInfo,
   LoginResponse,
@@ -12,7 +28,7 @@ import {
   type ProfilePatch,
   type SetupRequest,
 } from "@kamino/protocol";
-import { request, requestVoid } from "./http.js";
+import { request, requestBlob, requestVoid } from "./http.js";
 
 /** One function per route of the contract (spec §3). */
 export const api = {
@@ -50,4 +66,51 @@ export const api = {
   endOtherSessions: () => requestVoid("/account/sessions", { method: "DELETE" }),
   securityLog: (page: number) => request(SecurityLogPage, `/account/security-log?page=${page}`),
   vaultsSummary: () => request(VaultsSummary, "/vaults/summary"),
+  vaults: () => request(VaultList, "/vaults"),
+  vault: (id: string) => request(Vault, `/vaults/${encodeURIComponent(id)}`),
+  updateVault: (id: string, body: VaultPatch) =>
+    request(Vault, `/vaults/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  deleteVault: (id: string, confirmName: string) =>
+    requestVoid(`/vaults/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirmName } }),
+  downloadZip: (id: string, at?: string) =>
+    requestBlob(
+      `/vaults/${encodeURIComponent(id)}/zip${at ? `?at=${encodeURIComponent(at)}` : ""}`,
+    ),
+  devices: () => request(DeviceList, "/devices"),
+  device: (id: string) => request(Device, `/devices/${encodeURIComponent(id)}`),
+  renameDevice: (id: string, name: string) =>
+    request(Device, `/devices/${encodeURIComponent(id)}`, { method: "PATCH", body: { name } }),
+  revokeDevice: (id: string) =>
+    request(Device, `/devices/${encodeURIComponent(id)}/revoke`, { method: "POST" }),
+  startPairing: (vaultId: string) =>
+    request(PairingOffer, `/vaults/${encodeURIComponent(vaultId)}/pairings`, { method: "POST" }),
+  pairing: (id: string) => request(PairingState, `/pairings/${encodeURIComponent(id)}`),
+  approvePairing: (id: string) =>
+    requestVoid(`/pairings/${encodeURIComponent(id)}/approve`, { method: "POST" }),
+  denyPairing: (id: string) =>
+    requestVoid(`/pairings/${encodeURIComponent(id)}/deny`, { method: "POST" }),
+  cancelPairing: (id: string) =>
+    requestVoid(`/pairings/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
+  conflicts: () => request(ConflictList, "/conflicts"),
+  conflict: (id: string) => request(ConflictDetail, `/conflicts/${encodeURIComponent(id)}`),
+  resolveConflict: (id: string, resolution: Resolution, expectedIncomingAt: string) =>
+    requestVoid(`/conflicts/${encodeURIComponent(id)}/resolve`, {
+      method: "POST",
+      body: { resolution, expectedIncomingAt },
+    }),
+  resolveAll: (strategy: BulkStrategy, ids: string[]) =>
+    request(ResolveAllResponse, "/conflicts/resolve-all", {
+      method: "POST",
+      body: { strategy, ids },
+    }),
+  files: (vaultId: string, q: string) =>
+    request(FileList, `/vaults/${encodeURIComponent(vaultId)}/files?q=${encodeURIComponent(q)}`),
+  fileVersions: (fileId: string) =>
+    request(FileVersions, `/files/${encodeURIComponent(fileId)}/versions`),
+  version: (id: string) => request(VersionContent, `/versions/${encodeURIComponent(id)}`),
+  restoreVersion: (id: string) =>
+    requestVoid(`/versions/${encodeURIComponent(id)}/restore`, { method: "POST" }),
+  trash: (vaultId: string) => request(TrashList, `/vaults/${encodeURIComponent(vaultId)}/trash`),
+  restoreTrash: (fileId: string) =>
+    requestVoid(`/trash/${encodeURIComponent(fileId)}/restore`, { method: "POST" }),
 };

@@ -1,4 +1,3 @@
-import type { Level } from "@kamino/status";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
@@ -13,41 +12,16 @@ import {
   Vault,
   GitCompareArrows,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "../api/endpoints.js";
-import { LEVEL_CLASSES, STATUS_ICONS } from "../components/status/status-icons.js";
+import { LevelBadge, worstLevel } from "../components/status/LevelBadge.js";
 import { Button } from "../components/ui/button.js";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "../components/ui/sheet.js";
 import { cn } from "../lib/utils.js";
+import { useTheme } from "../theme/ThemeProvider.js";
 import { BrandMark } from "./BrandMark.js";
-
-const SEVERITY: Level[] = ["safe", "working", "attention", "decision", "blocked"];
-const LEVEL_ICON = {
-  safe: "shield-check",
-  working: "refresh-cw",
-  attention: "triangle-alert",
-  decision: "git-compare-arrows",
-  blocked: "octagon-alert",
-} as const;
-
-function LevelBadge({ level }: { level: Level }) {
-  const { t } = useTranslation();
-  const Icon = STATUS_ICONS[LEVEL_ICON[level]];
-  return (
-    <span
-      role="status"
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-        LEVEL_CLASSES[level],
-      )}
-    >
-      <Icon aria-hidden="true" className="size-3.5" />
-      {t(`shell.levels.${level}`)}
-    </span>
-  );
-}
 
 function NavItem({
   to,
@@ -84,22 +58,28 @@ function NavItem({
 
 /** Signed-in layout (spec §8.3): sidebar on desktop, top bar + sheet on narrow screens. */
 export function AppShell() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { setTheme } = useTheme();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const me = useQuery({ queryKey: ["me"], queryFn: api.me }).data;
+  // Language and theme saved on the server win at sign-in (and when the user changes).
+  useEffect(() => {
+    if (!me) return;
+    if (i18n.language !== me.lang) {
+      void i18n.changeLanguage(me.lang);
+      document.documentElement.lang = me.lang;
+    }
+    setTheme(me.theme);
+  }, [me?.id]); // only when another user signs in
   const summary = useQuery({
     queryKey: ["vaults-summary"],
     queryFn: api.vaultsSummary,
     enabled: !!me && !me.totpSetupRequired,
   }).data;
-  const levels = summary?.vaults.map((v) => v.level) ?? [];
-  const overall = levels.reduce<Level>(
-    (a, b) => (SEVERITY.indexOf(b) > SEVERITY.indexOf(a) ? b : a),
-    "safe",
-  );
+  const overall = worstLevel(summary?.vaults.map((v) => v.level) ?? []);
   const conflicts = summary?.vaults.reduce((n, v) => n + v.conflicts, 0) ?? 0;
 
   const logout = async () => {

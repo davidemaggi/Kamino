@@ -120,3 +120,25 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/* Diff (@kamino/ui-diff): code font; unified view recolored so mine = blocked tint, incoming = safe tint, as in the plugin. */
+.kamino-diff .cm-editor {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 13px;
+  background: var(--card);
+}
+.kamino-diff .diff-view--unified .cm-changedLine,
+.kamino-diff .diff-view--unified .cm-inlineChangedLine {
+  background-color: var(--status-blocked-surface);
+}
+.kamino-diff .diff-view--unified .cm-deletedChunk {
+  background-color: var(--status-safe-surface);
+}
+.kamino-diff .diff-view--unified .cm-deletedChunk .cm-deletedText {
+  background: transparent;
+}
+.kamino-diff .cm-gutters,
+.kamino-diff .cm-merge-gap {
+  background: var(--card);
+  border-color: var(--border);
+}

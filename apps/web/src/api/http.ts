@@ -82,3 +82,9 @@ export async function request<T>(
 export async function requestVoid(path: string, opts: RequestOptions = {}): Promise<void> {
   await send(path, opts);
 }
+
+/** Binary response (e.g. ZIP download). Errors are ApiError like every other call. */
+export async function requestBlob(path: string, opts: RequestOptions = {}): Promise<Blob> {
+  const res = await send(path, opts);
+  return res.blob();
+}

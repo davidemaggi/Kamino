@@ -1,0 +1,47 @@
+import { z } from "zod";
+
+export const VersionRef = z.object({ device: z.string(), at: z.string() });
+export const ConflictSummary = z.object({
+  id: z.string(),
+  vaultId: z.string(),
+  vaultName: z.string(),
+  path: z.string(),
+  kind: z.enum(["concurrent_edit", "both_created"]),
+  binary: z.boolean(),
+  mine: VersionRef,
+  incoming: VersionRef,
+});
+export type ConflictSummary = z.infer<typeof ConflictSummary>;
+export const ConflictList = z.array(ConflictSummary);
+
+export const BinaryMeta = z.object({
+  size: z.number().min(0),
+  mime: z.string(),
+  previewUrl: z.string().nullable(),
+});
+export type BinaryMeta = z.infer<typeof BinaryMeta>;
+
+const base = ConflictSummary.omit({ binary: true });
+export const ConflictDetail = z.discriminatedUnion("binary", [
+  base.extend({ binary: z.literal(false), mineText: z.string(), incomingText: z.string() }),
+  base.extend({ binary: z.literal(true), mineFile: BinaryMeta, incomingFile: BinaryMeta }),
+]);
+export type ConflictDetail = z.infer<typeof ConflictDetail>;
+
+export const Resolution = z.union([
+  z.literal("keep_mine"),
+  z.literal("keep_incoming"),
+  z.literal("keep_both"),
+  z.object({ manual: z.string() }),
+]);
+export type Resolution = z.infer<typeof Resolution>;
+/** expectedIncomingAt: the incoming version the user looked at (protocol §9.3, stale_resolution). */
+export const ResolveRequest = z.object({ resolution: Resolution, expectedIncomingAt: z.string() });
+
+export const BulkStrategy = z.enum(["keep_mine", "keep_incoming", "keep_both"]);
+export type BulkStrategy = z.infer<typeof BulkStrategy>;
+export const ResolveAllRequest = z.object({
+  strategy: BulkStrategy,
+  ids: z.array(z.string()).min(1),
+});
+export const ResolveAllResponse = z.object({ resolved: z.number().int().min(0) });

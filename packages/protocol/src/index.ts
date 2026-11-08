@@ -3,3 +3,7 @@ export * from "./errors.js";
 export * from "./version-info.js";
 export * from "./auth.js";
 export * from "./account.js";
+export * from "./vaults.js";
+export * from "./devices.js";
+export * from "./conflicts.js";
+export * from "./history.js";

@@ -1,4 +1,5 @@
 import type { Lang, Role, SecurityEventType, Theme } from "@kamino/protocol";
+import { seedUserData } from "./userdata.js";
 
 // Fake server state for development and tests. Plain-text passwords exist ONLY here.
 
@@ -92,6 +93,7 @@ export function resetDb(preset: "default" | "empty" = "default"): void {
   db.events = [];
   db.smtp = true;
   db.seq = 0;
+  seedUserData();
   if (preset === "empty") return;
 
   const admin = user({
@@ -101,7 +103,7 @@ export function resetDb(preset: "default" | "empty" = "default"): void {
     totpEnabled: true,
     recoveryCodes: [...TEST_RECOVERY_CODES],
   });
-  const demo = user({ username: "demo", password: "demo-password-1", lang: "en" });
+  const demo = user({ username: "demo", password: "demo-password-1" });
   db.users.push(
     admin,
     demo,

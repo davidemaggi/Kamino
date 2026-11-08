@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { signInAs } from "../mocks/db.js";
+import { db, signInAs } from "../mocks/db.js";
 import { renderRoute } from "../test/render.js";
 
 afterEach(cleanup);
@@ -47,5 +47,12 @@ describe("AppShell", () => {
     await renderRoute("/account");
     expect(await screen.findByText("Vai al contenuto")).toBeDefined();
     expect(document.title).toContain("Account");
+  });
+
+  it("applies language and theme saved on the server", async () => {
+    db.users.find((u) => u.username === "demo")!.lang = "en";
+    signInAs("demo");
+    await renderRoute("/account", "it");
+    expect(await screen.findByRole("navigation", { name: "Main navigation" })).toBeDefined();
   });
 });

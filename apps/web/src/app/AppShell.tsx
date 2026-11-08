@@ -12,7 +12,7 @@ import {
   Vault,
   GitCompareArrows,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "../api/endpoints.js";
@@ -20,6 +20,7 @@ import { LevelBadge, worstLevel } from "../components/status/LevelBadge.js";
 import { Button } from "../components/ui/button.js";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "../components/ui/sheet.js";
 import { cn } from "../lib/utils.js";
+import { useTheme } from "../theme/ThemeProvider.js";
 import { BrandMark } from "./BrandMark.js";
 
 function NavItem({
@@ -57,12 +58,22 @@ function NavItem({
 
 /** Signed-in layout (spec §8.3): sidebar on desktop, top bar + sheet on narrow screens. */
 export function AppShell() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { setTheme } = useTheme();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const me = useQuery({ queryKey: ["me"], queryFn: api.me }).data;
+  // Language and theme saved on the server win at sign-in (and when the user changes).
+  useEffect(() => {
+    if (!me) return;
+    if (i18n.language !== me.lang) {
+      void i18n.changeLanguage(me.lang);
+      document.documentElement.lang = me.lang;
+    }
+    setTheme(me.theme);
+  }, [me?.id]); // only when another user signs in
   const summary = useQuery({
     queryKey: ["vaults-summary"],
     queryFn: api.vaultsSummary,

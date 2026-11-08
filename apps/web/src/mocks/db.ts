@@ -103,7 +103,7 @@ export function resetDb(preset: "default" | "empty" = "default"): void {
     totpEnabled: true,
     recoveryCodes: [...TEST_RECOVERY_CODES],
   });
-  const demo = user({ username: "demo", password: "demo-password-1", lang: "en" });
+  const demo = user({ username: "demo", password: "demo-password-1" });
   db.users.push(
     admin,
     demo,

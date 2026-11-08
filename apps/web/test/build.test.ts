@@ -63,6 +63,12 @@ describe("production build", () => {
     expect(files.some((f) => f.endsWith("mockServiceWorker.js"))).toBe(false);
   });
 
+  it("keeps every chunk under 500 KB (heavy routes are lazy)", () => {
+    for (const f of files.filter((x) => x.endsWith(".js"))) {
+      expect(statSync(f).size, f).toBeLessThan(500 * 1024);
+    }
+  });
+
   it("injects the product name into the title", () => {
     const html = readFileSync(join(out, "index.html"), "utf8");
     expect(html).toMatch(/<title>[^%<]+<\/title>/);

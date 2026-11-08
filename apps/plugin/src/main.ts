@@ -1,26 +1,62 @@
 import { DEFAULT_THRESHOLDS, describeStatus } from "@kamino/status";
 import { getIconIds, Platform, Plugin } from "obsidian";
-import { registerStatusGallery } from "./dev/status-gallery.js";
-import { detectLanguage } from "./i18n/index.js";
+import { registerDevCommands } from "./dev/commands.js";
+import { detectLanguage, t } from "./i18n/index.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
-import { INITIAL_SNAPSHOT, StatusIndicator } from "./ui/StatusIndicator.js";
+import { FakeSyncState } from "./state/fake.js";
+import type { UiContext } from "./ui/context.js";
+import { StatusIndicator } from "./ui/StatusIndicator.js";
+import { BulkResolveModal } from "./ui/BulkResolveModal.js";
+import { ConflictView } from "./ui/ConflictView.js";
+import { StatusPanelView } from "./ui/StatusPanelView.js";
+import { CONFLICT_VIEW, openConflict, openStatusPanel, STATUS_VIEW } from "./ui/workspace.js";
 
 export default class SyncPlugin extends Plugin {
   override onload(): void {
     this.addSettingTab(new SettingsTab(this.app, this));
 
     const lang = detectLanguage();
+    const m = t(lang);
     const now = () => Date.now();
-    const indicator = new StatusIndicator(this, {
-      isMobile: Platform.isMobile,
+    // Until the sync engine lands (M1/M3) the state is an empty in-memory one: "never synced".
+    const state = new FakeSyncState(
+      { name: m.panel.notLinked, mode: "live", server: m.panel.noServer },
+      now,
+    );
+    const ctx: UiContext = {
+      source: state,
+      actions: state,
       lang,
+      isMobile: Platform.isMobile,
       now,
       available: new Set(getIconIds()),
+      openStatusPanel: () => openStatusPanel(this.app),
+      openConflict: (id) => openConflict(this.app, id),
+      openBulkResolve: () => new BulkResolveModal(this.app, ctx).open(),
+    };
+
+    this.registerView(STATUS_VIEW, (leaf) => new StatusPanelView(leaf, ctx));
+    this.registerView(CONFLICT_VIEW, (leaf) => new ConflictView(leaf, ctx));
+
+    const indicator = new StatusIndicator(this, {
+      isMobile: ctx.isMobile,
+      lang,
+      now,
+      available: ctx.available,
+      onOpenDetails: () => void ctx.openStatusPanel(),
     });
     indicator.mount();
-    // Until the sync engine lands (M1) the honest state is "never synced".
-    indicator.update(describeStatus(INITIAL_SNAPSHOT, DEFAULT_THRESHOLDS, now()));
+    const refresh = () =>
+      indicator.update(describeStatus(state.snapshot(), DEFAULT_THRESHOLDS, now()));
+    this.register(state.onChange(refresh));
+    refresh();
 
-    if (__DEV__) registerStatusGallery(this, indicator, { now, lang });
+    this.addCommand({
+      id: "open-status",
+      name: m.panel.openCommand,
+      callback: () => void ctx.openStatusPanel(),
+    });
+
+    if (__DEV__) registerDevCommands(this, { lang, now, state, ctx });
   }
 }

@@ -15,6 +15,7 @@ Questi punti contengono il nome in chiaro e vanno aggiornati a mano:
 - **Workflow CI** (`.github/workflows/*`): nome dell'immagine, nome degli artefatti, filtri `pnpm --filter @kamino/...`.
 - **Comando CLI** `kamino`: campo `bin` di `apps/server/package.json`.
 - **CSS del plugin** (`apps/plugin/src/styles.css`): il prefisso delle classi `.kamino-status*` è `PRODUCT_SLUG`; il test `apps/plugin/test/styles.test.ts` fallisce finché non è allineato.
+- **Tipi di vista del plugin** (`kamino-status-panel`, `kamino-conflict`): derivano da `PRODUCT_SLUG`; cambiandoli, le schede di quelle viste salvate nel layout degli utenti non si riaprono (vanno riaperte a mano).
 - **Script `build:vault` del plugin** (`apps/plugin/scripts/install-vault.ts`): il percorso predefinito della vault di prova è `vault/kamino/`.
 - **Documentazione** in `docs/` e `README.md`: testi descrittivi scritti a mano.
 

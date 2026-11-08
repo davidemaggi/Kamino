@@ -38,3 +38,152 @@
 .kamino-status-action--blocked {
   color: var(--color-red);
 }
+
+.kamino-status-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-4);
+  padding: var(--size-4-3);
+}
+.kamino-status-panel__summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+}
+.kamino-status-panel__headline {
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+}
+.kamino-status-panel__muted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.kamino-status-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-1);
+}
+.kamino-status-panel__header h3 {
+  margin: 0;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.kamino-status-panel__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--size-4-2);
+  width: 100%;
+  height: auto;
+  padding: var(--size-4-2) var(--size-4-1);
+  border-top: 1px solid var(--background-modifier-border);
+  background: none;
+  box-shadow: none;
+  text-align: left;
+}
+.kamino-status-panel__name {
+  overflow-wrap: anywhere;
+}
+.kamino-status-panel__meta {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.kamino-status-panel__device {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--size-4-1) var(--size-4-3);
+  margin: 0;
+}
+.kamino-status-panel__device dt {
+  color: var(--text-muted);
+}
+.kamino-status-panel__device dd {
+  margin: 0;
+}
+
+.kamino-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+  padding: var(--size-4-4);
+}
+.kamino-conflict h2 {
+  margin: 0;
+}
+.kamino-conflict__muted {
+  margin: 0;
+  color: var(--text-muted);
+}
+.kamino-conflict__alert {
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--color-yellow);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+}
+.kamino-conflict__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+}
+.kamino-conflict--mobile .kamino-conflict__actions {
+  flex-direction: column;
+}
+.kamino-conflict--mobile .kamino-conflict__actions button {
+  width: 100%;
+}
+.kamino-conflict__tabs {
+  display: flex;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.kamino-conflict__tabs button {
+  flex: 1;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.kamino-conflict__tabs button[aria-selected="true"] {
+  box-shadow: inset 0 -2px 0 var(--interactive-accent);
+}
+.kamino-conflict__text {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+}
+.kamino-conflict__binary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--size-4-3);
+}
+.kamino-conflict--mobile .kamino-conflict__binary {
+  grid-template-columns: 1fr;
+}
+.kamino-conflict__file img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-s);
+}
+/* Unified diff: the document is "mine", the original is "incoming".
+   @codemirror/merge colors the document as inserted (green) and the original as deleted (red):
+   recolor so that mine = red and incoming = green, as in the split view.
+   Class names checked against @codemirror/merge 6.12 (re-check when upgrading). */
+.kamino-conflict .diff-view--unified .cm-changedLine,
+.kamino-conflict .diff-view--unified .cm-inlineChangedLine {
+  background-color: rgba(var(--color-red-rgb), 0.12);
+}
+.kamino-conflict .diff-view--unified .cm-changedText {
+  background: rgba(var(--color-red-rgb), 0.25);
+}
+.kamino-conflict .diff-view--unified .cm-deletedChunk {
+  background-color: rgba(var(--color-green-rgb), 0.12);
+}
+.kamino-conflict .diff-view--unified .cm-deletedChunk .cm-deletedText {
+  background: rgba(var(--color-green-rgb), 0.25);
+}

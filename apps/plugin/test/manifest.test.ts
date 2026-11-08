@@ -57,8 +57,15 @@ describe("plugin build output", () => {
     expect(read("dist/styles.css")).toBeDefined();
   });
 
+  it("keeps Obsidian's CodeMirror external and bundles the merge view", () => {
+    const bundle = read("dist/main.js");
+    expect(bundle).toMatch(/require\("@codemirror\/state"\)/);
+    expect(bundle).toMatch(/require\("@codemirror\/view"\)/);
+    expect(bundle).not.toMatch(/require\("@codemirror\/merge"\)/);
+  });
+
   it("production bundle has no dev gallery", () => {
-    expect(read("dist/main.js")).not.toContain("dev-status-gallery");
+    expect(read("dist/main.js")).not.toMatch(/"dev-[a-z-]+"/);
   });
 
   it("bundle uses no Node/Electron modules", () => {

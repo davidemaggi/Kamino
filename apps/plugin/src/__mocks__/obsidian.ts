@@ -62,9 +62,15 @@ export class MarkdownView {
   }
 }
 
+type ViewCreator = (leaf: WorkspaceLeaf) => ItemView;
+
 export class Workspace {
   private handlers = new Map<string, Handler[]>();
   activeView: MarkdownView | null = null;
+  creators = new Map<string, ViewCreator>();
+  leaves: WorkspaceLeaf[] = [];
+  revealed: WorkspaceLeaf[] = [];
+  constructor(public app: App) {}
   on(name: string, cb: Handler): { name: string } {
     this.handlers.set(name, [...(this.handlers.get(name) ?? []), cb]);
     return { name };
@@ -76,10 +82,90 @@ export class Workspace {
     void type;
     return this.activeView as T | null;
   }
+  getRightLeaf(split: boolean): WorkspaceLeaf {
+    void split;
+    return new WorkspaceLeaf(this.app);
+  }
+  getLeaf(newLeaf?: unknown): WorkspaceLeaf {
+    void newLeaf;
+    return new WorkspaceLeaf(this.app);
+  }
+  getLeavesOfType(type: string): WorkspaceLeaf[] {
+    return this.leaves.filter((l) => l.view?.getViewType() === type);
+  }
+  revealLeaf(leaf: WorkspaceLeaf): Promise<void> {
+    this.revealed.push(leaf);
+    return Promise.resolve();
+  }
+}
+
+export class WorkspaceLeaf {
+  view: ItemView | null = null;
+  constructor(public app: App) {}
+  async setViewState(state: { type: string; state?: unknown; active?: boolean }): Promise<void> {
+    const creator = this.app.workspace.creators.get(state.type);
+    if (!creator) throw new Error(`no view registered: ${state.type}`);
+    if (this.view) await this.view.close();
+    const view = creator(this);
+    this.view = view;
+    if (!this.app.workspace.leaves.includes(this)) this.app.workspace.leaves.push(this);
+    await view.open();
+    await view.setState(state.state ?? {}, { history: false });
+  }
+  getViewState(): { type: string; state: Record<string, unknown> } {
+    return { type: this.view?.getViewType() ?? "empty", state: this.view?.getState() ?? {} };
+  }
+  detach(): void {
+    this.app.workspace.leaves = this.app.workspace.leaves.filter((l) => l !== this);
+    const view = this.view;
+    this.view = null;
+    void view?.close();
+  }
+}
+
+export class ItemView {
+  app: App;
+  containerEl: ObsidianElement = makeEl();
+  contentEl: ObsidianElement = makeEl();
+  constructor(public leaf: WorkspaceLeaf) {
+    this.app = leaf.app;
+    this.containerEl.append(this.contentEl);
+  }
+  getViewType(): string {
+    return "";
+  }
+  getDisplayText(): string {
+    return "";
+  }
+  getIcon(): string {
+    return "";
+  }
+  getState(): Record<string, unknown> {
+    return {};
+  }
+  setState(state: unknown, result: unknown): Promise<void> {
+    void state;
+    void result;
+    return Promise.resolve();
+  }
+  protected onOpen(): Promise<void> {
+    return Promise.resolve();
+  }
+  protected onClose(): Promise<void> {
+    return Promise.resolve();
+  }
+  /** Test helper (Obsidian calls onOpen itself). */
+  open(): Promise<void> {
+    return this.onOpen();
+  }
+  /** Test helper (Obsidian calls onClose itself). */
+  close(): Promise<void> {
+    return this.onClose();
+  }
 }
 
 export class App {
-  workspace = new Workspace();
+  workspace: Workspace = new Workspace(this);
 }
 
 export interface Command {
@@ -110,6 +196,9 @@ export class Plugin {
     this.ribbonIcons.push(el);
     return el;
   }
+  registerView(type: string, creator: ViewCreator): void {
+    this.app.workspace.creators.set(type, creator);
+  }
   addCommand(command: Command): Command {
     this.commands.push(command);
     return command;
@@ -125,6 +214,23 @@ export class Plugin {
   unload(): void {
     for (const cb of this.cleanups.splice(0)) cb();
   }
+}
+
+export class Modal {
+  contentEl: ObsidianElement = makeEl();
+  titleEl: ObsidianElement = makeEl();
+  isOpen = false;
+  constructor(public app: App) {}
+  open(): void {
+    this.isOpen = true;
+    void this.onOpen();
+  }
+  close(): void {
+    this.isOpen = false;
+    void this.onClose();
+  }
+  onOpen(): void | Promise<void> {}
+  onClose(): void {}
 }
 
 export class PluginSettingTab {

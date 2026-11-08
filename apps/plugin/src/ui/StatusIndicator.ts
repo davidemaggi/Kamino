@@ -20,6 +20,8 @@ export interface IndicatorDeps {
   lang: Lang;
   now: () => number;
   available: ReadonlySet<string> | null;
+  /** Opens the status panel (click on status bar, ribbon or header action). */
+  onOpenDetails: () => void;
 }
 
 /** State before the sync engine exists (M1): honest "never synced". */
@@ -117,7 +119,6 @@ export class StatusIndicator {
   }
 
   private showDetails(): void {
-    if (!this.status) return;
-    new Notice(statusLabel(this.status, this.deps.now(), this.deps.lang));
+    this.deps.onOpenDetails();
   }
 }

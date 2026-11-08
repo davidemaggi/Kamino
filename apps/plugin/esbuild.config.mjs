@@ -17,7 +17,22 @@ await build({
   format: "cjs",
   platform: "browser",
   target: "es2022",
-  external: ["obsidian", "electron", "@codemirror/*", "@lezer/*"],
+  // Provided by Obsidian at runtime. @codemirror/merge is NOT here: it is bundled.
+  external: [
+    "obsidian",
+    "electron",
+    "@codemirror/autocomplete",
+    "@codemirror/collab",
+    "@codemirror/commands",
+    "@codemirror/language",
+    "@codemirror/lint",
+    "@codemirror/search",
+    "@codemirror/state",
+    "@codemirror/view",
+    "@lezer/common",
+    "@lezer/highlight",
+    "@lezer/lr",
+  ],
   define: buildConstants({ dev }),
   // Drops `if (false) { ... }` branches, so dev-only code is not shipped.
   minifySyntax: !dev,

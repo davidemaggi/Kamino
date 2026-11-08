@@ -2,7 +2,7 @@ import { DEFAULT_THRESHOLDS, describeStatus, exampleSnapshots } from "@kamino/st
 // Mock classes imported by path: Vitest aliases "obsidian" to this same module,
 // and the mock-only fields (statusBarItems, actions, Notice.shown) stay typed.
 import { MarkdownView, Notice, Plugin } from "../__mocks__/obsidian.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { levelClass } from "./status-classes.js";
 import { StatusIndicator } from "./StatusIndicator.js";
 
@@ -11,6 +11,7 @@ const status = (id: string) =>
   describeStatus(exampleSnapshots(NOW).find((e) => e.id === id)!.snapshot, DEFAULT_THRESHOLDS, NOW);
 
 function setup(isMobile: boolean) {
+  const onOpenDetails = vi.fn();
   const plugin = new Plugin();
   const view = new MarkdownView();
   plugin.app.workspace.activeView = view;
@@ -19,9 +20,10 @@ function setup(isMobile: boolean) {
     lang: "it",
     now: () => NOW,
     available: null,
+    onOpenDetails,
   });
   indicator.mount();
-  return { plugin, view, indicator };
+  return { plugin, view, indicator, onOpenDetails };
 }
 
 beforeEach(() => {
@@ -114,10 +116,10 @@ describe("StatusIndicator notices", () => {
     ]);
   });
 
-  it("clicking the ribbon shows the full label", () => {
-    const { plugin, indicator } = setup(false);
+  it("clicking the ribbon opens the status panel", () => {
+    const { plugin, indicator, onOpenDetails } = setup(false);
     indicator.update(status("safe"));
     plugin.ribbonIcons[0]!.click();
-    expect(Notice.shown.at(-1)).toBe("Tutto al sicuro · Ultimo sync confermato: 2 min fa");
+    expect(onOpenDetails).toHaveBeenCalled();
   });
 });

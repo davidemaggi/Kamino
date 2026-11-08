@@ -1444,11 +1444,11 @@ export class SettingsStore {
   }
 
   async load(): Promise<void> {
-    let raw: unknown = null;
+    let raw: unknown;
     try {
       raw = await this.io.loadData();
     } catch {
-      raw = null;
+      raw = null; // unreadable data.json: start from the defaults
     }
     const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
     this.settings = normalizeSettings(r["settings"], this.isMobile);

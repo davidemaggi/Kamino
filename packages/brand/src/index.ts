@@ -7,6 +7,8 @@
 export const PRODUCT_NAME = "Kamino";
 /** Technical name: obsidian:// URIs, identifiers. */
 export const PRODUCT_SLUG = "kamino";
+/** Action of the obsidian:// link handled by the plugin (QR / magic link). */
+export const PROTOCOL_ACTION = PRODUCT_SLUG;
 /** Obsidian plugin id; must not contain the word "obsidian". */
 export const PLUGIN_ID = "kamino-sync";
 export const ENV_PREFIX = "KAMINO_";

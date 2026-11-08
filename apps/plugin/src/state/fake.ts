@@ -12,6 +12,7 @@ import type {
   ResolveOutcome,
   SyncStateSource,
 } from "./types.js";
+import type { TransferProgress } from "../connection/types.js";
 
 export interface Scenario {
   snapshot: SyncSnapshot;
@@ -33,7 +34,7 @@ export class FakeSyncState implements SyncStateSource, ConflictActions {
   private staleNext = false;
 
   constructor(
-    private readonly deviceInfo: DeviceInfo,
+    private deviceInfo: DeviceInfo,
     private readonly clock: () => number,
   ) {}
 
@@ -80,6 +81,40 @@ export class FakeSyncState implements SyncStateSource, ConflictActions {
     this.deferredList = [...sc.deferred];
     this.emit();
   }
+  /** Updates the device info shown in the panel (link, unlink, rename). */
+  setDevice(info: DeviceInfo): void {
+    this.deviceInfo = info;
+    this.emit();
+  }
+
+  /** Reflects the link state in the snapshot (not linked → "Not linked", never "safe"). */
+  setLinked(linked: boolean): void {
+    this.snap = { ...this.snap, linked };
+    this.emit();
+  }
+
+  /** Reflects the initial transfer: pending files, syncing, then a confirmed sync when done. */
+  setTransfer(p: TransferProgress | null): void {
+    if (!p) return;
+    const left = p.files.total - p.files.done;
+    this.snap =
+      p.phase === "done"
+        ? {
+            ...this.snap,
+            queued: 0,
+            oldestQueuedAt: null,
+            syncing: false,
+            lastConfirmedAt: this.clock(),
+          }
+        : {
+            ...this.snap,
+            queued: left,
+            oldestQueuedAt: this.snap.oldestQueuedAt ?? this.clock(),
+            syncing: p.phase === "running",
+          };
+    this.emit();
+  }
+
   /** Test/dev helper: the next resolve() answers "stale" and a newer version arrives. */
   nextResolveStale(): void {
     this.staleNext = true;

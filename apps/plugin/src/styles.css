@@ -187,3 +187,116 @@
 .kamino-conflict .diff-view--unified .cm-deletedChunk .cm-deletedText {
   background: rgba(var(--color-green-rgb), 0.25);
 }
+
+.kamino-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+  max-width: 560px;
+  padding: var(--size-4-6) var(--size-4-4);
+}
+.kamino-welcome h2 {
+  margin: 0;
+}
+.kamino-welcome__muted {
+  color: var(--text-muted);
+}
+.kamino-welcome__choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+  height: auto;
+  padding: var(--size-4-3);
+  text-align: left;
+  white-space: normal;
+}
+.kamino-welcome__help {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+}
+.kamino-welcome__error {
+  color: var(--text-error);
+  min-height: 1em;
+  margin: 0;
+}
+
+.kamino-connect__body,
+.kamino-connect__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+}
+.kamino-connect__field input {
+  width: 100%;
+}
+.kamino-connect__vault {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 var(--size-4-2);
+  padding: var(--size-4-2) 0;
+}
+.kamino-connect__vault .kamino-connect__muted {
+  grid-column: 2;
+}
+.kamino-connect__muted,
+.kamino-transfer__muted {
+  color: var(--text-muted);
+}
+.kamino-connect__warning {
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--color-yellow);
+  border-radius: var(--radius-s);
+}
+.kamino-connect__error {
+  color: var(--text-error);
+}
+.kamino-transfer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+  max-width: 560px;
+  padding: var(--size-4-6) var(--size-4-4);
+}
+.kamino-transfer progress {
+  width: 100%;
+}
+.kamino-transfer__actions {
+  display: flex;
+  gap: var(--size-4-2);
+}
+
+.kamino-pairing__code {
+  margin: var(--size-4-3) 0;
+  padding: var(--size-4-3) 0;
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  font-family: var(--font-monospace);
+  font-size: 2em;
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+.kamino-pairing__qr {
+  display: block;
+  margin: var(--size-4-3) auto;
+  border-radius: var(--radius-s);
+}
+.kamino-pairing input[readonly] {
+  width: 100%;
+  font-family: var(--font-monospace);
+}
+.kamino-pairing__muted {
+  color: var(--text-muted);
+}
+.kamino-pairing__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+}
+
+.kamino-settings__note {
+  margin: var(--size-4-1) 0 var(--size-4-3);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}

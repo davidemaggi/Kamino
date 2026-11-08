@@ -12,6 +12,8 @@ export interface SyncSnapshot {
   conflicts: number;
   blocked: BlockReason | null;
   quotaRatio: number | null;
+  /** false = this vault is not linked to a server yet. Absent = linked. */
+  linked?: boolean;
 }
 
 export interface Thresholds {

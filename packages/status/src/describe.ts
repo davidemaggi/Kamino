@@ -31,6 +31,8 @@ export function describeStatus(s: SyncSnapshot, th: Thresholds, now: number): St
   }
   if (s.queued > 0) {
     add("working", s.syncing ? "working.syncing" : "working.queued", { count: s.queued });
+  } else if (s.linked === false) {
+    add("working", "working.notLinked");
   } else if (s.lastConfirmedAt === null) {
     add("working", "working.neverSynced");
   }

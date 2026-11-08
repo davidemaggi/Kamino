@@ -25,3 +25,17 @@ export async function openConflict(app: App, id: string): Promise<void> {
     await leaf.setViewState({ type: CONFLICT_VIEW, active: true, state: { conflictId: id } });
   await app.workspace.revealLeaf(leaf);
 }
+
+export const WELCOME_VIEW = `${PRODUCT_SLUG}-welcome`;
+export const TRANSFER_VIEW = `${PRODUCT_SLUG}-transfer`;
+
+/** Opens (or reveals) a singleton view in the main area. */
+async function openSingleton(app: App, type: string): Promise<void> {
+  const existing = app.workspace.getLeavesOfType(type)[0];
+  const leaf = existing ?? app.workspace.getLeaf("tab");
+  if (!existing) await leaf.setViewState({ type, active: true });
+  await app.workspace.revealLeaf(leaf);
+}
+
+export const openWelcome = (app: App): Promise<void> => openSingleton(app, WELCOME_VIEW);
+export const openTransfer = (app: App): Promise<void> => openSingleton(app, TRANSFER_VIEW);

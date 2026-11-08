@@ -105,4 +105,32 @@ describe("StatusPanelView", () => {
     state.loadScenario(conflictScenario(TEST_NOW));
     expect(root.innerHTML).toBe(before);
   });
+
+  it("not linked: 'Collega…' opens the welcome view", async () => {
+    const { ctx, state, plugin } = makeCtx();
+    state.setLinked(false);
+    const { root } = await open(ctx, plugin);
+    expect(root.textContent).toContain("Non collegato");
+    buttons(root)
+      .find((b) => b.textContent === "Collega…")!
+      .click();
+    expect(ctx.openWelcome).toHaveBeenCalled();
+  });
+
+  it("pairing requests appear on top and open the approval", async () => {
+    const { ctx, server, plugin } = makeCtx();
+    const login = await server.login("https://sync.example", "demo", "demo");
+    if (!login.ok) throw new Error("login");
+    await server.linkDevice(login.session, "v-notes", "Laptop");
+    await server.startPairing();
+    const { root } = await open(ctx, plugin);
+    server.simulateIncomingClaim("Pixel", "Android");
+    expect(headings(root)[0]).toBe("Richieste di collegamento · 1");
+    buttons(root)
+      .find((b) => b.textContent?.includes("Pixel"))!
+      .click();
+    expect(ctx.openAddDevice).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceName: "Pixel" }),
+    );
+  });
 });

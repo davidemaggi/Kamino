@@ -9,6 +9,7 @@ export const STATUS_MESSAGES: Record<Lang, Record<StatusKey, Template>> = {
     safe: "Tutto al sicuro",
     "working.syncing": { one: "Invio di 1 modifica…", other: "Invio di {count} modifiche…" },
     "working.queued": { one: "1 modifica in attesa", other: "{count} modifiche in attesa" },
+    "working.notLinked": "Non collegato",
     "working.neverSynced": "Mai sincronizzato",
     "attention.offline": {
       zero: "Server non raggiungibile da {age}",
@@ -38,6 +39,7 @@ export const STATUS_MESSAGES: Record<Lang, Record<StatusKey, Template>> = {
     safe: "All safe",
     "working.syncing": { one: "Sending 1 change…", other: "Sending {count} changes…" },
     "working.queued": { one: "1 change waiting", other: "{count} changes waiting" },
+    "working.notLinked": "Not linked",
     "working.neverSynced": "Never synced",
     "attention.offline": {
       zero: "Server unreachable for {age}",

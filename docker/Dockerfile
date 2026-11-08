@@ -12,6 +12,7 @@ COPY apps/web/package.json apps/web/
 COPY apps/plugin/package.json apps/plugin/
 COPY packages/brand/package.json packages/brand/
 COPY packages/protocol/package.json packages/protocol/
+COPY packages/status/package.json packages/status/
 COPY packages/tsconfig/package.json packages/tsconfig/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
@@ -19,7 +20,7 @@ COPY . .
 # .git is not in the build context; the commit comes in as a build arg.
 ARG KAMINO_BUILD_COMMIT=unknown
 ENV KAMINO_BUILD_COMMIT=${KAMINO_BUILD_COMMIT}
-RUN pnpm --filter "@kamino/server..." --filter "@kamino/web" build
+RUN pnpm --filter "@kamino/server..." --filter "@kamino/web..." build
 RUN pnpm --filter @kamino/server deploy --prod --config.inject-workspace-packages=true /out \
     && cp -r apps/web/dist /out/public \
     && find /out/node_modules -type f \( -name "*.map" -o -name "*.d.ts" -o -name "*.d.mts" -o -name "*.d.cts" \) -delete

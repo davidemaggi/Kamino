@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 3 in esecuzione sul branch `ui-onboarding` (task 1–8 di 9: link e QR, benvenuto, collegamento manuale, trasferimento, pairing con approvazione, impostazioni).
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 3 **implementata** sul branch `ui-onboarding` (9 task su 9) e provata su desktop dal committente. Prossimo: revisione finale del branch e PR.
 
 ## Dove siamo
 
@@ -14,7 +14,7 @@
 | **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
 | Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | ✅ mergiata su `main` (PR #2, 2026-11-08) |
 | Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | ✅ mergiata su `main` (PR #3, 2026-11-08) |
-| Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | 🔧 in esecuzione sul branch `ui-onboarding`: task 1–8 ✅, prossimo task 9 (documenti) |
+| Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ implementata e provata su desktop (task 1–9); ⏳ revisione finale e PR |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -40,7 +40,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 3:** proseguire il piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md` dal primo task non completato (blocchi: A ✅, B ✅, C ✅, D ✅, E = task 9). La schermata web "aggiungi dispositivo" è stata spostata nella sotto-fase 4. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
+1. **Fase UI, sotto-fase 3 — chiusura:** revisione finale del branch `ui-onboarding` (un subagente), PR verso `main`, merge (committente). Poi **sotto-fase 4** (web app: struttura, login/2FA, dashboard, vault, dispositivi, centro conflitti, account, admin, più la schermata "aggiungi dispositivo" spostata qui) con brainstorming → spec → piano. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
@@ -131,6 +131,20 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
 
+### Decisioni della fase UI (sotto-fase 3)
+
+Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`.
+
+| # | Decisione |
+|---|---|
+| O1 | Solo plugin, con le impostazioni; la schermata web "aggiungi dispositivo" passa alla sotto-fase 4 |
+| O2 | Primo avvio non collegato: scheda di benvenuto con tre strade |
+| O3 | Pairing in quattro passi (protocollo §10); la finestra "Aggiungi un dispositivo" diventa la richiesta di approvazione |
+| O4 | A finestra chiusa: notice cliccabile + sezione "Richieste di collegamento" nel pannello |
+| O5 | Impostazioni complete; i valori di comportamento si salvano ora e si applicano con M1/M2 (riga esplicita nella UI, flag `engineAvailable`) |
+| O6 | `ConnectionService`/`InitialTransfer` con `FakeServer` in memoria (credenziali e comandi di prova in `docs/ui/design-system.md` §8) |
+| O7 | QR generati con `uqr` (MIT, nessuna dipendenza); azione del link `PROTOCOL_ACTION` in `@kamino/brand` |
+
 ## Punti aperti (rinviati, con milestone)
 
 Esito della revisione finale di M0: questi restano aperti di proposito.
@@ -138,6 +152,7 @@ Esito della revisione finale di M0: questi restano aperti di proposito.
 - **M1:** R16 (ordine migrazioni/verifica chiave) insieme a: errore di unlock del lock migrazioni che può mascherare l'errore originale; snapshot completo di `ErrorCode` quando le rotte iniziano a emetterli; verificare se typescript-eslint supporta TS 7. Decidere `minAppVersion` del plugin con gli esiti di R-1 (`appendBinary` richiede Obsidian ≥ 1.12.3).
 - **M2:** negoziazione protocollo (euristica intervalli invertiti, schema zod `ProtocolRange`); shutdown con exit code corretto e scadenza (oggi esce sempre con 0; `docker stop` durante le migrazioni attende 10 s).
 - **M3:** collegare `ConflictView`/`StatusPanelView` alle implementazioni vere di `SyncStateSource`/`ConflictActions` (oggi `FakeSyncState`). Gli esterni espliciti di esbuild sono già fatti (sotto-fase UI 2).
+- **M1/M2:** implementazioni vere di `ConnectionService`/`InitialTransfer` (HTTP, token del dispositivo al posto del `FakeServer`); applicazione delle impostazioni di comportamento e `engineAvailable = true`; ricostruzione del server da un dispositivo (V-05) con i suoi avvisi.
 - **M7:** minificare il bundle di produzione del plugin (`minify` in `esbuild.config.mjs`; oggi 99,4 KB solo con `minifySyntax`).
 - **Fase UI:** i punti aperti di M0 (flash del tema, modalità "sistema", chiavi `theme.*`, `<title>`/`lang`) sono **chiusi** nella sotto-fase 1. Restano: ripetizione insistente delle notice (S-05) e pannello di stato completo → sotto-fase 2 / M1; su mobile, senza una nota aperta (grafo, canvas, scheda vuota) l'azione nell'intestazione non può comparire e restano solo ribbon (nel menu laterale) e notice → da riconsiderare nella sotto-fase 2; verifica delle icone sul `minAppVersion` scelto (oggi `1.5.0`) → revisione della galleria del plugin.
 - **M7 (hardening/release):** CLI `release-names` con errori non gestiti e test deboli; `statement_timeout` sul ping di readiness; redazione di `databaseUrl` annidato; rigore del base64 della chiave; rotazione chiave (regola "riga attiva di altra chiave → rifiuto", tabella con sole righe ritirate); `versions.json` del plugin generato in release (R19); password DB via `*_FILE`; `cloudflared` da pinnare e `--token-file` da provare; `compose run … keys generate` da provare; commitlint sul primo push di un branch; cache della build Docker in CI.
@@ -146,7 +161,7 @@ Esito della revisione finale di M0: questi restano aperti di proposito.
 ## In sospeso lato committente
 
 - Descrizione e topic del repo GitHub (ancora vuoti; `gh` ora è autenticato sul Mac, si possono impostare con `gh repo edit`).
-- **Prova del plugin su telefono** (rinviata dal committente il 2026-11-08, da fare insieme agli spike): copiare `vault/kamino/.obsidian/plugins/kamino-sync/` sul dispositivo e verificare: icone (avvisi "status icon … not available"), colori col tema, azione nell'intestazione della nota solo dagli stati Attenzione/Decisione/Bloccato; pannello nel cassetto laterale; vista conflitto a schede con diff unificato e "Modifica e unisci" (completa anche R-3 su mobile). Su desktop tutto è provato.
+- **Prova del plugin su telefono** (rinviata dal committente il 2026-11-08, da fare insieme agli spike): copiare `vault/kamino/.obsidian/plugins/kamino-sync/` sul dispositivo e verificare: icone (avvisi "status icon … not available"), colori col tema, azione nell'intestazione della nota solo dagli stati Attenzione/Decisione/Bloccato; pannello nel cassetto laterale; vista conflitto a schede con diff unificato e "Modifica e unisci" (completa anche R-3 su mobile); scheda di benvenuto; **QR inquadrato con la fotocamera che apre davvero Obsidian e avvia il pairing**; blocco di `http://`; impostazioni (nota iOS). Su desktop tutto è provato.
 - Spike su iPhone/Android reali (task 12): seguire `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`, compilando le tabelle.
 
 ## Note sull'ambiente

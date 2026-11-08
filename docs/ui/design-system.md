@@ -137,3 +137,46 @@ Con la build di sviluppo (`pnpm --filter @kamino/plugin build:vault`):
 - **"Carica scenario conflitti (sviluppo)":** 3 conflitti (nota corta, nota lunga, immagine), 3 modifiche in coda, 1 file in attesa di Wi-Fi; apre il pannello.
 - **"Apri diff di prova (sviluppo)":** diff di esempio nelle quattro combinazioni affiancato/unificato × sola lettura/modificabile (verifica R-3).
 - **"Mostra galleria stati (sviluppo)":** come prima, ora fa cambiare anche il pannello.
+
+## 8. Collegamento, pairing e impostazioni (plugin)
+
+Spec: [`2026-11-08-ui-onboarding-design.md`](../superpowers/specs/2026-11-08-ui-onboarding-design.md). Le viste lavorano su `ConnectionService` e `InitialTransfer` (`apps/plugin/src/connection/types.ts`); fino a M1/M2 l'implementazione è `FakeServer`, in memoria.
+
+### Scheda di benvenuto
+
+- Si apre da sola all'avvio se il vault **non è collegato**; poi dal comando "Collega questo vault", da "Collega…" nel pannello di stato e dalle impostazioni. Si chiude da sola al collegamento.
+- Tre strade: **È il primo dispositivo** · **Collega a un vault esistente** · **Ho un QR o un link** (istruzioni; su desktop anche un campo per incollare il link).
+- Lo stato "Non collegato" (`working.notLinked`) non è mai "Al sicuro".
+
+### Collegamento manuale
+
+- Passi: server → accesso (codice TOTP nello stesso passo se richiesto) → vault (nome nuovo, oppure scelta dall'elenco) → nome del dispositivo → **riconciliazione** se la cartella locale ha già dei file → trasferimento iniziale.
+- **Regola `http`:** su desktop è ammesso con un avviso ("Connessione non cifrata"); **su telefono è bloccato**, con le alternative (Tailscale, Cloudflare Tunnel, reverse proxy).
+- Ogni errore ha il suo messaggio (indirizzo non valido, server irraggiungibile, versione incompatibile, credenziali errate, codice errato, account bloccato). La password non viene salvata né lasciata nella finestra.
+- La riconciliazione arriva **prima** di toccare qualunque file: "quelli identici restano come sono, quelli diversi diventano conflitti da guardare. Nessun file viene sovrascritto."
+
+### Trasferimento iniziale
+
+Scheda con barra di avanzamento (file e MB), "Puoi continuare a lavorare", Pausa/Riprendi; interruzione con ripresa automatica; errore con "Riprova"; al termine "Apri lo stato sync".
+
+### Pairing con QR o link
+
+- **Origine** ("Aggiungi un dispositivo", solo da collegato): QR (nero su bianco, leggibile con qualunque tema), link copiabile, tempo rimasto, "usabile una volta sola"; alla scadenza "Genera di nuovo".
+- **Nuovo dispositivo** (apre `obsidian://kamino?server=…&token=…`): nome del dispositivo, poi il **codice di 4 caratteri** grande e "approvala solo se vedi questo stesso codice"; attesa con scadenza; rifiuto/scadenza spiegati.
+- **Approvazione**: la finestra dell'origine diventa la richiesta (nome, piattaforma, codice, Approva/Rifiuta). A finestra chiusa: notice cliccabile e sezione **"Richieste di collegamento"** in cima al pannello di stato.
+- Altri avvisi: "Nuovo dispositivo collegato: {nome}" (collegamento con password) e "Il link è stato usato da un secondo dispositivo ed è stato bloccato".
+- Link malformato → "Link di collegamento non valido", mai un errore inatteso; vault già collegato → spiegazione, nessuna azione.
+
+### Impostazioni
+
+Sezioni: **Collegamento** (server, utente, vault, nome del dispositivo, Aggiungi un dispositivo, Scollega con conferma) · **Sincronizzazione** (modalità e relative opzioni) · **File grandi** · **Esclusioni** (pattern non validi segnalati e ignorati; elenco di ciò che è sempre escluso) · **Cartella di configurazione** · **Informazioni**. Finché il motore di sync non esiste, una riga dice: "Queste impostazioni verranno usate quando il sync sarà attivo." I valori vivono in `data.json` (cartella del plugin, mai sincronizzata); un file vecchio o rovinato riporta ai valori di default.
+
+### Prove con il server finto (build di sviluppo)
+
+| Cosa | Come |
+|---|---|
+| Accesso | `demo` / `demo`; `demo2fa` / `demo` + codice `123456`; `locked` → account bloccato |
+| Errori del server | host che contiene `unreachable` o `old`; `http://…` su telefono |
+| Errori del link | token `expired`, `used`, `bad` |
+| Comandi | "Mostra QR di prova", "Simula richiesta di collegamento", "Simula approvazione/rifiuto", "Simula nuovo dispositivo", "Simula interruzione/errore del trasferimento" (tutti "(sviluppo)") |
+| Ricominciare da capo | "Scollega" nelle impostazioni (oppure cancellare `data.json` nella cartella del plugin) |

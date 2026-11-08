@@ -69,5 +69,76 @@
     "smtpOn": "SMTP on",
     "smtpOff": "SMTP not configured",
     "signInAs": "Sign in as {{user}}"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "username": "Username",
+      "password": "Password",
+      "submit": "Sign in",
+      "totpTitle": "Verification code",
+      "totpHint": "Enter the 6-digit code from your authenticator app.",
+      "code": "Code",
+      "useRecovery": "Use a recovery code",
+      "useTotp": "Use the app code",
+      "recoveryCode": "Recovery code",
+      "verify": "Verify",
+      "forgot": "Forgot your password?",
+      "back": "Back to sign in"
+    },
+    "setup": {
+      "title": "Initial setup",
+      "intro": "Create the administrator account. You find the setup code in the server start-up logs.",
+      "token": "Setup code",
+      "email": "Email",
+      "submit": "Create the administrator"
+    },
+    "forgot": {
+      "title": "Forgot password",
+      "intro": "Enter the email of your account.",
+      "email": "Email",
+      "submit": "Send instructions",
+      "sent": "If the address is registered, we sent you an email with instructions.",
+      "noSmtp": "Email is not configured: ask the administrator for a password reset link."
+    },
+    "reset": {
+      "title": "New password",
+      "submit": "Save the password",
+      "done": "Password updated: you can now sign in."
+    },
+    "invite": {
+      "title": "Welcome",
+      "intro": "You were invited as {{username}} ({{email}}). Choose a password to get started.",
+      "submit": "Create the account"
+    },
+    "password": {
+      "new": "New password",
+      "repeat": "Repeat the password",
+      "rule": "At least {{min}} characters.",
+      "mismatch": "The two passwords don't match.",
+      "show": "Show password",
+      "hide": "Hide password"
+    },
+    "totp": {
+      "title": "Two-step verification"
+    },
+    "language": "Language"
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "unauthorized": "Session expired: sign in again.",
+    "invalid_credentials": "Wrong username or password.",
+    "user_blocked": "Account locked: contact the administrator.",
+    "totp_invalid": "Wrong code.",
+    "challenge_expired": "Time is up: sign in again.",
+    "setup_not_needed": "The initial setup has already been done.",
+    "setup_token_invalid": "Wrong setup code.",
+    "token_invalid": "This link is not valid.",
+    "token_expired": "This link has expired: ask for a new one.",
+    "password_weak": "The password must be at least 12 characters long.",
+    "password_wrong": "The current password is wrong.",
+    "totp_mandatory": "Two-step verification is mandatory for administrators.",
+    "forbidden": "You don't have permission for this.",
+    "internal": "Something went wrong. Try again."
   }
 }

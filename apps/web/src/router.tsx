@@ -14,6 +14,11 @@ import { ApiError } from "./api/http.js";
 import { safeRedirect } from "./api/redirect.js";
 import { AppShell } from "./app/AppShell.js";
 import { AboutPage } from "./pages/AboutPage.js";
+import { ForgotPage } from "./pages/auth/ForgotPage.js";
+import { InvitePage } from "./pages/auth/InvitePage.js";
+import { LoginPage } from "./pages/auth/LoginPage.js";
+import { ResetPage } from "./pages/auth/ResetPage.js";
+import { SetupPage } from "./pages/auth/SetupPage.js";
 import { NotFoundPage } from "./pages/NotFoundPage.js";
 import { PlaceholderPage } from "./pages/PlaceholderPage.js";
 
@@ -60,27 +65,27 @@ export const loginRoute = createRoute({
   validateSearch: (s: Record<string, unknown>): { redirect: string } => ({
     redirect: safeRedirect(s["redirect"]),
   }),
-  component: () => <PlaceholderPage titleKey="auth.login.title" />,
+  component: LoginPage,
 });
 export const setupRoute = createRoute({
   getParentRoute: () => publicRoute,
   path: "/setup",
-  component: () => <PlaceholderPage titleKey="auth.setup.title" />,
+  component: SetupPage,
 });
 export const forgotRoute = createRoute({
   getParentRoute: () => publicRoute,
   path: "/forgot",
-  component: () => <PlaceholderPage titleKey="auth.forgot.title" />,
+  component: ForgotPage,
 });
 export const resetRoute = createRoute({
   getParentRoute: () => publicRoute,
   path: "/reset/$token",
-  component: () => <PlaceholderPage titleKey="auth.reset.title" />,
+  component: ResetPage,
 });
 export const inviteRoute = createRoute({
   getParentRoute: () => publicRoute,
   path: "/invite/$token",
-  component: () => <PlaceholderPage titleKey="auth.invite.title" />,
+  component: InvitePage,
 });
 
 // ---- signed-in area -------------------------------------------------------------------------

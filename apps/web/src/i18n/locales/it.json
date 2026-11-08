@@ -69,5 +69,76 @@
     "smtpOn": "SMTP attivo",
     "smtpOff": "SMTP non configurato",
     "signInAs": "Accedi come {{user}}"
+  },
+  "auth": {
+    "login": {
+      "title": "Accedi",
+      "username": "Nome utente",
+      "password": "Password",
+      "submit": "Accedi",
+      "totpTitle": "Codice di verifica",
+      "totpHint": "Inserisci il codice di 6 cifre dell'app di autenticazione.",
+      "code": "Codice",
+      "useRecovery": "Usa un codice di recupero",
+      "useTotp": "Usa il codice dell'app",
+      "recoveryCode": "Codice di recupero",
+      "verify": "Verifica",
+      "forgot": "Password dimenticata?",
+      "back": "Torna all'accesso"
+    },
+    "setup": {
+      "title": "Configurazione iniziale",
+      "intro": "Crea l'account amministratore. Il codice di configurazione lo trovi nei log di avvio del server.",
+      "token": "Codice di configurazione",
+      "email": "Email",
+      "submit": "Crea l'amministratore"
+    },
+    "forgot": {
+      "title": "Password dimenticata",
+      "intro": "Scrivi l'email del tuo account.",
+      "email": "Email",
+      "submit": "Invia le istruzioni",
+      "sent": "Se l'indirizzo è registrato, ti abbiamo mandato un'email con le istruzioni.",
+      "noSmtp": "L'invio di email non è configurato: chiedi all'amministratore un link per reimpostare la password."
+    },
+    "reset": {
+      "title": "Nuova password",
+      "submit": "Salva la password",
+      "done": "Password aggiornata: ora puoi accedere."
+    },
+    "invite": {
+      "title": "Benvenuto",
+      "intro": "Sei stato invitato come {{username}} ({{email}}). Scegli una password per iniziare.",
+      "submit": "Crea l'account"
+    },
+    "password": {
+      "new": "Nuova password",
+      "repeat": "Ripeti la password",
+      "rule": "Almeno {{min}} caratteri.",
+      "mismatch": "Le due password non coincidono.",
+      "show": "Mostra la password",
+      "hide": "Nascondi la password"
+    },
+    "totp": {
+      "title": "Verifica in due passaggi"
+    },
+    "language": "Lingua"
+  },
+  "errors": {
+    "generic": "Qualcosa è andato storto. Riprova.",
+    "unauthorized": "Sessione scaduta: accedi di nuovo.",
+    "invalid_credentials": "Nome utente o password non corretti.",
+    "user_blocked": "Account bloccato: contatta l'amministratore.",
+    "totp_invalid": "Codice non corretto.",
+    "challenge_expired": "Tempo scaduto: accedi di nuovo.",
+    "setup_not_needed": "La configurazione iniziale è già stata fatta.",
+    "setup_token_invalid": "Codice di configurazione non corretto.",
+    "token_invalid": "Questo link non è valido.",
+    "token_expired": "Questo link è scaduto: chiedine uno nuovo.",
+    "password_weak": "La password deve avere almeno 12 caratteri.",
+    "password_wrong": "La password attuale non è corretta.",
+    "totp_mandatory": "Per gli amministratori la verifica in due passaggi è obbligatoria.",
+    "forbidden": "Non hai i permessi per questa operazione.",
+    "internal": "Qualcosa è andato storto. Riprova."
   }
 }

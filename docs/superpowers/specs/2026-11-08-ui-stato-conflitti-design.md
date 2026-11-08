@@ -38,6 +38,7 @@ Pacchetto `@kamino/ui-diff`, TypeScript, indipendente da framework.
     layout: "split" | "unified";
     editable: boolean;
     labels: { mine: string; incoming: string }; // testi già tradotti
+    phrases?: Record<string, string>; // frasi di CodeMirror (es. controlli di merge), già tradotte
   }
   interface DiffViewHandle {
     getMerged(): string; // testo della "tua" versione, con le modifiche fatte
@@ -46,9 +47,9 @@ Pacchetto `@kamino/ui-diff`, TypeScript, indipendente da framework.
   ```
 
   - **split:** `MergeView` con `a` = la tua (modificabile solo se `editable`) e `b` = in arrivo (sola lettura). Con `editable`, `revertControls: "b-to-a"`: ogni differenza ha un controllo per portare il blocco in arrivo nella tua versione.
-  - **unified:** `EditorView` con il testo tuo e `unifiedMergeView({ original: incoming, mergeControls: editable })`: le righe in arrivo compaiono come eliminazioni/inserimenti; con `editable`, ogni blocco ha "accetta"/"rifiuta".
+  - **unified:** `EditorView` con il testo tuo come documento e `unifiedMergeView({ original: incoming, mergeControls: editable })`; con `editable`, ogni blocco ha i controlli "tieni la mia" / "prendi quella in arrivo" (frasi di CodeMirror tradotte con `phrases`). Il documento è la tua versione anche qui, così "Salva l'unione" parte dalla stessa base su desktop e mobile. CodeMirror colora il documento come "inserito" e l'originale come "eliminato": il CSS del plugin riallinea i colori a quelli approvati (la tua = rosso, in arrivo = verde, senza barrato).
   - In sola lettura (`editable: false`) nessun controllo e nessuna modifica possibile.
-- **`diffSummary(mine: string, incoming: string): { changes: number; added: number; removed: number }`**: funzione pura (usa `diff`/`presentableDiff` di `@codemirror/merge`), conta i blocchi modificati e le righe aggiunte/tolte. Testata in Node.
+- **`diffSummary(mine: string, incoming: string): { changes: number }`**: funzione pura (usa `Chunk.build` di `@codemirror/merge`), conta i blocchi di righe modificati, l'unico dato che l'interfaccia mostra ("Differenze: 2"). Testata in Node.
 - Nessun testo UI nel pacchetto: le etichette arrivano già tradotte.
 
 **Build del plugin:** la lista degli esterni di esbuild passa da `@codemirror/*` a un elenco esplicito: `@codemirror/state`, `@codemirror/view`, `@codemirror/language`, `@lezer/highlight` (e gli altri `@codemirror/*`/`@lezer/*` che Obsidian fornisce e il bundle richiede). `@codemirror/merge` e `style-mod` sono inclusi nel bundle. Chiude il punto aperto M3 dell'HANDOVER.
@@ -81,7 +82,7 @@ type Resolution =
   | { type: "keep_incoming" }
   | { type: "keep_both" }
   | { type: "manual"; text: string };
-type ResolveOutcome = { ok: true } | { ok: false; reason: "stale" };
+type ResolveOutcome = { ok: true } | { ok: false; reason: "stale" | "gone" }; // gone = già risolto altrove
 type BulkStrategy = "keep_mine" | "keep_incoming" | "keep_both";
 
 interface SyncStateSource {
@@ -151,7 +152,7 @@ Stessa `ConflictView`, senza diff: due riquadri (affiancati su desktop, impilati
 
 - "Mostra galleria stati (sviluppo)" (esistente): ora imposta lo snapshot di `FakeSyncState`, quindi anche il pannello segue.
 - "Carica scenario conflitti (sviluppo)": `loadScenario("conflicts")` e apertura del pannello.
-- "Apri diff di prova (sviluppo)": apre una `ConflictView` sul conflitto di testo corto; serve alla verifica R-3 (§6).
+- "Apri diff di prova (sviluppo)": finestra modale con un diff di esempio, commutabile tra affiancato/unificato e sola lettura/modificabile; serve alla verifica R-3 (§6), prima che esista la `ConflictView`.
 - Assenti dal bundle di produzione (test sul bundle).
 
 Nella build di produzione, fino a M1, `SyncStateSource` è un `FakeSyncState` vuoto nello stato "mai sincronizzato": il pannello mostra il riepilogo e "Questo dispositivo".
@@ -159,14 +160,14 @@ Nella build di produzione, fino a M1, `SyncStateSource` è un `FakeSyncState` vu
 ## 6. Verifica R-3 su desktop (primo task)
 
 1. Aggiungere `@codemirror/merge` al plugin tramite `ui-diff`, esterni espliciti (§3).
-2. `build:vault`, aprire la vault di prova, eseguire "Apri diff di prova (sviluppo)" in entrambe le disposizioni (su desktop si forza `unified` con un'opzione del comando di prova).
+2. `build:vault`, aprire la vault di prova, eseguire "Apri diff di prova (sviluppo)" e provare le quattro combinazioni (affiancato/unificato × sola lettura/modificabile).
 3. Controllare: nessun errore in console (in particolare "Unrecognized extension value" / istanze duplicate di `@codemirror/state`), evidenziazione, scorrimento, modifica, controlli per blocco.
 4. Annotare in `docs/spikes/R-3.md` versione di Obsidian desktop, versione di `@codemirror/merge`, esito; stato dello spike: "desktop superato, mobile in attesa".
 5. **Se fallisce:** fallback dell'ADR-0016 (due pannelli in sola lettura nel plugin, merge manuale solo da web). Prima di proseguire si chiede conferma al committente, perché cambia §5.2.
 
 ## 7. Test
 
-- **`ui-diff`:** `diffSummary` (testi uguali → 0; una riga cambiata; righe aggiunte in fondo; testi vuoti); `createDiffView` in jsdom: montaggio nei due layout, `getMerged()` uguale a `mine` senza modifiche, `destroy()` svuota il contenitore.
+- **`ui-diff`:** `diffSummary` (testi uguali → 0; una riga cambiata → 1; righe aggiunte in fondo → 1; due cambi lontani → 2; testi vuoti → 0); `createDiffView` in jsdom: montaggio nei due layout, `getMerged()` uguale a `mine` senza modifiche, solo la tua versione modificabile, `destroy()` svuota il contenitore.
 - **`FakeSyncState`:** ogni `Resolution` chiude il conflitto, aggiorna `snapshot().conflicts` e notifica `onChange`; `stale` lascia il conflitto aperto e cambia la versione in arrivo; `resolveAll` applica la strategia a tutti e restituisce il conteggio; `onChange` restituisce una funzione che smette davvero di notificare.
 - **Viste** (mock di Obsidian esteso con `ItemView`, `WorkspaceLeaf`, `Modal`, `Platform`):
   - pannello: solo sezioni non vuote; stato `safe` → solo riepilogo e dispositivo; "Mostra tutte" espande; "Risolvi tutti…" solo con ≥ 2 conflitti; si aggiorna su `onChange` e smette in `onClose`;

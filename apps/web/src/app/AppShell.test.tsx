@@ -15,6 +15,7 @@ describe("AppShell", () => {
       expect(within(nav).getAllByText(label, { exact: false }).length).toBeGreaterThan(0);
     }
     expect(within(nav).queryByText("Amministrazione")).toBeNull();
+    expect(within(nav).getByTestId("brand-logo").getAttribute("alt")).toBe("");
     expect(await within(nav).findByText("Conflitti da risolvere")).toBeDefined();
     expect(within(nav).getByText("2")).toBeDefined();
     expect(

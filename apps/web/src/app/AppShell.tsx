@@ -1,4 +1,3 @@
-import { PRODUCT_NAME } from "@kamino/brand";
 import type { Level } from "@kamino/status";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
@@ -21,6 +20,7 @@ import { LEVEL_CLASSES, STATUS_ICONS } from "../components/status/status-icons.j
 import { Button } from "../components/ui/button.js";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "../components/ui/sheet.js";
 import { cn } from "../lib/utils.js";
+import { BrandMark } from "./BrandMark.js";
 
 const SEVERITY: Level[] = ["safe", "working", "attention", "decision", "blocked"];
 const LEVEL_ICON = {
@@ -112,7 +112,9 @@ export function AppShell() {
 
   const nav = (
     <nav aria-label={t("nav.label")} className="flex h-full flex-col gap-1 p-3">
-      <div className="px-3 pt-1 pb-3 font-serif text-lg font-semibold">{PRODUCT_NAME}</div>
+      <div className="px-3 pt-1 pb-3 text-lg">
+        <BrandMark size={28} />
+      </div>
       {!minimal && (
         <>
           <div className="px-3 pb-3">{summary ? <LevelBadge level={overall} /> : null}</div>
@@ -209,7 +211,7 @@ export function AppShell() {
             {nav}
           </SheetContent>
         </Sheet>
-        <span className="font-serif font-semibold">{PRODUCT_NAME}</span>
+        <BrandMark />
         {summary && !minimal ? <LevelBadge level={overall} /> : <span />}
       </header>
       <main id="main" className="mx-auto w-full max-w-5xl space-y-4 p-4 lg:p-8">

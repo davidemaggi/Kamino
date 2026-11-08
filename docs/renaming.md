@@ -16,6 +16,7 @@ Questi punti contengono il nome in chiaro e vanno aggiornati a mano:
 - **Comando CLI** `kamino`: campo `bin` di `apps/server/package.json`.
 - **CSS del plugin** (`apps/plugin/src/styles.css`): il prefisso delle classi `.kamino-status*` è `PRODUCT_SLUG`; il test `apps/plugin/test/styles.test.ts` fallisce finché non è allineato.
 - **Tipi di vista del plugin** (`kamino-status-panel`, `kamino-conflict`): derivano da `PRODUCT_SLUG`; cambiandoli, le schede di quelle viste salvate nel layout degli utenti non si riaprono (vanno riaperte a mano).
+- **Logo** (`assets/icon.svg`): contiene il nome del prodotto nel `<title>` dell'SVG; la web app lo usa come logo e favicon (`apps/web/src/app/BrandMark.tsx`, `apps/web/index.html`).
 - **Azione del link `obsidian://`** (`PROTOCOL_ACTION` in `@kamino/brand`, = `PRODUCT_SLUG`): cambiandola, i QR e i link già generati non funzionano più (scadono comunque in 10 minuti). Anche i tipi di vista `kamino-welcome` e `kamino-transfer` derivano da `PRODUCT_SLUG`.
 - **Script `build:vault` del plugin** (`apps/plugin/scripts/install-vault.ts`): il percorso predefinito della vault di prova è `vault/kamino/`.
 - **Documentazione** in `docs/` e `README.md`: testi descrittivi scritti a mano.

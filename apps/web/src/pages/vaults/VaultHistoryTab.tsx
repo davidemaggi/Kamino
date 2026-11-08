@@ -27,6 +27,8 @@ export function VaultHistoryTab({ vault }: { vault: Vault }) {
     onSuccess: () => {
       toast(t("history.fileRestored"));
       void qc.invalidateQueries({ queryKey: ["trash", vault.id] });
+      void qc.invalidateQueries({ queryKey: ["files", vault.id] });
+      void qc.invalidateQueries({ queryKey: ["vault", vault.id] });
     },
     onError: (err) => toast.error(errorMessage(err, t)),
   });

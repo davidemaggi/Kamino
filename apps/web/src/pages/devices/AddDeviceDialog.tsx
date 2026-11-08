@@ -31,44 +31,74 @@ export function AddDeviceDialog({
   const [state, setState] = useState<PairingState | null>(null);
   const [result, setResult] = useState<Result>(null);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const alive = useRef(false);
 
   // Start/stop with the dialog; nothing is applied after close.
+  const tRef = useRef(t);
+  tRef.current = t;
+
+  // Each open gets its own run: a late answer from a previous run is ignored and withdrawn.
   useEffect(() => {
     if (!open || !vaultId) return;
+    let cancelled = false;
     alive.current = true;
     let current: PairingOffer | null = null;
+    let timer = 0;
+    const stop = () => window.clearInterval(timer);
     void api.startPairing(vaultId).then(
       (o) => {
-        if (!alive.current) return void api.cancelPairing(o.pairingId).catch(() => undefined);
+        if (cancelled) return void api.cancelPairing(o.pairingId).catch(() => undefined);
         current = o;
         setOffer(o);
       },
-      (err: unknown) => alive.current && toast.error(errorMessage(err, t)),
+      (err: unknown) => {
+        if (cancelled) return;
+        stop();
+        setFailed(errorMessage(err, tRef.current));
+      },
     );
-    const timer = window.setInterval(() => {
+    timer = window.setInterval(() => {
       setNow(Date.now());
       if (!current) return;
       const id = current.pairingId;
       void api.pairing(id).then(
-        (s) => {
-          if (!alive.current || current?.pairingId !== id) return;
-          setState(s);
-          if (s.status === "expired") setResult("expired");
+        (st) => {
+          if (cancelled || current?.pairingId !== id) return;
+          setState(st);
+          // Every terminal status ends the wait (also when answered elsewhere).
+          const done: Partial<Record<PairingState["status"], Result>> = {
+            expired: "expired",
+            denied: "denied",
+            approved: "approved",
+            cancelled: "closed",
+          };
+          const r = done[st.status];
+          if (r) {
+            setResult(r);
+            stop();
+          }
         },
         () => undefined,
       );
     }, 2000);
     return () => {
+      cancelled = true;
       alive.current = false;
-      window.clearInterval(timer);
+      stop();
       if (current) void api.cancelPairing(current.pairingId).catch(() => undefined);
       setOffer(null);
       setState(null);
       setResult(null);
+      setFailed(null);
     };
-  }, [open, vaultId, t]);
+  }, [open, vaultId]);
+
+  // A new "Add a device" starts from the vault choice again.
+  useEffect(() => {
+    if (!open) setVaultId(vaults.length === 1 ? vaults[0]!.id : null);
+  }, [open, vaults]);
 
   const answer = async (approve: boolean) => {
     if (!offer || busy) return;
@@ -114,6 +144,11 @@ export function AddDeviceDialog({
               </Button>
             ))}
           </fieldset>
+        ) : failed ? (
+          <div className="space-y-3">
+            <p role="alert">{failed}</p>
+            <Button onClick={() => onOpenChange(false)}>{t("pairing.close")}</Button>
+          </div>
         ) : result ? (
           <div className="space-y-3">
             <p role="status">{t(`pairing.${result}`)}</p>

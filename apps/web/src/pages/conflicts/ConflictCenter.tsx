@@ -57,6 +57,15 @@ export function ConflictCenter({ selectedId }: { selectedId?: string }) {
     }
   };
 
+  if (conflicts.isError)
+    return (
+      <div className="space-y-3">
+        <p role="alert">{errorMessage(conflicts.error, t)}</p>
+        <Button variant="outline" onClick={() => void conflicts.refetch()}>
+          {t("shell.retry")}
+        </Button>
+      </div>
+    );
   if (!conflicts.data) return null;
   if (list.length === 0) {
     return (
@@ -85,7 +94,19 @@ export function ConflictCenter({ selectedId }: { selectedId?: string }) {
       <div className={narrow ? "" : "grid grid-cols-[260px_1fr] gap-4"}>
         {showList && <ConflictList conflicts={list} selectedId={current ?? null} />}
         {showDetail && current && (
-          <ConflictDetailPane key={current} id={current} onResolved={() => void goNext()} />
+          <ConflictDetailPane
+            key={current}
+            id={current}
+            onResolved={() => void goNext()}
+            onEditStart={() => {
+              if (!selectedId)
+                void navigate({
+                  to: "/conflicts/$conflictId",
+                  params: { conflictId: current },
+                  replace: true,
+                });
+            }}
+          />
         )}
       </div>
       <BulkResolveDialog

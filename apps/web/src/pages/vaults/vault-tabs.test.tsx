@@ -23,6 +23,7 @@ describe("History and trash", () => {
     expect(await within(dialog).findByText(/Versione 3 delle idee/)).toBeDefined();
     const before = ud.files.find((f) => f.fileId === "f-idee")!.versions.length;
     fireEvent.click(within(dialog).getByRole("button", { name: "Ripristina questa versione" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Conferma il ripristino" }));
     await waitFor(() =>
       expect(ud.files.find((f) => f.fileId === "f-idee")!.versions.length).toBe(before + 1),
     );
@@ -55,10 +56,8 @@ describe("Vault settings", () => {
   it("ZIP: outside the history window shows the error", async () => {
     signInAs("demo");
     const spy = vi.spyOn(api, "downloadZip");
-    vi.stubGlobal(
-      "URL",
-      Object.assign(URL, { createObjectURL: () => "blob:x", revokeObjectURL: () => undefined }),
-    );
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:x");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
     await renderRoute("/vaults/v-notes?tab=settings");
     fireEvent.click(await screen.findByLabelText("Com'era il…"));
     fireEvent.change(screen.getByLabelText("Data e ora"), {
@@ -90,5 +89,19 @@ describe("Vault settings", () => {
     fireEvent.click(confirm);
     await waitFor(() => expect(router.state.location.pathname).toBe("/vaults"));
     expect(ud.vaults.some((v) => v.id === "v-work")).toBe(false);
+  });
+
+  it("shortening the history asks for confirmation", async () => {
+    signInAs("demo");
+    await renderRoute("/vaults/v-notes?tab=settings");
+    fireEvent.change(await screen.findByLabelText("Storico delle versioni"), {
+      target: { value: "7" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Salva" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/più vecchie di 7 giorni/)).toBeDefined();
+    expect(ud.vaults.find((v) => v.id === "v-notes")!.retentionDays).toBe(30);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Riduci" }));
+    await waitFor(() => expect(ud.vaults.find((v) => v.id === "v-notes")!.retentionDays).toBe(7));
   });
 });

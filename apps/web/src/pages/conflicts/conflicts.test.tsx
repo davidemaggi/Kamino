@@ -14,7 +14,9 @@ vi.mock("@kamino/ui-diff", () => ({
   },
 }));
 
+import { http, HttpResponse } from "msw";
 import { signInAs } from "../../mocks/db.js";
+import { server } from "../../test/setup.js";
 import { simulateStaleNext, ud } from "../../mocks/userdata.js";
 import { renderRoute } from "../../test/render.js";
 
@@ -86,6 +88,34 @@ describe("ConflictCenter (desktop)", () => {
     fireEvent.click(apply);
     expect(await screen.findByText("Conflitti risolti: 3")).toBeDefined();
     expect(await screen.findByText("Nessun conflitto da risolvere.")).toBeDefined();
+  });
+});
+
+describe("ConflictCenter safety", () => {
+  it("resolved elsewhere during a merge: says so and keeps the merged text", async () => {
+    signInAs("demo");
+    await renderRoute("/conflicts/c-shopping");
+    fireEvent.click(await screen.findByRole("button", { name: "Modifica e unisci…" }));
+    ud.conflicts = ud.conflicts.filter((c) => c.id !== "c-shopping"); // resolved on another device
+    fireEvent.click(screen.getByRole("button", { name: "Salva l'unione" }));
+    expect(await screen.findByText("Questo conflitto è già stato risolto.")).toBeDefined();
+    expect(screen.getByText("merged text")).toBeDefined();
+  });
+
+  it("a load error is not reported as already resolved", async () => {
+    server.use(
+      http.get("*/api/v1/conflicts/:id", () =>
+        HttpResponse.json(
+          { error: { code: "internal", message: "x", retryable: true } },
+          { status: 500 },
+        ),
+      ),
+    );
+    signInAs("demo");
+    await renderRoute("/conflicts/c-shopping");
+    expect(await screen.findByText("Qualcosa è andato storto. Riprova.")).toBeDefined();
+    expect(screen.queryByText("Questo conflitto è già stato risolto.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Riprova" })).toBeDefined();
   });
 });
 

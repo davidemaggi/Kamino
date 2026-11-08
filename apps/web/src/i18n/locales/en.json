@@ -358,7 +358,8 @@
     "trashEmpty": "The trash is empty.",
     "deletedOn": "deleted on {{when}} · permanently removed on {{expires}}",
     "restoreFile": "Restore",
-    "fileRestored": "File restored."
+    "fileRestored": "File restored.",
+    "restoreConfirm": "Confirm the restore"
   },
   "vaultSettings": {
     "name": "Vault name",
@@ -382,6 +383,10 @@
     "deleteConfirmLabel": "Type the vault name to confirm",
     "deleteConfirm": "Delete permanently",
     "deleted": "Vault deleted.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "retentionLowerTitle": "Shorten the history?",
+    "retentionLowerText": "Versions older than {{count}} days will be deleted and can no longer be restored.",
+    "retentionLowerConfirm": "Shorten",
+    "zipChoice": "What to download"
   }
 }

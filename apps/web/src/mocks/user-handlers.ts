@@ -38,6 +38,8 @@ export const userHandlers = [
     return unauthorized() ?? (v ? HttpResponse.json(v) : fail(404, "not_found"));
   }),
   http.patch(`${API}/vaults/:id`, async ({ request, params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
     const v = ud.vaults.find((x) => x.id === params["id"]);
     if (!v) return unauthorized() ?? fail(404, "not_found");
     const b = VaultPatch.safeParse(await json(request));
@@ -48,6 +50,8 @@ export const userHandlers = [
     return unauthorized() ?? HttpResponse.json(v);
   }),
   http.delete(`${API}/vaults/:id`, async ({ request, params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
     const v = ud.vaults.find((x) => x.id === params["id"]);
     if (!v) return unauthorized() ?? fail(404, "not_found");
     const b = VaultDelete.safeParse(await json(request));
@@ -76,6 +80,8 @@ export const userHandlers = [
     return unauthorized() ?? (d ? HttpResponse.json(d) : fail(404, "not_found"));
   }),
   http.patch(`${API}/devices/:id`, async ({ request, params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
     const d = ud.devices.find((x) => x.id === params["id"]);
     if (!d) return unauthorized() ?? fail(404, "not_found");
     const b = DevicePatch.safeParse(await json(request));
@@ -84,6 +90,8 @@ export const userHandlers = [
     return unauthorized() ?? HttpResponse.json(d);
   }),
   http.post(`${API}/devices/:id/revoke`, ({ params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
     const d = ud.devices.find((x) => x.id === params["id"]);
     if (!d) return unauthorized() ?? fail(404, "not_found");
     d.revoked = true;
@@ -92,6 +100,8 @@ export const userHandlers = [
     return unauthorized() ?? HttpResponse.json(d);
   }),
   http.post(`${API}/vaults/:id/pairings`, ({ params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
     const v = ud.vaults.find((x) => x.id === params["id"]);
     if (!v) return unauthorized() ?? fail(404, "not_found");
     const p = {
@@ -119,6 +129,8 @@ export const userHandlers = [
   }),
   ...(["approve", "deny", "cancel"] as const).map((action) =>
     http.post(`${API}/pairings/:id/${action}`, ({ params }) => {
+      const deny = unauthorized();
+      if (deny) return deny;
       const p = ud.pairings.find((x) => x.id === params["id"]);
       if (!p) return unauthorized() ?? fail(404, "not_found");
       const open =
@@ -171,6 +183,8 @@ export const userHandlers = [
     return unauthorized() ?? (c ? HttpResponse.json(c) : fail(404, "not_found"));
   }),
   http.post(`${API}/conflicts/resolve-all`, async ({ request }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
     const b = ResolveAllRequest.safeParse(await json(request));
     if (!b.success) return fail(400, "internal");
     const before = ud.conflicts.length;
@@ -179,6 +193,8 @@ export const userHandlers = [
     return unauthorized() ?? HttpResponse.json({ resolved: before - ud.conflicts.length });
   }),
   http.post(`${API}/conflicts/:id/resolve`, async ({ request, params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
     const c = ud.conflicts.find((x) => x.id === params["id"]);
     if (!c) return unauthorized() ?? fail(404, "not_found");
     const b = ResolveRequest.safeParse(await json(request));
@@ -232,6 +248,8 @@ export const userHandlers = [
     );
   }),
   http.post(`${API}/versions/:id/restore`, ({ params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
     const f = ud.files.find((x) => x.versions.some((v) => v.id === params["id"]));
     const v = f?.versions.find((x) => x.id === params["id"]);
     if (!f || !v) return unauthorized() ?? fail(404, "not_found");
@@ -260,6 +278,8 @@ export const userHandlers = [
       }),
   ),
   http.post(`${API}/trash/:id/restore`, ({ params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
     const t = ud.trash.find((x) => x.fileId === params["id"]);
     if (!t) return unauthorized() ?? fail(404, "not_found");
     ud.trash = ud.trash.filter((x) => x !== t);

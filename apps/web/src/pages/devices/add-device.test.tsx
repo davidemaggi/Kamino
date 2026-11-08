@@ -56,4 +56,18 @@ describe("AddDeviceDialog", () => {
     await act(() => vi.advanceTimersByTimeAsync(6000));
     expect(poll).not.toHaveBeenCalled();
   });
+
+  it("with several vaults, reopening asks for the vault again", async () => {
+    signInAs("demo");
+    await renderRoute("/");
+    fireEvent.click(await screen.findByRole("button", { name: "Aggiungi un dispositivo" }));
+    let dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Note" }));
+    await within(dialog).findByAltText("Codice QR per collegare un dispositivo");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Aggiungi un dispositivo" }));
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Quale vault?")).toBeDefined();
+  });
 });

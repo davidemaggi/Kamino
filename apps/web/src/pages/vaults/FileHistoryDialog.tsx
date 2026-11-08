@@ -31,7 +31,9 @@ export function FileHistoryDialog({
     enabled: !!fileId,
   });
   const [selected, setSelected] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   useEffect(() => setSelected(null), [fileId]);
+  useEffect(() => setConfirming(false), [selected]);
   const content = useQuery({
     queryKey: ["version", selected],
     queryFn: () => api.version(selected!),
@@ -95,10 +97,21 @@ export function FileHistoryDialog({
             ) : (
               <p className="text-muted-foreground text-sm">{t("history.noPreview")}</p>
             )}
-            {chosen && !chosen.current && (
-              <Button disabled={restore.isPending} onClick={() => restore.mutate(chosen.id)}>
-                {t("history.restore")}
-              </Button>
+            {chosen && !chosen.current && !confirming && (
+              <Button onClick={() => setConfirming(true)}>{t("history.restore")}</Button>
+            )}
+            {chosen && !chosen.current && confirming && (
+              <div className="bg-muted space-y-2 rounded-lg p-3">
+                <p className="text-sm">{t("history.restoreHint")}</p>
+                <div className="flex gap-2">
+                  <Button disabled={restore.isPending} onClick={() => restore.mutate(chosen.id)}>
+                    {t("history.restoreConfirm")}
+                  </Button>
+                  <Button variant="outline" onClick={() => setConfirming(false)}>
+                    {t("vaultSettings.cancel")}
+                  </Button>
+                </div>
+              </div>
             )}
           </section>
         )}

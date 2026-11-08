@@ -16,7 +16,16 @@ import { useIsNarrow } from "../../lib/useMediaQuery.js";
 type Tab = "mine" | "diff" | "incoming";
 
 /** One conflict (spec §4.7): diff/previews, actions, stale and "already resolved". */
-export function ConflictDetailPane({ id, onResolved }: { id: string; onResolved: () => void }) {
+export function ConflictDetailPane({
+  id,
+  onResolved,
+  onEditStart,
+}: {
+  id: string;
+  onResolved: () => void;
+  /** The center pins the URL to this conflict, so a layout change can't unmount an edit. */
+  onEditStart?: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const narrow = useIsNarrow();
@@ -47,7 +56,26 @@ export function ConflictDetailPane({ id, onResolved }: { id: string; onResolved:
   const d = detail.data;
   const gone =
     detail.isError && detail.error instanceof ApiError && detail.error.code === "not_found";
-  if (gone || (!d && detail.isError)) {
+  if (!d && detail.isError && !gone) {
+    // Network/server error: never claim "already resolved" when we simply don't know.
+    return (
+      <section className="space-y-3">
+        <p role="alert">{errorMessage(detail.error, t)}</p>
+        <Button variant="outline" onClick={() => void detail.refetch()}>
+          {t("shell.retry")}
+        </Button>
+        {draft !== null && (
+          <>
+            <p className="text-sm">{t("conflicts.unsavedMerge")}</p>
+            <pre className="bg-muted overflow-auto rounded p-3 text-sm whitespace-pre-wrap">
+              {draft}
+            </pre>
+          </>
+        )}
+      </section>
+    );
+  }
+  if (gone) {
     return (
       <section className="space-y-3">
         <p role="status">{t("conflicts.gone")}</p>
@@ -91,6 +119,7 @@ export function ConflictDetailPane({ id, onResolved }: { id: string; onResolved:
         setStale(true);
         await qc.invalidateQueries({ queryKey: ["conflict", id] });
       } else if (err instanceof ApiError && err.code === "not_found") {
+        void qc.invalidateQueries({ queryKey: ["conflicts"] });
         await qc.invalidateQueries({ queryKey: ["conflict", id] });
       } else toast.error(errorMessage(err, t));
     } finally {
@@ -200,6 +229,8 @@ export function ConflictDetailPane({ id, onResolved }: { id: string; onResolved:
                   editable={editing}
                   labels={labels}
                   phrases={phrases}
+                  // Keep unsaved edits if the editor is rebuilt (resize, refetch) or unmounted.
+                  onTeardown={editing ? setDraft : undefined}
                 />
               ) : (
                 <pre className="bg-card overflow-auto rounded-lg border p-3 text-sm whitespace-pre-wrap">
@@ -216,6 +247,8 @@ export function ConflictDetailPane({ id, onResolved }: { id: string; onResolved:
               editable={editing}
               labels={labels}
               phrases={phrases}
+              // Keep unsaved edits if the editor is rebuilt (resize, refetch) or unmounted.
+              onTeardown={editing ? setDraft : undefined}
             />
           )}
         </>
@@ -260,6 +293,7 @@ export function ConflictDetailPane({ id, onResolved }: { id: string; onResolved:
                 onClick={() => {
                   setEditing(true);
                   setTab("diff");
+                  onEditStart?.();
                 }}
               >
                 {t("conflicts.edit")}

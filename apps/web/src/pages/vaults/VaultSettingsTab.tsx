@@ -37,6 +37,15 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmName, setConfirmName] = useState("");
+  const [lowerOpen, setLowerOpen] = useState(false);
+  const saveRetention = () => {
+    setLowerOpen(false);
+    void run(
+      "retention",
+      () => api.updateVault(vault.id, { retentionDays: Number(retention) }),
+      "vaultSettings.saved",
+    );
+  };
   const refresh = () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: ["vault", vault.id] }),
@@ -72,7 +81,8 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
         download: `${PRODUCT_SLUG}-${vault.name}.zip`,
       });
       a.click();
-      URL.revokeObjectURL(url);
+      // Revoke later: revoking right after click() can cancel the download in Safari.
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err) {
       setZipError(errorMessage(err, t));
     } finally {
@@ -87,8 +97,10 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
       await api.deleteVault(vault.id, confirmName);
       toast(t("vaultSettings.deleted"));
       setDeleteOpen(false);
-      await qc.invalidateQueries();
+      // Leave the page first, then drop the deleted vault (no "not found" flash).
       await navigate({ to: "/vaults" });
+      qc.removeQueries({ queryKey: ["vault", vault.id] });
+      await qc.invalidateQueries();
     } catch (err) {
       toast.error(errorMessage(err, t));
     } finally {
@@ -120,11 +132,9 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void run(
-              "retention",
-              () => api.updateVault(vault.id, { retentionDays: Number(retention) }),
-              "vaultSettings.saved",
-            );
+            // Shortening the history deletes old versions: ask first.
+            if (Number(retention) < vault.retentionDays) setLowerOpen(true);
+            else saveRetention();
           }}
           className="space-y-2"
         >
@@ -139,7 +149,8 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
               onChange={(e) => setRetention(e.target.value)}
               className="bg-background rounded-md border px-2"
             >
-              {[0, 7, 14, 30, 60, 90]
+              {[...new Set([0, 7, 14, 30, 60, 90, vault.retentionDays])]
+                .sort((a, b) => a - b)
                 .filter((d) => d <= vault.maxRetentionDays)
                 .map((d) => (
                   <option key={d} value={d}>
@@ -156,7 +167,11 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
 
       <Section title={t("vaultSettings.zip")}>
         <form onSubmit={(e) => void download(e)} className="space-y-2">
-          <div role="radiogroup" className="flex flex-wrap gap-4">
+          <div
+            role="radiogroup"
+            aria-label={t("vaultSettings.zipChoice")}
+            className="flex flex-wrap gap-4"
+          >
             <label className="flex items-center gap-2">
               <input
                 type="radio"
@@ -227,6 +242,17 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
           autoComplete="off"
         />
       </ConfirmDialog>
+      <ConfirmDialog
+        open={lowerOpen}
+        onOpenChange={setLowerOpen}
+        title={t("vaultSettings.retentionLowerTitle")}
+        text={t("vaultSettings.retentionLowerText", { count: Number(retention) })}
+        confirmText={t("vaultSettings.retentionLowerConfirm")}
+        cancelText={t("vaultSettings.cancel")}
+        destructive
+        busy={busy !== null}
+        onConfirm={saveRetention}
+      />
     </div>
   );
 }

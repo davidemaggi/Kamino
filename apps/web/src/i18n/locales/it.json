@@ -358,7 +358,8 @@
     "trashEmpty": "Il cestino è vuoto.",
     "deletedOn": "eliminato il {{when}} · si cancella definitivamente il {{expires}}",
     "restoreFile": "Ripristina",
-    "fileRestored": "File ripristinato."
+    "fileRestored": "File ripristinato.",
+    "restoreConfirm": "Conferma il ripristino"
   },
   "vaultSettings": {
     "name": "Nome del vault",
@@ -382,6 +383,10 @@
     "deleteConfirmLabel": "Scrivi il nome del vault per confermare",
     "deleteConfirm": "Elimina definitivamente",
     "deleted": "Vault eliminato.",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "retentionLowerTitle": "Ridurre lo storico?",
+    "retentionLowerText": "Le versioni più vecchie di {{count}} giorni verranno eliminate e non si potranno più ripristinare.",
+    "retentionLowerConfirm": "Riduci",
+    "zipChoice": "Che cosa scaricare"
   }
 }

@@ -29,6 +29,7 @@ export function DevicePage() {
       qc.invalidateQueries({ queryKey: ["device", deviceId] }),
       qc.invalidateQueries({ queryKey: ["devices"] }),
       qc.invalidateQueries({ queryKey: ["vaults"] }),
+      qc.invalidateQueries({ queryKey: ["vaults-summary"] }),
     ]);
   const onError = (err: unknown) => toast.error(errorMessage(err, t));
   const rename = useMutation({

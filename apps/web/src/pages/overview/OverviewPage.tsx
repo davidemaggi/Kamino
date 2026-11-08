@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/endpoints.js";
+import { errorMessage } from "../../api/errors.js";
 import { useDocumentTitle } from "../../app/useDocumentTitle.js";
 import { LevelBadge } from "../../components/status/LevelBadge.js";
 import { Button } from "../../components/ui/button.js";
@@ -19,6 +20,15 @@ export function OverviewPage() {
   const vaults = useQuery({ queryKey: ["vaults"], queryFn: api.vaults });
   const devices = useQuery({ queryKey: ["devices"], queryFn: api.devices });
   const data = vaults.data;
+  if (vaults.isError)
+    return (
+      <div className="space-y-3">
+        <p role="alert">{errorMessage(vaults.error, t)}</p>
+        <Button variant="outline" onClick={() => void vaults.refetch()}>
+          {t("shell.retry")}
+        </Button>
+      </div>
+    );
   if (!data) return null;
   const { usedBytes, limitBytes } = data.quota;
   const ratio = limitBytes ? usedBytes / limitBytes : 0;

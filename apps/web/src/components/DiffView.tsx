@@ -14,6 +14,7 @@ export function DiffView({
   editable,
   labels,
   phrases,
+  onTeardown,
   ref,
 }: {
   mine: string;
@@ -22,10 +23,14 @@ export function DiffView({
   editable: boolean;
   labels: { mine: string; incoming: string };
   phrases?: Record<string, string>;
+  /** Called with the current text before the editor is rebuilt or unmounted (keeps unsaved edits). */
+  onTeardown?: ((merged: string) => void) | undefined;
   ref?: Ref<DiffViewApi>;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const handle = useRef<DiffViewHandle | null>(null);
+  const teardown = useRef(onTeardown);
+  teardown.current = onTeardown;
   const phrasesKey = JSON.stringify(phrases ?? {});
   useEffect(() => {
     if (!host.current) return;
@@ -39,6 +44,7 @@ export function DiffView({
     });
     handle.current = h;
     return () => {
+      teardown.current?.(h.getMerged());
       h.destroy();
       handle.current = null;
     };

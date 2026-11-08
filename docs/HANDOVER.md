@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 4a (web: struttura e account) implementata, rivista e provata: **PR #5** (https://github.com/davidemaggi/Kamino/pull/5) aperta verso `main`, merge al committente.
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 4a mergiata su `main` (PR #5). Sotto-fase 4b (area utente della web app) in brainstorming sul branch `ui-web-user`.
 
 ## Dove siamo
 
@@ -15,8 +15,9 @@
 | Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | ✅ mergiata su `main` (PR #2, 2026-11-08) |
 | Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | ✅ mergiata su `main` (PR #3, 2026-11-08) |
 | Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ mergiata su `main` (PR #4, 2026-11-08) |
-| Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; PR #5, ⏳ merge |
-| Fase UI — sotto-fasi 4b (area utente) e 4c (area admin) | ⏳ |
+| Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
+| Fase UI — sotto-fase 4b: area utente della web app | 🔧 brainstorming sul branch `ui-web-user` |
+| Fase UI — sotto-fase 4c: area admin | ⏳ |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -42,7 +43,7 @@
 
 ## Prossimi passi
 
-1. **Merge della PR #5** (committente). Poi **4b** (area utente: panoramica, vault, dispositivi, centro conflitti con `ui-diff`, storico/cestino, aggiungi dispositivo/QR) e **4c** (area admin), ciascuna con brainstorming → spec → piano. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
+1. **Fase UI, sotto-fase 4b** (branch `ui-web-user`): area utente della web app — panoramica, vault, dispositivi, centro conflitti con `ui-diff`, storico/cestino, download ZIP, aggiungi dispositivo/QR; più i rinvii della 4a (lingua/tema da `me`, suddivisione del bundle). Brainstorming → spec → piano → esecuzione. Poi 4c (admin). Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.

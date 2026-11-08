@@ -71,7 +71,10 @@
     "empty": "No users (setup)",
     "smtpOn": "SMTP on",
     "smtpOff": "SMTP not configured",
-    "signInAs": "Sign in as {{user}}"
+    "signInAs": "Sign in as {{user}}",
+    "pairingRequest": "Incoming pairing request",
+    "staleNext": "Newer incoming version",
+    "quotaFull": "Quota almost full"
   },
   "auth": {
     "login": {
@@ -267,5 +270,28 @@
     "renamed": "Name updated.",
     "notFound": "Device not found.",
     "cancel": "Cancel"
+  },
+  "pairing": {
+    "title": "Add a device",
+    "chooseVault": "Which vault?",
+    "next": "Next",
+    "intro": "Scan the code with the camera of the new device, where Obsidian and the plugin are already installed in an empty vault.",
+    "qrAlt": "QR code to link a device",
+    "link": "Pairing link",
+    "copy": "Copy link",
+    "copied": "Link copied.",
+    "validFor": "Valid for {{left}} · usable once",
+    "waiting": "Waiting for the new device…",
+    "requestTitle": "New device: “{{name}}”",
+    "requestMeta": "{{platform}} · plugin {{version}}",
+    "requestHint": "Approve only if you see the same code on the new device. If it wasn't you, deny.",
+    "approve": "Approve",
+    "deny": "Deny",
+    "approved": "Device linked.",
+    "denied": "Request denied.",
+    "expired": "Code expired: generate a new one.",
+    "closed": "This request is no longer valid.",
+    "regenerate": "Generate again",
+    "close": "Close"
   }
 }

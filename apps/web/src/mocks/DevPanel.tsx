@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button.js";
 import { db, resetDb, signInAs } from "./db.js";
+import { seedUserData, simulatePairingRequest, simulateStaleNext } from "./userdata.js";
 
 /** Dev only: floating panel to drive the fake data (spec §6). */
 export default function DevPanel({ onChange }: { onChange: () => void }) {
@@ -31,6 +32,19 @@ export default function DevPanel({ onChange }: { onChange: () => void }) {
             })}
           >
             {smtp ? t("dev.smtpOn") : t("dev.smtpOff")}
+          </Button>
+          <Button size="sm" variant="outline" onClick={act(() => simulatePairingRequest())}>
+            {t("dev.pairingRequest")}
+          </Button>
+          <Button size="sm" variant="outline" onClick={act(() => simulateStaleNext())}>
+            {t("dev.staleNext")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={act(() => seedUserData("quota-almost-full"))}
+          >
+            {t("dev.quotaFull")}
           </Button>
           {["admin", "demo", "newadmin", "reset"].map((u) => (
             <Button key={u} size="sm" variant="ghost" onClick={act(() => signInAs(u))}>

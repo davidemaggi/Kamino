@@ -71,7 +71,10 @@
     "empty": "Nessun utente (setup)",
     "smtpOn": "SMTP attivo",
     "smtpOff": "SMTP non configurato",
-    "signInAs": "Accedi come {{user}}"
+    "signInAs": "Accedi come {{user}}",
+    "pairingRequest": "Richiesta di collegamento in arrivo",
+    "staleNext": "Versione più recente in arrivo",
+    "quotaFull": "Quota quasi piena"
   },
   "auth": {
     "login": {
@@ -267,5 +270,28 @@
     "renamed": "Nome aggiornato.",
     "notFound": "Dispositivo non trovato.",
     "cancel": "Annulla"
+  },
+  "pairing": {
+    "title": "Aggiungi un dispositivo",
+    "chooseVault": "Quale vault?",
+    "next": "Avanti",
+    "intro": "Inquadra il codice con la fotocamera del nuovo dispositivo, dove Obsidian e il plugin sono già installati in un vault vuoto.",
+    "qrAlt": "Codice QR per collegare un dispositivo",
+    "link": "Link di collegamento",
+    "copy": "Copia link",
+    "copied": "Link copiato.",
+    "validFor": "Valido ancora {{left}} · usabile una volta sola",
+    "waiting": "In attesa del nuovo dispositivo…",
+    "requestTitle": "Nuovo dispositivo: “{{name}}”",
+    "requestMeta": "{{platform}} · plugin {{version}}",
+    "requestHint": "Approva solo se sul nuovo dispositivo vedi lo stesso codice. Se non sei stato tu, rifiuta.",
+    "approve": "Approva",
+    "deny": "Rifiuta",
+    "approved": "Dispositivo collegato.",
+    "denied": "Richiesta rifiutata.",
+    "expired": "Codice scaduto: generane uno nuovo.",
+    "closed": "Questa richiesta non è più valida.",
+    "regenerate": "Genera di nuovo",
+    "close": "Chiudi"
   }
 }

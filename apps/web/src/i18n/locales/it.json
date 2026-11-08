@@ -27,5 +27,47 @@
     "sampleDevice": "Portatile di esempio",
     "syncNow": "Sincronizza ora",
     "secondary": "Altro"
+  },
+  "nav": {
+    "label": "Navigazione principale",
+    "skip": "Vai al contenuto",
+    "menu": "Apri il menu",
+    "overview": "Panoramica",
+    "vaults": "Vault",
+    "devices": "Dispositivi",
+    "conflicts": "Conflitti",
+    "admin": "Amministrazione",
+    "users": "Utenti",
+    "system": "Sistema",
+    "account": "Account",
+    "about": "Informazioni",
+    "logout": "Esci",
+    "roles": {
+      "user": "Utente",
+      "admin": "Amministratore"
+    }
+  },
+  "shell": {
+    "levels": {
+      "safe": "Tutto al sicuro",
+      "working": "Sincronizzazione in corso",
+      "attention": "Attenzione",
+      "decision": "Conflitti da risolvere",
+      "blocked": "Sync bloccato"
+    },
+    "conflictsCount": "{{count}} conflitti",
+    "placeholder": "Questa sezione arriva con la prossima parte.",
+    "notFound": "Pagina non trovata.",
+    "backHome": "Torna alla panoramica",
+    "resetBanner": "L'amministratore ha avviato il reset della tua password il {{date}}. Se non l'hai chiesto tu, contattalo.",
+    "resetBannerOk": "Ho capito"
+  },
+  "dev": {
+    "panel": "Dati finti",
+    "reset": "Ripristina",
+    "empty": "Nessun utente (setup)",
+    "smtpOn": "SMTP attivo",
+    "smtpOff": "SMTP non configurato",
+    "signInAs": "Accedi come {{user}}"
   }
 }

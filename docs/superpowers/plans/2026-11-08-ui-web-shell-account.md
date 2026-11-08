@@ -1494,7 +1494,7 @@ const publicRoute = createRoute({
   beforeLoad: async ({ context, location }) => {
     const status = await context.queryClient.fetchQuery({ queryKey: ["setup-status"], queryFn: api.setupStatus });
     if (status.needed && location.pathname !== "/setup") throw redirect({ to: "/setup" });
-    if (!status.needed && location.pathname === "/setup") throw redirect({ to: "/login" });
+    if (!status.needed && location.pathname === "/setup") throw redirect({ to: "/login", search: { redirect: "/" } });
     if (!status.needed && (await loadMe(context.queryClient))) throw redirect({ to: "/" });
   },
   component: Outlet,
@@ -1527,7 +1527,8 @@ export const appRoute = createRoute({
   component: AppShell,
 });
 
-const page = (path: string, titleKey: string) =>
+/** Generic on the path so the route keeps its literal type (typed links and redirects). */
+const page = <P extends string>(path: P, titleKey: string) =>
   createRoute({ getParentRoute: () => appRoute, path, component: () => <PlaceholderPage titleKey={titleKey} /> });
 
 export const overviewRoute = page("/", "nav.overview");

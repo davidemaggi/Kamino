@@ -27,5 +27,47 @@
     "sampleDevice": "Sample laptop",
     "syncNow": "Sync now",
     "secondary": "Secondary"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "skip": "Skip to content",
+    "menu": "Open the menu",
+    "overview": "Overview",
+    "vaults": "Vaults",
+    "devices": "Devices",
+    "conflicts": "Conflicts",
+    "admin": "Administration",
+    "users": "Users",
+    "system": "System",
+    "account": "Account",
+    "about": "About",
+    "logout": "Sign out",
+    "roles": {
+      "user": "User",
+      "admin": "Administrator"
+    }
+  },
+  "shell": {
+    "levels": {
+      "safe": "All safe",
+      "working": "Syncing",
+      "attention": "Attention",
+      "decision": "Conflicts to resolve",
+      "blocked": "Sync blocked"
+    },
+    "conflictsCount": "{{count}} conflicts",
+    "placeholder": "This section comes with the next part.",
+    "notFound": "Page not found.",
+    "backHome": "Back to the overview",
+    "resetBanner": "The administrator started a reset of your password on {{date}}. If you didn't ask for it, contact them.",
+    "resetBannerOk": "Got it"
+  },
+  "dev": {
+    "panel": "Fake data",
+    "reset": "Reset",
+    "empty": "No users (setup)",
+    "smtpOn": "SMTP on",
+    "smtpOff": "SMTP not configured",
+    "signInAs": "Sign in as {{user}}"
   }
 }

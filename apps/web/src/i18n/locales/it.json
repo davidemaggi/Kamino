@@ -74,7 +74,8 @@
     "signInAs": "Accedi come {{user}}",
     "pairingRequest": "Richiesta di collegamento in arrivo",
     "staleNext": "Versione più recente in arrivo",
-    "quotaFull": "Quota quasi piena"
+    "quotaFull": "Quota quasi piena",
+    "smtpFail": "Email di prova fallisce"
   },
   "auth": {
     "login": {

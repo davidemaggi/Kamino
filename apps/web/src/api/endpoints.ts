@@ -1,4 +1,15 @@
 import {
+  AdminUser,
+  AdminUserList,
+  AuditPage,
+  CreateUserResponse,
+  ResetLink,
+  SmtpTestResult,
+  SystemConfig,
+  SystemHealth,
+  type ConfigPatch,
+  type CreateUserRequest,
+  type UpdateUserRequest,
   ConflictDetail,
   ConflictList,
   Device,
@@ -113,4 +124,27 @@ export const api = {
   trash: (vaultId: string) => request(TrashList, `/vaults/${encodeURIComponent(vaultId)}/trash`),
   restoreTrash: (fileId: string) =>
     requestVoid(`/trash/${encodeURIComponent(fileId)}/restore`, { method: "POST" }),
+  adminUsers: () => request(AdminUserList, "/admin/users"),
+  adminUser: (id: string) => request(AdminUser, `/admin/users/${encodeURIComponent(id)}`),
+  createUser: (body: CreateUserRequest) =>
+    request(CreateUserResponse, "/admin/users", { method: "POST", body }),
+  updateUser: (id: string, body: UpdateUserRequest) =>
+    request(AdminUser, `/admin/users/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  blockUser: (id: string) =>
+    request(AdminUser, `/admin/users/${encodeURIComponent(id)}/block`, { method: "POST" }),
+  unblockUser: (id: string) =>
+    request(AdminUser, `/admin/users/${encodeURIComponent(id)}/unblock`, { method: "POST" }),
+  resetLink: (id: string) =>
+    request(ResetLink, `/admin/users/${encodeURIComponent(id)}/reset-link`, { method: "POST" }),
+  deleteUser: (id: string, confirmUsername: string, sendZip: boolean) =>
+    requestVoid(`/admin/users/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      body: { confirmUsername, sendZip },
+    }),
+  adminConfig: () => request(SystemConfig, "/admin/config"),
+  updateConfig: (patch: ConfigPatch) =>
+    request(SystemConfig, "/admin/config", { method: "PATCH", body: patch }),
+  smtpTest: () => request(SmtpTestResult, "/admin/config/smtp-test", { method: "POST" }),
+  health: () => request(SystemHealth, "/admin/health"),
+  audit: (page: number) => request(AuditPage, `/admin/audit?page=${page}`),
 };

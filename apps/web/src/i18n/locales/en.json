@@ -74,7 +74,8 @@
     "signInAs": "Sign in as {{user}}",
     "pairingRequest": "Incoming pairing request",
     "staleNext": "Newer incoming version",
-    "quotaFull": "Quota almost full"
+    "quotaFull": "Quota almost full",
+    "smtpFail": "Test email fails"
   },
   "auth": {
     "login": {

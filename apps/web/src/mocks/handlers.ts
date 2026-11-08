@@ -15,6 +15,7 @@ import {
 } from "@kamino/protocol";
 import { http, HttpResponse } from "msw";
 import type { z } from "zod";
+import { adminHandlers } from "./admin-handlers.js";
 import { userHandlers } from "./user-handlers.js";
 import {
   addEvent,
@@ -303,4 +304,4 @@ const authHandlers = [
   }),
 ];
 
-export const handlers = [...authHandlers, ...userHandlers];
+export const handlers = [...authHandlers, ...userHandlers, ...adminHandlers];

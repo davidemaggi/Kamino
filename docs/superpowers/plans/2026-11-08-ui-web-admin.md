@@ -1498,7 +1498,8 @@ export function ConfigTab() {
 `apps/web/src/pages/admin/HealthTab.tsx`:
 
 ```tsx
-import type { HealthCheck, Level } from "@kamino/protocol";
+import type { HealthCheck } from "@kamino/protocol";
+import type { Level } from "@kamino/status";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/endpoints.js";

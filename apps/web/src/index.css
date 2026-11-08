@@ -137,3 +137,8 @@
 .kamino-diff .diff-view--unified .cm-deletedChunk .cm-deletedText {
   background: transparent;
 }
+.kamino-diff .cm-gutters,
+.kamino-diff .cm-merge-gap {
+  background: var(--card);
+  border-color: var(--border);
+}

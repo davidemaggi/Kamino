@@ -16,7 +16,7 @@
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
-**Metodo:** superpowers *subagent-driven-development* — un subagente implementa ogni task, un revisore lo controlla (spec + qualità), eventuali giri di correzione, poi il task successivo; alla fine una revisione complessiva del branch.
+**Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
 

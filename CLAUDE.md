@@ -9,6 +9,7 @@ Sistema self-hosted per sincronizzare vault Obsidian: plugin (desktop + mobile),
 - Leggi i documenti pertinenti in `docs/`: visione (`00`), requisiti (`01`), architettura (`02`), protocollo di sync (`03`), threat model (`04`), modello dati (`05`), roadmap (`06`), [ADR](docs/adr/).
 - Le **ADR accettate non si modificano**: se una decisione va cambiata, proponi una nuova ADR che la sostituisce.
 - Lavora a piani: ogni milestone ha un piano in `docs/superpowers/plans/`. Esegui un task alla volta, con TDD.
+- **Esecuzione dei piani (standard, per contenere i token):** nella sessione corrente con superpowers *executing-plans*, a blocchi di task con un checkpoint col committente tra un blocco e l'altro; alla fine **una sola** revisione complessiva del branch con un subagente. *Subagent-driven-development* (subagente + revisori per ogni task) solo se il committente lo chiede esplicitamente.
 - La promessa del prodotto è **"non perdi mai niente, e sai sempre se sei al sicuro"**. Nel dubbio, conserva entrambe le versioni e rendi visibile lo stato.
 
 ## Struttura

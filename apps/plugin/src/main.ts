@@ -1,6 +1,9 @@
+import { PROTOCOL_ACTION } from "@kamino/brand";
 import { DEFAULT_THRESHOLDS, describeStatus } from "@kamino/status";
-import { getIconIds, Platform, Plugin } from "obsidian";
+import { getIconIds, Notice, Platform, Plugin } from "obsidian";
+import { parsePairingLink } from "./connection/link.js";
 import { registerDevCommands } from "./dev/commands.js";
+import { fmt } from "./i18n/format.js";
 import { detectLanguage, t } from "./i18n/index.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
 import { FakeSyncState } from "./state/fake.js";
@@ -55,6 +58,16 @@ export default class SyncPlugin extends Plugin {
       id: "open-status",
       name: m.panel.openCommand,
       callback: () => void ctx.openStatusPanel(),
+    });
+
+    // Pairing link handler. Until the claim flow lands (task 7) it only validates and reports.
+    this.registerObsidianProtocolHandler(PROTOCOL_ACTION, (params) => {
+      const parsed = parsePairingLink(params);
+      new Notice(
+        parsed.ok
+          ? fmt(m.pairing.linkReceived, { host: new URL(parsed.link.server).host })
+          : m.pairing.invalidLink,
+      );
     });
 
     if (__DEV__) registerDevCommands(this, { lang, now, state, ctx });

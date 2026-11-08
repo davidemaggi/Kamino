@@ -12,7 +12,9 @@
     "diffEditable": "Editable",
     "diffMine": "Yours (test)",
     "diffIncoming": "Incoming (test)",
-    "conflictScenario": "Load conflict scenario (development)"
+    "conflictScenario": "Load conflict scenario (development)",
+    "linkTest": "Show test QR (development)",
+    "linkTestHint": "Scan the code with the phone camera, or run in a terminal: {command}"
   },
   "panel": {
     "title": "Sync status",
@@ -90,5 +92,9 @@
     "cancel": "Cancel",
     "done": "Conflicts resolved: {count}",
     "failed": "Could not resolve the conflicts. Try again."
+  },
+  "pairing": {
+    "invalidLink": "Invalid pairing link.",
+    "linkReceived": "Link received from {host}."
   }
 }

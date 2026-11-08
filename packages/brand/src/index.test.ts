@@ -5,6 +5,7 @@ import {
   PLUGIN_ID,
   PRODUCT_NAME,
   PRODUCT_SLUG,
+  PROTOCOL_ACTION,
   envName,
 } from "./index.js";
 
@@ -25,5 +26,9 @@ describe("brand", () => {
   it("exposes the product constants", () => {
     expect(PRODUCT_NAME).toBe("Kamino");
     expect(PACKAGE_SCOPE).toBe(`@${PRODUCT_SLUG}`);
+  });
+
+  it("protocol action is the product slug", () => {
+    expect(PROTOCOL_ACTION).toBe(PRODUCT_SLUG);
   });
 });

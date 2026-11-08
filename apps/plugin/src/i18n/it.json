@@ -12,7 +12,9 @@
     "diffEditable": "Modificabile",
     "diffMine": "La tua (prova)",
     "diffIncoming": "In arrivo (prova)",
-    "conflictScenario": "Carica scenario conflitti (sviluppo)"
+    "conflictScenario": "Carica scenario conflitti (sviluppo)",
+    "linkTest": "Mostra QR di prova (sviluppo)",
+    "linkTestHint": "Inquadra il codice con la fotocamera del telefono, oppure esegui nel terminale: {command}"
   },
   "panel": {
     "title": "Stato sync",
@@ -90,5 +92,9 @@
     "cancel": "Annulla",
     "done": "Conflitti risolti: {count}",
     "failed": "Non è stato possibile risolvere i conflitti. Riprova."
+  },
+  "pairing": {
+    "invalidLink": "Link di collegamento non valido.",
+    "linkReceived": "Link ricevuto da {host}."
   }
 }

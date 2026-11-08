@@ -196,6 +196,13 @@ export class Plugin {
     this.ribbonIcons.push(el);
     return el;
   }
+  protocolHandlers = new Map<string, (params: Record<string, string>) => unknown>();
+  registerObsidianProtocolHandler(
+    action: string,
+    handler: (params: Record<string, string>) => unknown,
+  ): void {
+    this.protocolHandlers.set(action, handler);
+  }
   registerView(type: string, creator: ViewCreator): void {
     this.app.workspace.creators.set(type, creator);
   }

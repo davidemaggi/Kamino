@@ -47,6 +47,19 @@ describe("describeStatus rules", () => {
     expect(d.message).toEqual({ key: "attention.offline", params: { ageMs: 24 * HOUR, count: 0 } });
   });
 
+  it("not linked wins over never synced and is never safe", () => {
+    const d = describeStatus(
+      { ...synced, linked: false, lastConfirmedAt: null },
+      DEFAULT_THRESHOLDS,
+      NOW,
+    );
+    expect(d.level).toBe("working");
+    expect(d.message.key).toBe("working.notLinked");
+    expect(describeStatus({ ...synced, linked: false }, DEFAULT_THRESHOLDS, NOW).level).toBe(
+      "working",
+    );
+  });
+
   it("never synced with empty queue is not safe", () => {
     const d = describeStatus({ ...synced, lastConfirmedAt: null }, DEFAULT_THRESHOLDS, NOW);
     expect(d.level).toBe("working");

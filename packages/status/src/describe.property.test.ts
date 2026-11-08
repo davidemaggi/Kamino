@@ -19,6 +19,7 @@ const snapshotArb: fc.Arbitrary<SyncSnapshot> = fc
     conflicts: fc.nat({ max: 20 }),
     blocked: fc.constantFrom(null, "quota", "revoked", "auth", "protocol"),
     quotaRatio: fc.option(fc.double({ min: 0, max: 2, noNaN: true }), { nil: null }),
+    linked: fc.boolean(),
   })
   .map((s) => ({ ...s, oldestQueuedAt: s.queued > 0 ? s.oldestQueuedAt : null }));
 
@@ -34,6 +35,7 @@ describe("describeStatus properties", () => {
         expect(s.lastConfirmedAt).not.toBeNull();
         expect(s.conflicts).toBe(0);
         expect(s.blocked).toBeNull();
+        expect(s.linked).not.toBe(false);
       }),
     );
   });
@@ -66,7 +68,8 @@ describe("describeStatus properties", () => {
         if (s.blocked) expect(keys).toContain(`blocked.${s.blocked}`);
         if (s.conflicts > 0) expect(keys).toContain("decision.conflicts");
         if (s.queued > 0) expect(keys.some((k) => k.startsWith("working."))).toBe(true);
-        if (s.queued === 0 && s.lastConfirmedAt === null)
+        if (s.queued === 0 && s.linked === false) expect(keys).toContain("working.notLinked");
+        if (s.queued === 0 && s.linked !== false && s.lastConfirmedAt === null)
           expect(keys).toContain("working.neverSynced");
         if (s.queued > 0 && s.oldestQueuedAt !== null && NOW - s.oldestQueuedAt >= HOUR) {
           expect(keys).toContain("attention.stale");

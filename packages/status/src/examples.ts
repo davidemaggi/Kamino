@@ -33,6 +33,11 @@ export function exampleSnapshots(now: number): ExampleSnapshot[] {
       expected: { level: "working", key: "working.neverSynced" },
     },
     {
+      id: "not-linked",
+      snapshot: { ...base, linked: false },
+      expected: { level: "working", key: "working.notLinked" },
+    },
+    {
       id: "queued",
       snapshot: { ...synced, queued: 3, oldestQueuedAt: now - 10_000 },
       expected: { level: "working", key: "working.queued" },

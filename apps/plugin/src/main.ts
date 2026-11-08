@@ -6,6 +6,7 @@ import { SettingsTab } from "./settings/SettingsTab.js";
 import { FakeSyncState } from "./state/fake.js";
 import type { UiContext } from "./ui/context.js";
 import { StatusIndicator } from "./ui/StatusIndicator.js";
+import { BulkResolveModal } from "./ui/BulkResolveModal.js";
 import { ConflictView } from "./ui/ConflictView.js";
 import { StatusPanelView } from "./ui/StatusPanelView.js";
 import { CONFLICT_VIEW, openConflict, openStatusPanel, STATUS_VIEW } from "./ui/workspace.js";
@@ -31,7 +32,7 @@ export default class SyncPlugin extends Plugin {
       available: new Set(getIconIds()),
       openStatusPanel: () => openStatusPanel(this.app),
       openConflict: (id) => openConflict(this.app, id),
-      openBulkResolve: () => undefined,
+      openBulkResolve: () => new BulkResolveModal(this.app, ctx).open(),
     };
 
     this.registerView(STATUS_VIEW, (leaf) => new StatusPanelView(leaf, ctx));

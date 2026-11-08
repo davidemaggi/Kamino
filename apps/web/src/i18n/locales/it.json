@@ -45,7 +45,8 @@
     "roles": {
       "user": "Utente",
       "admin": "Amministratore"
-    }
+    },
+    "logoutFailed": "Uscita non confermata dal server: chiudi il browser se sei su un computer condiviso."
   },
   "shell": {
     "levels": {
@@ -60,7 +61,9 @@
     "notFound": "Pagina non trovata.",
     "backHome": "Torna alla panoramica",
     "resetBanner": "L'amministratore ha avviato il reset della tua password il {{date}}. Se non l'hai chiesto tu, contattalo.",
-    "resetBannerOk": "Ho capito"
+    "resetBannerOk": "Ho capito",
+    "error": "Non riesco a contattare il server. Controlla la connessione e riprova.",
+    "retry": "Riprova"
   },
   "dev": {
     "panel": "Dati finti",
@@ -152,7 +155,8 @@
     "password_wrong": "La password attuale non è corretta.",
     "totp_mandatory": "Per gli amministratori la verifica in due passaggi è obbligatoria.",
     "forbidden": "Non hai i permessi per questa operazione.",
-    "internal": "Qualcosa è andato storto. Riprova."
+    "internal": "Qualcosa è andato storto. Riprova.",
+    "rate_limited": "Troppi tentativi: aspetta qualche minuto e riprova."
   },
   "account": {
     "title": "Account",
@@ -181,7 +185,9 @@
       "confirmPassword": "Conferma con la tua password",
       "confirm": "Conferma",
       "cancel": "Annulla",
-      "newCodes": "Nuovi codici di recupero: quelli vecchi non funzionano più."
+      "newCodes": "Nuovi codici di recupero: quelli vecchi non funzionano più.",
+      "hideCodes": "Ho salvato i codici",
+      "cancelEnable": "Annulla"
     },
     "sessions": {
       "title": "Sessioni attive",
@@ -205,5 +211,8 @@
         "totp_disabled": "Verifica in due passaggi disattivata"
       }
     }
+  },
+  "common": {
+    "close": "Chiudi"
   }
 }

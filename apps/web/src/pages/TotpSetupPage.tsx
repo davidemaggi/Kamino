@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { renderSVG } from "uqr";
 import { api } from "../api/endpoints.js";
@@ -18,18 +18,30 @@ export function TotpSetupPage({ onDone }: { onDone?: () => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const me = useQuery({ queryKey: ["me"], queryFn: api.me }).data;
-  const setup = useQuery({ queryKey: ["totp-setup"], queryFn: api.totpSetup, staleTime: Infinity });
+  // The TOTP secret must not linger in the cache: no retention, removed when leaving the page.
+  const setup = useQuery({
+    queryKey: ["totp-setup"],
+    queryFn: api.totpSetup,
+    staleTime: Infinity,
+    gcTime: 0,
+  });
+  useEffect(() => () => qc.removeQueries({ queryKey: ["totp-setup"] }), [qc]);
   const [code, setCode] = useState("");
+  // Recovery codes live only in this component's state (never in the mutation cache).
   const [codes, setCodes] = useState<string[] | null>(null);
   const [ack, setAck] = useState(false);
-  const confirm = useMutation({
-    mutationFn: (c: string) => api.totpConfirm(c),
-    onSuccess: (r) => setCodes(r.recoveryCodes),
-  });
+  const confirm = useMutation({ mutationFn: (c: string) => api.totpConfirm(c) });
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    confirm.mutate(code.trim());
+    if (confirm.isPending) return;
+    try {
+      const r = await confirm.mutateAsync(code.trim());
+      setCodes(r.recoveryCodes);
+      confirm.reset();
+    } catch {
+      setCode("");
+    }
   };
 
   const finish = async () => {
@@ -65,7 +77,8 @@ export function TotpSetupPage({ onDone }: { onDone?: () => void }) {
               </code>
             </>
           )}
-          <form onSubmit={submit} className="space-y-3">
+          {setup.isError && <ErrorText>{errorMessage(setup.error, t)}</ErrorText>}
+          <form onSubmit={(e) => void submit(e)} className="space-y-3">
             <p>{t("auth.totp.step2")}</p>
             <TextField
               label={t("auth.totp.code")}

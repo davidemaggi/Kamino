@@ -45,7 +45,8 @@
     "roles": {
       "user": "User",
       "admin": "Administrator"
-    }
+    },
+    "logoutFailed": "Sign-out not confirmed by the server: close the browser if you are on a shared computer."
   },
   "shell": {
     "levels": {
@@ -60,7 +61,9 @@
     "notFound": "Page not found.",
     "backHome": "Back to the overview",
     "resetBanner": "The administrator started a reset of your password on {{date}}. If you didn't ask for it, contact them.",
-    "resetBannerOk": "Got it"
+    "resetBannerOk": "Got it",
+    "error": "Can't reach the server. Check the connection and try again.",
+    "retry": "Try again"
   },
   "dev": {
     "panel": "Fake data",
@@ -152,7 +155,8 @@
     "password_wrong": "The current password is wrong.",
     "totp_mandatory": "Two-step verification is mandatory for administrators.",
     "forbidden": "You don't have permission for this.",
-    "internal": "Something went wrong. Try again."
+    "internal": "Something went wrong. Try again.",
+    "rate_limited": "Too many attempts: wait a few minutes and try again."
   },
   "account": {
     "title": "Account",
@@ -181,7 +185,9 @@
       "confirmPassword": "Confirm with your password",
       "confirm": "Confirm",
       "cancel": "Cancel",
-      "newCodes": "New recovery codes: the old ones no longer work."
+      "newCodes": "New recovery codes: the old ones no longer work.",
+      "hideCodes": "I saved the codes",
+      "cancelEnable": "Cancel"
     },
     "sessions": {
       "title": "Active sessions",
@@ -205,5 +211,8 @@
         "totp_disabled": "Two-step verification turned off"
       }
     }
+  },
+  "common": {
+    "close": "Close"
   }
 }

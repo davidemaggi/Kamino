@@ -38,6 +38,15 @@ describe("LoginPage", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/account"));
   });
 
+  it("an internal redirect with a query string is kept", async () => {
+    const { router } = await renderRoute("/login?redirect=%2Fvaults%3Fx%3D1");
+    type("Nome utente", "demo");
+    type("Password", "demo-password-1");
+    click("Accedi");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/vaults"));
+    expect(router.state.location.searchStr).toBe("?x=1");
+  });
+
   it("an external redirect is ignored", async () => {
     const { router } = await renderRoute("/login?redirect=https%3A%2F%2Fevil.example");
     type("Nome utente", "demo");

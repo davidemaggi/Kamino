@@ -20,6 +20,7 @@ import { LoginPage } from "./pages/auth/LoginPage.js";
 import { ResetPage } from "./pages/auth/ResetPage.js";
 import { SetupPage } from "./pages/auth/SetupPage.js";
 import { AccountPage } from "./pages/account/AccountPage.js";
+import { ErrorPage } from "./pages/ErrorPage.js";
 import { NotFoundPage } from "./pages/NotFoundPage.js";
 import { TotpSetupPage } from "./pages/TotpSetupPage.js";
 import { PlaceholderPage } from "./pages/PlaceholderPage.js";
@@ -130,6 +131,10 @@ export const accountRoute = createRoute({
 export const totpSetupRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/account/totp-setup",
+  // Re-keying an active TOTP is not offered here (Account → regenerate codes / turn off instead).
+  beforeLoad: ({ context }) => {
+    if (context.me.totpEnabled && !context.me.totpSetupRequired) throw redirect({ to: "/account" });
+  },
   component: () => <TotpSetupPage />,
 });
 export const aboutRoute = createRoute({
@@ -145,6 +150,13 @@ const adminRoute = createRoute({
     if (context.me.role !== "admin") throw notFound();
   },
   component: Outlet,
+});
+const adminIndexRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/",
+  beforeLoad: () => {
+    throw redirect({ to: "/admin/users" });
+  },
 });
 export const adminUsersRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -167,7 +179,7 @@ export const routeTree = rootRoute.addChildren([
     accountRoute,
     totpSetupRoute,
     aboutRoute,
-    adminRoute.addChildren([adminUsersRoute, adminSystemRoute]),
+    adminRoute.addChildren([adminIndexRoute, adminUsersRoute, adminSystemRoute]),
   ]),
 ]);
 
@@ -177,6 +189,7 @@ export function createAppRouter(opts: { queryClient: QueryClient; history?: Rout
     context: { queryClient: opts.queryClient },
     ...(opts.history ? { history: opts.history } : {}),
     defaultNotFoundComponent: NotFoundPage,
+    defaultErrorComponent: ErrorPage,
   });
 }
 

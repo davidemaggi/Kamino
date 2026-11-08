@@ -20,9 +20,13 @@ export function TotpSection({ me }: { me: Me }) {
   const [password, setPassword] = useState("");
   const [codes, setCodes] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const confirm = async (e: FormEvent) => {
     e.preventDefault();
+    // One request at a time: a second "regenerate" would replace the codes shown on screen.
+    if (busy) return;
+    setBusy(true);
     setError(null);
     try {
       if (mode === "disable") await api.totpDisable(password);
@@ -34,6 +38,7 @@ export function TotpSection({ me }: { me: Me }) {
       setError(errorMessage(err, t));
     } finally {
       setPassword("");
+      setBusy(false);
     }
   };
 
@@ -41,6 +46,9 @@ export function TotpSection({ me }: { me: Me }) {
     return (
       <SectionCard title={t("account.totp.title")}>
         <TotpSetupPage onDone={() => setMode("idle")} />
+        <Button variant="ghost" onClick={() => setMode("idle")}>
+          {t("account.totp.cancelEnable")}
+        </Button>
       </SectionCard>
     );
   }
@@ -52,6 +60,9 @@ export function TotpSection({ me }: { me: Me }) {
         <>
           <p role="status">{t("account.totp.newCodes")}</p>
           <RecoveryCodes codes={codes} />
+          <Button variant="outline" onClick={() => setCodes(null)}>
+            {t("account.totp.hideCodes")}
+          </Button>
         </>
       )}
       {mode === "idle" ? (
@@ -79,7 +90,9 @@ export function TotpSection({ me }: { me: Me }) {
             autoComplete="current-password"
           />
           <div className="flex gap-2">
-            <Button type="submit">{t("account.totp.confirm")}</Button>
+            <Button type="submit" disabled={busy}>
+              {t("account.totp.confirm")}
+            </Button>
             <Button type="button" variant="ghost" onClick={() => setMode("idle")}>
               {t("account.totp.cancel")}
             </Button>

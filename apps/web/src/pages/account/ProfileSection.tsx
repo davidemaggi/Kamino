@@ -8,16 +8,19 @@ import { errorMessage } from "../../api/errors.js";
 import { LanguageSwitch } from "../../components/LanguageSwitch.js";
 import { TextField } from "../../components/TextField.js";
 import { Button } from "../../components/ui/button.js";
+import { useTheme } from "../../theme/ThemeProvider.js";
 import { ThemeSwitcher } from "../../theme/ThemeSwitcher.js";
 import { ErrorText } from "../auth/AuthCard.js";
 import { SectionCard } from "./SectionCard.js";
 
 export function ProfileSection({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
+  const { theme } = useTheme();
   const qc = useQueryClient();
   const [email, setEmail] = useState(me.email);
   const save = useMutation({
-    mutationFn: () => api.updateProfile({ email, lang: i18n.language === "en" ? "en" : "it" }),
+    mutationFn: () =>
+      api.updateProfile({ email, lang: i18n.language === "en" ? "en" : "it", theme }),
     onSuccess: (updated) => {
       qc.setQueryData(["me"], updated);
       toast(t("account.saved"));

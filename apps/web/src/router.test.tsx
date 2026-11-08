@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { resetDb, signInAs } from "./mocks/db.js";
+import { db, resetDb, signInAs } from "./mocks/db.js";
 import { renderRoute } from "./test/render.js";
 
 afterEach(cleanup);
@@ -35,5 +35,27 @@ describe("route guards", () => {
     signInAs("demo");
     const { router } = await renderRoute("/login");
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  });
+
+  it("a session revoked mid-session sends the user to sign-in, keeping the page", async () => {
+    signInAs("demo");
+    const { router } = await renderRoute("/account");
+    await screen.findByRole("heading", { name: "Profilo" });
+    db.currentSessionId = null; // revoked from another device
+    fireEvent.click(screen.getByRole("button", { name: "Salva" })); // PATCH /account/profile → 401
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(router.state.location.search).toMatchObject({ redirect: "/account" });
+  });
+
+  it("the TOTP setup page is not reachable once TOTP is on", async () => {
+    signInAs("admin");
+    const { router } = await renderRoute("/account/totp-setup");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/account"));
+  });
+
+  it("/admin goes to the users page for admins", async () => {
+    signInAs("admin");
+    const { router } = await renderRoute("/admin");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/admin/users"));
   });
 });

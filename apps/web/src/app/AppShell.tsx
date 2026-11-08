@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { api } from "../api/endpoints.js";
 import { LEVEL_CLASSES, STATUS_ICONS } from "../components/status/status-icons.js";
 import { Button } from "../components/ui/button.js";
@@ -102,7 +103,8 @@ export function AppShell() {
   const conflicts = summary?.vaults.reduce((n, v) => n + v.conflicts, 0) ?? 0;
 
   const logout = async () => {
-    await api.logout().catch(() => undefined);
+    // Local data is always cleared; if the server did not confirm, say so (shared computers).
+    await api.logout().catch(() => toast.error(t("nav.logoutFailed")));
     qc.clear();
     await navigate({ to: "/login", search: { redirect: "/" } });
   };

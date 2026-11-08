@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/endpoints.js";
@@ -19,25 +19,39 @@ export function InvitePage() {
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     const pwError = newPasswordError(password, repeat, t);
     if (pwError) return setError(pwError);
     setError(null);
+    setBusy(true);
     try {
       await api.acceptInvite(token, password);
       await qc.invalidateQueries();
       await navigate({ to: "/" });
     } catch (err) {
       setError(errorMessage(err, t));
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
     <AuthCard title={t("auth.invite.title")}>
       {invite.isError ? (
-        <ErrorText>{errorMessage(invite.error, t)}</ErrorText>
+        <>
+          <ErrorText>{errorMessage(invite.error, t)}</ErrorText>
+          <Link
+            to="/login"
+            search={{ redirect: "/" }}
+            className="text-link mt-4 block text-center text-sm underline"
+          >
+            {t("auth.login.back")}
+          </Link>
+        </>
       ) : invite.data ? (
         <form onSubmit={(e) => void submit(e)} className="space-y-4">
           <p className="text-muted-foreground text-sm">{t("auth.invite.intro", invite.data)}</p>
@@ -54,7 +68,7 @@ export function InvitePage() {
             autoComplete="new-password"
           />
           <ErrorText>{error}</ErrorText>
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={busy}>
             {t("auth.invite.submit")}
           </Button>
         </form>

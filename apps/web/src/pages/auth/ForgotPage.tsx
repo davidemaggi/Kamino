@@ -12,15 +12,20 @@ export function ForgotPage() {
   const [email, setEmail] = useState("");
   const [result, setResult] = useState<"sent" | "noSmtp" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     setError(null);
+    setBusy(true);
     try {
       const r = await api.forgot(email);
       setResult(r.smtp ? "sent" : "noSmtp");
     } catch (err) {
       setError(errorMessage(err, t));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -40,7 +45,7 @@ export function ForgotPage() {
             required
           />
           <ErrorText>{error}</ErrorText>
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={busy}>
             {t("auth.forgot.submit")}
           </Button>
         </form>

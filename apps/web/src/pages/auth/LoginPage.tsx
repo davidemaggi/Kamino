@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/endpoints.js";
@@ -14,7 +14,7 @@ import { AuthCard, ErrorText } from "./AuthCard.js";
 export function LoginPage() {
   const { t } = useTranslation();
   const { redirect } = loginRoute.useSearch();
-  const navigate = useNavigate();
+  const router = useRouter();
   const qc = useQueryClient();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +26,8 @@ export function LoginPage() {
 
   const done = async () => {
     await qc.invalidateQueries();
-    await navigate({ to: redirect });
+    // href (not "to"): the internal target may carry a query string, e.g. /vaults?x=1.
+    await router.navigate({ href: redirect });
   };
 
   const submit = async (e: FormEvent) => {

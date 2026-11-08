@@ -16,17 +16,22 @@ export function ResetPage() {
   const [repeat, setRepeat] = useState("");
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     const pwError = newPasswordError(password, repeat, t);
     if (pwError) return setError(pwError);
     setError(null);
+    setBusy(true);
     try {
       await api.reset(token, password);
       setDone(true);
     } catch (err) {
       setError(errorMessage(err, t));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -49,7 +54,7 @@ export function ResetPage() {
             autoComplete="new-password"
           />
           <ErrorText>{error}</ErrorText>
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={busy}>
             {t("auth.reset.submit")}
           </Button>
         </form>

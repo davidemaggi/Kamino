@@ -17,6 +17,19 @@ export class ApiError extends Error {
   }
 }
 
+let unauthorizedHandler: (() => void) | null = null;
+
+/**
+ * Called when an API call answers 401 mid-session (spec §4: any 401 → sign-in).
+ * /me and /auth/* are excluded: the route guards and the sign-in page handle those.
+ */
+export function onUnauthorized(handler: () => void): () => void {
+  unauthorizedHandler = handler;
+  return () => {
+    if (unauthorizedHandler === handler) unauthorizedHandler = null;
+  };
+}
+
 export interface RequestOptions {
   method?: string;
   body?: unknown;
@@ -43,6 +56,8 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
   } catch {
     // no JSON body: keep the status-based code
   }
+  if (code === "unauthorized" && path !== "/me" && !path.startsWith("/auth/"))
+    unauthorizedHandler?.();
   throw new ApiError(code, res.status);
 }
 

@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 4b (web: area utente) **implementata** sul branch `ui-web-user` (8 task su 8); prossimo: revisione finale, PR, prova del committente.
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 4b (web: area utente) implementata e rivista: **PR #6** (https://github.com/davidemaggi/Kamino/pull/6) aperta verso `main`; in attesa della prova del committente e del merge.
 
 ## Dove siamo
 
@@ -16,7 +16,7 @@
 | Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | ✅ mergiata su `main` (PR #3, 2026-11-08) |
 | Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ mergiata su `main` (PR #4, 2026-11-08) |
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
-| Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); ⏳ PR |
+| Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); PR #6, ⏳ prova e merge |
 | Fase UI — sotto-fase 4c: area admin | ⏳ |
 | M1…M7 | ⏳ |
 
@@ -43,7 +43,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 4b — chiusura:** revisione finale del branch `ui-web-user` (un subagente), PR, prova del committente nel browser, merge. Poi **4c** (area admin: utenti, quote, configurazione con campi "impostati dall'ambiente", salute del sistema, audit log; solo metriche aggregate, U-03).
+1. **Prova del committente e merge della PR #6.** Poi **4c** (area admin: utenti, quote, configurazione con campi "impostati dall'ambiente", salute del sistema, audit log; solo metriche aggregate, U-03), con brainstorming → spec → piano.
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.

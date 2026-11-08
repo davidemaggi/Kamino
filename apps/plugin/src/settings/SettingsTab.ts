@@ -177,18 +177,14 @@ export class SettingsTab extends PluginSettingTab {
       );
     if (!s.configDir.useVaultDefault) {
       for (const c of CONFIG_CATEGORIES) {
-        new Setting(containerEl)
-          .setName(m.categories[c])
-          .addToggle((tg) =>
-            tg
-              .setValue(s.configDir.categories[c])
-              .onChange((v) =>
-                save((x) => ({
-                  ...x,
-                  configDir: { ...x.configDir, categories: { ...x.configDir.categories, [c]: v } },
-                })),
-              ),
-          );
+        new Setting(containerEl).setName(m.categories[c]).addToggle((tg) =>
+          tg.setValue(s.configDir.categories[c]).onChange((v) =>
+            save((x) => ({
+              ...x,
+              configDir: { ...x.configDir, categories: { ...x.configDir.categories, [c]: v } },
+            })),
+          ),
+        );
       }
     }
     note(m.configNote);

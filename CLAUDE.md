@@ -48,6 +48,7 @@ pnpm --filter @kamino/web dev           # Vite su http://localhost:5173
 pnpm --filter @kamino/plugin build      # output in apps/plugin/dist (main.js, manifest.json, styles.css)
 pnpm --filter @kamino/plugin build:vault  # build di sviluppo + copia nella vault di prova vault/kamino (ignorata da git)
 # galleria del design system: pnpm --filter @kamino/web dev → http://localhost:5173/dev/gallery
+# web app con API finte (MSW): pnpm --filter @kamino/web dev → pulsante "Dati finti" in basso a destra; utenti di prova in docs/ui/design-system.md §9
 pnpm changeset                          # interattivo; una per ogni modifica rilasciabile
 # prima: docker/.env e docker/secrets/kamino_master_key (vedi Quick start nel README e docs/self-hosting.md)
 docker compose -f docker/compose.lan.yml up -d --build

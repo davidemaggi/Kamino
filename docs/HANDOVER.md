@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fasi 1–3 mergiate su `main` (PR #2, #3, #4). **Pausa in uno stato pulito:** nessun lavoro in corso; la prossima è la sotto-fase 4 (web app), brainstorming non ancora iniziato.
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 4a (web: struttura e account) **implementata** sul branch `ui-web` (8 task su 8); prossimo: revisione finale, PR, poi 4b.
 
 ## Dove siamo
 
@@ -15,7 +15,8 @@
 | Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | ✅ mergiata su `main` (PR #2, 2026-11-08) |
 | Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | ✅ mergiata su `main` (PR #3, 2026-11-08) |
 | Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ mergiata su `main` (PR #4, 2026-11-08) |
-| Fase UI — sotto-fase 4: web app | ⏳ da iniziare (brainstorming) sul branch `ui-web` |
+| Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata sul branch `ui-web`; ⏳ revisione finale e PR |
+| Fase UI — sotto-fasi 4b (area utente) e 4c (area admin) | ⏳ |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -41,7 +42,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 4: web app** (branch `ui-web`, creato da `main` dopo il merge della PR #4). Partire con superpowers:brainstorming: struttura e navigazione (router), login/2FA, dashboard utente, dettaglio vault, dettaglio dispositivo, centro conflitti (con `packages/ui-diff` via un adattatore React), aggiungi dispositivo/QR (spostata dalla sotto-fase 3), impostazioni account, area admin (utenti, quote, configurazione, salute del sistema; mai contenuti né nomi dei vault altrui, U-03). Probabile scomposizione in più parti. Poi spec → piano → esecuzione a blocchi (standard in `CLAUDE.md`). Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
+1. **Fase UI, sotto-fase 4a — chiusura:** revisione finale del branch `ui-web` (un subagente), PR, prova del committente nel browser (`pnpm --filter @kamino/web dev`, utenti di prova in `docs/ui/design-system.md` §9), merge. Poi **4b** (area utente: panoramica, vault, dispositivi, centro conflitti con `ui-diff`, storico/cestino, aggiungi dispositivo/QR) e **4c** (area admin), ciascuna con brainstorming → spec → piano. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
@@ -132,6 +133,16 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
 
+### Decisioni della fase UI (sotto-fase 4a)
+
+| # | Decisione |
+|---|---|
+| W1 | Sotto-fase 4 divisa in 4a (struttura e account), 4b (area utente), 4c (area admin) |
+| W2 | Barra laterale su desktop, barra in alto + menu a scomparsa su telefono |
+| W3 | Client HTTP vero (TanStack Query) su un contratto zod in `@kamino/protocol`; API simulate con **MSW** (3.x: opzione `onUnhandledFrame`) in sviluppo e test, assente in produzione |
+| W4 | Router: TanStack Router, route e redirect tipizzati |
+| W5 | Durante il brainstorming niente conferme sezione per sezione: solo le scelte vere (preferenza del committente) |
+
 ### Decisioni della fase UI (sotto-fase 3)
 
 Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`.
@@ -147,6 +158,9 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | O7 | QR generati con `uqr` (MIT, nessuna dipendenza); azione del link `PROTOCOL_ACTION` in `@kamino/brand` |
 
 ## Punti aperti (rinviati, con milestone)
+
+- **Sotto-fase 4b:** salvare il tema anche sul server (oggi il selettore lo salva solo in locale); sincronizzare lingua e tema da `me` all'accesso.
+- **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.
 
 - **Vincolo di rilascio:** **nessuna release pubblica del plugin prima di M1.** Fino ad allora il plugin contiene il `FakeServer` (credenziali `demo`/`demo`) e il trasferimento finto segna come "sync confermato" dati mai caricati: in una build pubblica romperebbe la promessa "sai sempre se sei al sicuro".
 - **Notice cliccabile:** `Notice.noticeEl` è deprecato nei tipi di Obsidian 1.14 ma è quello giusto per `minAppVersion` 1.5.0; da rivedere quando si alza la versione minima (con gli esiti di R-1).

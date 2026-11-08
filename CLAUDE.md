@@ -9,7 +9,7 @@ Sistema self-hosted per sincronizzare vault Obsidian: plugin (desktop + mobile),
 - Leggi i documenti pertinenti in `docs/`: visione (`00`), requisiti (`01`), architettura (`02`), protocollo di sync (`03`), threat model (`04`), modello dati (`05`), roadmap (`06`), [ADR](docs/adr/).
 - Le **ADR accettate non si modificano**: se una decisione va cambiata, proponi una nuova ADR che la sostituisce.
 - Lavora a piani: ogni milestone ha un piano in `docs/superpowers/plans/`. Esegui un task alla volta, con TDD.
-- **Esecuzione dei piani (standard, per contenere i token):** nella sessione corrente con superpowers *executing-plans*, a blocchi di task con un checkpoint col committente tra un blocco e l'altro; alla fine **una sola** revisione complessiva del branch con un subagente. *Subagent-driven-development* (subagente + revisori per ogni task) solo se il committente lo chiede esplicitamente.
+- **Esecuzione dei piani (standard, per contenere i token):** nella sessione corrente con superpowers _executing-plans_, a blocchi di task con un checkpoint col committente tra un blocco e l'altro; alla fine **una sola** revisione complessiva del branch con un subagente. _Subagent-driven-development_ (subagente + revisori per ogni task) solo se il committente lo chiede esplicitamente.
 - La promessa del prodotto è **"non perdi mai niente, e sai sempre se sei al sicuro"**. Nel dubbio, conserva entrambe le versioni e rendi visibile lo stato.
 
 ## Struttura
@@ -20,6 +20,7 @@ apps/web        React + Vite + Tailwind + react-i18next; shadcn/ui e TanStack Qu
 apps/plugin     plugin Obsidian (esbuild)
 packages/brand      nome prodotto, PLUGIN_ID, prefissi — UNICA fonte
 packages/protocol   schemi zod, PROTOCOL_VERSION, catalogo errori
+packages/status     lessico e logica degli stati di sync (livelli, describeStatus, testi it/en)
 packages/tsconfig   preset tsconfig condivisi
 packages/sync-core  (da M1) logica di sync pura, senza I/O (property-based testing)
 packages/ui-diff    (milestone successive) diff/merge su @codemirror/merge (web + plugin)
@@ -45,6 +46,8 @@ pnpm release-names:check
 pnpm --filter @kamino/server dev        # serve KAMINO_PUBLIC_URL, KAMINO_DATABASE_URL, KAMINO_MASTER_KEY (o *_FILE); Postgres raggiungibile
 pnpm --filter @kamino/web dev           # Vite su http://localhost:5173
 pnpm --filter @kamino/plugin build      # output in apps/plugin/dist (main.js, manifest.json, styles.css)
+pnpm --filter @kamino/plugin build:vault  # build di sviluppo + copia nella vault di prova vault/kamino (ignorata da git)
+# galleria del design system: pnpm --filter @kamino/web dev → http://localhost:5173/dev/gallery
 pnpm changeset                          # interattivo; una per ogni modifica rilasciabile
 # prima: docker/.env e docker/secrets/kamino_master_key (vedi Quick start nel README e docs/self-hosting.md)
 docker compose -f docker/compose.lan.yml up -d --build
@@ -52,6 +55,7 @@ docker compose -f docker/compose.lan.yml up -d --build
 
 ## Convenzioni
 
+- **Nuovo pacchetto del workspace:** aggiungi il suo `package.json` alle `COPY` di `docker/Dockerfile` (prima di `pnpm install`), altrimenti la build dell'immagine fallisce solo in CI.
 - **TypeScript strict** ovunque (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`).
 - **Lingue:** codice, identificatori, commenti, commit in inglese; documentazione in `docs/` in italiano; UI in it/en tramite i18n, mai stringhe scritte a mano nei componenti.
 - **Naming del prodotto:** usa sempre `@kamino/brand` (`PRODUCT_NAME`, `PLUGIN_ID`, `envName()`). I punti che non possono farlo sono in `docs/renaming.md`.

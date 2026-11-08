@@ -14,6 +14,8 @@ Questi punti contengono il nome in chiaro e vanno aggiornati a mano:
 - **`turbo.json`**: anche `globalDependencies` non dipende dal nome, ma l'`env` sì (già elencato sopra).
 - **Workflow CI** (`.github/workflows/*`): nome dell'immagine, nome degli artefatti, filtri `pnpm --filter @kamino/...`.
 - **Comando CLI** `kamino`: campo `bin` di `apps/server/package.json`.
+- **CSS del plugin** (`apps/plugin/src/styles.css`): il prefisso delle classi `.kamino-status*` è `PRODUCT_SLUG`; il test `apps/plugin/test/styles.test.ts` fallisce finché non è allineato.
+- **Script `build:vault` del plugin** (`apps/plugin/scripts/install-vault.ts`): il percorso predefinito della vault di prova è `vault/kamino/`.
 - **Documentazione** in `docs/` e `README.md`: testi descrittivi scritti a mano.
 
 ## Costanti crittografiche: non rinominare

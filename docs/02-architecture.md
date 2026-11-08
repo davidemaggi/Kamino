@@ -135,7 +135,7 @@ Proprietà verificate con fast-check, tra cui: **convergenza** (N client simulat
 | `index` | Stato locale per file: `fileId`, path, `versionId` base, hash, size, mtime. |
 | `outbox` | Coda durevole delle operazioni locali non confermate. |
 | `applier` | Applica le modifiche remote al vault (scrittura atomica: file temporaneo + rename dove l'adapter lo consente). |
-| `ui` | Indicatore in status bar (desktop) / ribbon + notice (mobile), pannello di stato, impostazioni, modali di onboarding, pairing, approvazione, conflitti (con `ui-diff`). |
+| `ui` | Indicatore: barra di stato (desktop); icona nel ribbon e notice (tutte le piattaforme); su mobile, azione nell'intestazione della nota attiva dal livello Attenzione in su (vedi [design system](ui/design-system.md)). Pannello di stato, impostazioni, modali di onboarding, pairing, approvazione, conflitti (con `ui-diff`). |
 | `protocol-handler` | `registerObsidianProtocolHandler('kamino', ...)` per QR/magic link. |
 
 **Stato locale**: file JSON nella cartella del plugin (`<configDir>/plugins/<PLUGIN_ID>/`, sempre esclusa dal sync), scritti in modo atomico; l'indice è separato dalle impostazioni. Se le prestazioni su vault grandi lo richiedono, il builder può passare a IndexedDB con chiave per vault: la scelta è lasciata al builder, a patto che lo stato sopravviva al riavvio e la sua perdita sia recuperabile (vedi sotto).

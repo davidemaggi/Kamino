@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — M0 mergiata su `main` (PR #1). Fase UI, sotto-fase 1 in esecuzione sul branch `ui-fondamenta` (task 1–7 di 8 completati).
+**Ultimo aggiornamento:** 2026-11-08 — M0 mergiata su `main` (PR #1). Fase UI, sotto-fase 1 **implementata** sul branch `ui-fondamenta` (8 task su 8): in attesa dell'approvazione delle gallerie (web e plugin) da parte del committente, poi PR verso `main`.
 
 ## Dove siamo
 
@@ -12,7 +12,7 @@
 | Brainstorming e design (`docs/00`–`05`, ADR) | ✅ approvato 2026-11-06 |
 | Roadmap (`docs/06-roadmap.md`) | ✅ proposta |
 | **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
-| Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | 🔧 in corso sul branch `ui-fondamenta`: task 1–7 ✅ (`packages/status`, web, plugin), prossimo task 8 (documenti) |
+| Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | ✅ implementata sul branch `ui-fondamenta` (task 1–8); ⏳ approvazione delle gallerie |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -38,7 +38,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 1:** proseguire il piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md` dal primo task non completato (blocchi: 1–2 ✅, 3–5 ✅, 6–7 ✅, 8 documenti). Le sotto-fasi 2–4 sono descritte nella spec, §1.
+1. **Fase UI, sotto-fase 1 — chiusura:** il committente prova le gallerie (`docs/ui/design-system.md` §6: web `/dev/gallery`; plugin con `build:vault` nella vault `vault/kamino`, anche su telefono). Con l'approvazione: revisione finale del branch (un subagente), PR `ui-fondamenta` → `main`, merge.
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
@@ -97,6 +97,24 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 | R30 | Prima della PR, riscritto il messaggio di un commit (`docs: PowerShell key generation…` → `docs: key generation on PowerShell…`) che non passava `subject-case` di commitlint; force push il 2026-11-07, contenuto invariato | checkout precedenti da riallineare |
 | R21 | Quick start del README allineato alla sequenza verificata nel task 9 (`docker run … keys generate` dopo la build dell'immagine) | — |
 
+### Decisioni della fase UI (sotto-fase 1)
+
+Prese nel brainstorming del 2026-11-07, dettagli nella spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`.
+
+| # | Decisione |
+|---|---|
+| U1 | Deliverable = componenti veri nel codice (niente mockup statici) |
+| U2 | Plugin con API DOM di Obsidian + variabili CSS di Obsidian; nessun framework |
+| U3 | Revisione con gallerie interne (web `/dev/gallery`, comando di sviluppo nel plugin); niente Storybook |
+| U4 | Direzione visiva C "Ibrida" (`docs/ui/design-system.md`) |
+| U5 | Cinque livelli di stato: Al sicuro, In corso, Attenzione, Decisione (viola), Bloccato |
+| U6 | Font inclusi nell'app (Inter + Source Serif 4), nessun CDN |
+| U7 | Lessico e logica degli stati in `packages/status`; token separati per app |
+| U8 | Su mobile: ribbon + notice + azione nell'intestazione della nota solo da Attenzione in su |
+| U9 | Esecuzione dei piani nella sessione, a blocchi con checkpoint (meno token); subagenti solo su richiesta (`CLAUDE.md`) |
+| U10 | Componenti shadcn: `cn` da `@/lib/utils`, mai dal pacchetto npm `cn` che il CLI ha provato ad aggiungere |
+| U11 | Vault di prova del plugin in `vault/kamino/`, ignorata da git ed ESLint; `pnpm --filter @kamino/plugin build:vault` la aggiorna |
+
 ## Punti aperti (rinviati, con milestone)
 
 Esito della revisione finale di M0: questi restano aperti di proposito.
@@ -104,7 +122,7 @@ Esito della revisione finale di M0: questi restano aperti di proposito.
 - **M1:** R16 (ordine migrazioni/verifica chiave) insieme a: errore di unlock del lock migrazioni che può mascherare l'errore originale; snapshot completo di `ErrorCode` quando le rotte iniziano a emetterli; verificare se typescript-eslint supporta TS 7. Decidere `minAppVersion` del plugin con gli esiti di R-1 (`appendBinary` richiede Obsidian ≥ 1.12.3).
 - **M2:** negoziazione protocollo (euristica intervalli invertiti, schema zod `ProtocolRange`); shutdown con exit code corretto e scadenza (oggi esce sempre con 0; `docker stop` durante le migrazioni attende 10 s).
 - **M3 (`ui-diff`):** sostituire la wildcard `@codemirror/*` negli external di `apps/plugin/esbuild.config.mjs` con una lista esplicita (Obsidian non fornisce `@codemirror/merge`).
-- **Fase UI:** flash del tema al caricamento, modalità "sistema" non testata, chiavi `theme.*` non usate, `<title>`/`lang` vuoti.
+- **Fase UI:** i punti aperti di M0 (flash del tema, modalità "sistema", chiavi `theme.*`, `<title>`/`lang`) sono **chiusi** nella sotto-fase 1. Restano: ripetizione insistente delle notice (S-05) e pannello di stato completo → sotto-fase 2 / M1; verifica delle icone sul `minAppVersion` scelto (oggi `1.5.0`) → revisione della galleria del plugin.
 - **M7 (hardening/release):** CLI `release-names` con errori non gestiti e test deboli; `statement_timeout` sul ping di readiness; redazione di `databaseUrl` annidato; rigore del base64 della chiave; rotazione chiave (regola "riga attiva di altra chiave → rifiuto", tabella con sole righe ritirate); `versions.json` del plugin generato in release (R19); password DB via `*_FILE`; `cloudflared` da pinnare e `--token-file` da provare; `compose run … keys generate` da provare; commitlint sul primo push di un branch; cache della build Docker in CI.
 - **Cosmetici:** estensioni di import miste e output nascosto nel test di build del plugin; riga lunga e data fissa in `CLAUDE.md`; file segreto UTF-16BE di lunghezza dispari segnalato come "illeggibile"; il suggerimento `docker compose run` nel messaggio d'errore della chiave non riporta `-T`/`-f`.
 

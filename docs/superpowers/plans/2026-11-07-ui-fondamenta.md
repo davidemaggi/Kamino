@@ -1384,7 +1384,7 @@ import {
 } from "@kamino/status";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { LEVEL_CLASSES, LEVEL_DOT_CLASSES, STATUS_ICONS } from "./status-icons.js";
 
@@ -1399,7 +1399,7 @@ export function StatusBadge({ status, now }: { status: StatusDescription; now: n
   const last = formatLastConfirmed(status.lastConfirmedAt, now, lang);
   const lastId = useId();
   return (
-    <>
+    <TooltipProvider>
     <span id={lastId} hidden>
       {last}
     </span>
@@ -1421,7 +1421,7 @@ export function StatusBadge({ status, now }: { status: StatusDescription; now: n
       </TooltipTrigger>
       <TooltipContent>{last}</TooltipContent>
     </Tooltip>
-    </>
+    </TooltipProvider>
   );
 }
 

@@ -3428,7 +3428,7 @@ export function SessionsSection() {
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
             <div>
               <p className="font-medium">
-                {s.client} {s.current && <span className="text-status-safe text-sm">· {t("account.sessions.current")}</span>}
+                {s.client} {s.current && <span className="text-status-safe ml-2 text-sm">{t("account.sessions.current")}</span>}
               </p>
               <p className="text-muted-foreground text-sm">
                 {s.ipPrefix} · {t("account.sessions.lastUsed", { when: when(s.lastUsedAt) })}

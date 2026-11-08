@@ -153,5 +153,57 @@
     "totp_mandatory": "Per gli amministratori la verifica in due passaggi è obbligatoria.",
     "forbidden": "Non hai i permessi per questa operazione.",
     "internal": "Qualcosa è andato storto. Riprova."
+  },
+  "account": {
+    "title": "Account",
+    "saved": "Salvato.",
+    "profile": {
+      "title": "Profilo",
+      "email": "Email",
+      "language": "Lingua",
+      "theme": "Tema",
+      "save": "Salva"
+    },
+    "password": {
+      "title": "Password",
+      "current": "Password attuale",
+      "save": "Cambia la password",
+      "done": "Password cambiata."
+    },
+    "totp": {
+      "title": "Verifica in due passaggi",
+      "on": "Attiva",
+      "off": "Non attiva",
+      "enable": "Attiva",
+      "disable": "Disattiva",
+      "regenerate": "Rigenera i codici di recupero",
+      "adminNote": "Per gli amministratori è obbligatoria.",
+      "confirmPassword": "Conferma con la tua password",
+      "confirm": "Conferma",
+      "cancel": "Annulla",
+      "newCodes": "Nuovi codici di recupero: quelli vecchi non funzionano più."
+    },
+    "sessions": {
+      "title": "Sessioni attive",
+      "current": "Questa sessione",
+      "lastUsed": "Ultimo uso: {{when}}",
+      "end": "Esci",
+      "endOthers": "Esci da tutte le altre"
+    },
+    "log": {
+      "title": "Registro di sicurezza",
+      "newer": "Più recenti",
+      "older": "Meno recenti",
+      "page": "Pagina {{page}} di {{pages}}",
+      "types": {
+        "login": "Accesso",
+        "login_failed": "Accesso non riuscito",
+        "device_linked": "Nuovo dispositivo collegato",
+        "password_changed": "Password cambiata",
+        "admin_reset": "Reset della password avviato dall'amministratore",
+        "totp_enabled": "Verifica in due passaggi attivata",
+        "totp_disabled": "Verifica in due passaggi disattivata"
+      }
+    }
   }
 }

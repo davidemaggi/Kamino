@@ -19,6 +19,7 @@ import { InvitePage } from "./pages/auth/InvitePage.js";
 import { LoginPage } from "./pages/auth/LoginPage.js";
 import { ResetPage } from "./pages/auth/ResetPage.js";
 import { SetupPage } from "./pages/auth/SetupPage.js";
+import { AccountPage } from "./pages/account/AccountPage.js";
 import { NotFoundPage } from "./pages/NotFoundPage.js";
 import { TotpSetupPage } from "./pages/TotpSetupPage.js";
 import { PlaceholderPage } from "./pages/PlaceholderPage.js";
@@ -121,7 +122,11 @@ export const overviewRoute = page("/", "nav.overview");
 export const vaultsRoute = page("/vaults", "nav.vaults");
 export const devicesRoute = page("/devices", "nav.devices");
 export const conflictsRoute = page("/conflicts", "nav.conflicts");
-export const accountRoute = page("/account", "nav.account");
+export const accountRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/account",
+  component: AccountPage,
+});
 export const totpSetupRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/account/totp-setup",

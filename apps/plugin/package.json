@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsx esbuild.config.mjs",
+    "build:dev": "tsx esbuild.config.mjs --dev",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint .",
     "test": "vitest run"

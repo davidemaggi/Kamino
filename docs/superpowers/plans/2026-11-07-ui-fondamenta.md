@@ -2317,7 +2317,9 @@ git commit -m "feat(plugin): add status classes and indicator rendering"
 
 ```ts
 import { DEFAULT_THRESHOLDS, describeStatus, exampleSnapshots } from "@kamino/status";
-import { MarkdownView, Notice, Plugin } from "obsidian";
+// Mock classes imported by path: Vitest aliases "obsidian" to this same module,
+// and the mock-only fields (statusBarItems, actions, Notice.shown) stay typed.
+import { MarkdownView, Notice, Plugin } from "../__mocks__/obsidian.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { levelClass } from "./status-classes.js";
 import { StatusIndicator } from "./StatusIndicator.js";
@@ -2538,7 +2540,8 @@ declare const __DEV__: boolean;
 `apps/plugin/esbuild.config.mjs`: 
 
 ```js
-const dev = process.argv.includes("--dev");
+import { argv } from "node:process"; // explicit import: ESLint has no Node globals for .mjs
+const dev = argv.includes("--dev");
 // ...
   define: buildConstants({ dev }),
   minifySyntax: !dev, // drops `if (false) { ... }` branches in production

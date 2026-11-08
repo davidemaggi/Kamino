@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — M0 mergiata su `main` (PR #1). Fase UI, sotto-fase 1 in esecuzione sul branch `ui-fondamenta` (task 1–5 di 8 completati).
+**Ultimo aggiornamento:** 2026-11-08 — M0 mergiata su `main` (PR #1). Fase UI, sotto-fase 1 in esecuzione sul branch `ui-fondamenta` (task 1–7 di 8 completati).
 
 ## Dove siamo
 
@@ -12,7 +12,7 @@
 | Brainstorming e design (`docs/00`–`05`, ADR) | ✅ approvato 2026-11-06 |
 | Roadmap (`docs/06-roadmap.md`) | ✅ proposta |
 | **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
-| Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | 🔧 in corso sul branch `ui-fondamenta`: task 1–5 ✅ (`packages/status`, web), prossimo task 6 (plugin) |
+| Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | 🔧 in corso sul branch `ui-fondamenta`: task 1–7 ✅ (`packages/status`, web, plugin), prossimo task 8 (documenti) |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -38,7 +38,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 1:** proseguire il piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md` dal primo task non completato (blocchi: 1–2 ✅, 3–5 ✅, 6–7 plugin, 8 documenti). Le sotto-fasi 2–4 sono descritte nella spec, §1.
+1. **Fase UI, sotto-fase 1:** proseguire il piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md` dal primo task non completato (blocchi: 1–2 ✅, 3–5 ✅, 6–7 ✅, 8 documenti). Le sotto-fasi 2–4 sono descritte nella spec, §1.
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.

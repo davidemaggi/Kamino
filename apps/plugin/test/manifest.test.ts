@@ -57,6 +57,10 @@ describe("plugin build output", () => {
     expect(read("dist/styles.css")).toBeDefined();
   });
 
+  it("production bundle has no dev gallery", () => {
+    expect(read("dist/main.js")).not.toContain("dev-status-gallery");
+  });
+
   it("bundle uses no Node/Electron modules", () => {
     const bundle = read("dist/main.js");
     const forbidden =

@@ -18,9 +18,10 @@ export function pluginVersion(): string {
 
 /**
  * Compile-time constants (esbuild/Vitest `define`): version and release codename,
- * resolved from the root registry at build time, never read at runtime.
+ * resolved from the root registry at build time, never read at runtime;
+ * `__DEV__` enables development-only code (status gallery).
  */
-export function buildConstants(): Record<string, string> {
+export function buildConstants(opts: { dev: boolean } = { dev: false }): Record<string, string> {
   const version = pluginVersion();
   const registry = JSON.parse(
     readFileSync(resolve(repoRoot, "release-names.json"), "utf8"),
@@ -28,5 +29,6 @@ export function buildConstants(): Record<string, string> {
   return {
     __APP_VERSION__: JSON.stringify(version),
     __APP_CODENAME__: JSON.stringify(codenameFor(version, registry)),
+    __DEV__: JSON.stringify(opts.dev),
   };
 }

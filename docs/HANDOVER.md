@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 2 in esecuzione sul branch `ui-stato-conflitti` (task 1–3 di 6). R-3 superato su desktop (Obsidian 1.15.0).
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 2 **implementata** sul branch `ui-stato-conflitti` (6 task su 6) e provata su desktop dal committente; R-3 superato su desktop (Obsidian 1.15.0). Prossimo: revisione finale del branch e PR.
 
 ## Dove siamo
 
@@ -13,7 +13,7 @@
 | Roadmap (`docs/06-roadmap.md`) | ✅ proposta |
 | **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
 | Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | ✅ mergiata su `main` (PR #2, 2026-11-08) |
-| Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | 🔧 in esecuzione sul branch `ui-stato-conflitti`: task 1–3 ✅ (`ui-diff`, R-3 desktop superato, dati finti, pannello), prossimo task 4 |
+| Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | ✅ implementata e provata su desktop (task 1–6); ⏳ revisione finale e PR |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -39,7 +39,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 2:** proseguire il piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md` dal primo task non completato (blocchi: A ✅, B ✅, C = task 4–5, D = task 6).
+1. **Fase UI, sotto-fase 2 — chiusura:** revisione finale del branch `ui-stato-conflitti` (un subagente), PR verso `main`, merge (committente). Poi sotto-fase 3 (onboarding e collegamento, QR) con brainstorming → spec → piano.
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
@@ -116,13 +116,28 @@ Prese nel brainstorming del 2026-11-07, dettagli nella spec `docs/superpowers/sp
 | U10 | Componenti shadcn: `cn` da `@/lib/utils`, mai dal pacchetto npm `cn` che il CLI ha provato ad aggiungere |
 | U11 | Vault di prova del plugin in `vault/kamino/`, ignorata da git ed ESLint; `pnpm --filter @kamino/plugin build:vault` la aggiorna |
 
+### Decisioni della fase UI (sotto-fase 2)
+
+Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`.
+
+| # | Decisione |
+|---|---|
+| V1 | Diff vero subito: `packages/ui-diff` su `@codemirror/merge` 6.12, CodeMirror di Obsidian esterno (R-3 desktop superato) |
+| V2 | Risoluzione su telefono: schede "La tua / Differenze / In arrivo" + diff unificato; desktop affiancato |
+| V3 | Pannello di stato: pagina unica a sezioni, solo quelle non vuote |
+| V4 | Le scelte si applicano subito con notice; conferma esplicita solo per "Risolvi tutti…" |
+| V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
+| V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
+| V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
 ## Punti aperti (rinviati, con milestone)
 
 Esito della revisione finale di M0: questi restano aperti di proposito.
 
 - **M1:** R16 (ordine migrazioni/verifica chiave) insieme a: errore di unlock del lock migrazioni che può mascherare l'errore originale; snapshot completo di `ErrorCode` quando le rotte iniziano a emetterli; verificare se typescript-eslint supporta TS 7. Decidere `minAppVersion` del plugin con gli esiti di R-1 (`appendBinary` richiede Obsidian ≥ 1.12.3).
 - **M2:** negoziazione protocollo (euristica intervalli invertiti, schema zod `ProtocolRange`); shutdown con exit code corretto e scadenza (oggi esce sempre con 0; `docker stop` durante le migrazioni attende 10 s).
-- **M3 (`ui-diff`):** sostituire la wildcard `@codemirror/*` negli external di `apps/plugin/esbuild.config.mjs` con una lista esplicita (Obsidian non fornisce `@codemirror/merge`).
+- **M3:** collegare `ConflictView`/`StatusPanelView` alle implementazioni vere di `SyncStateSource`/`ConflictActions` (oggi `FakeSyncState`). Gli esterni espliciti di esbuild sono già fatti (sotto-fase UI 2).
+- **M7:** minificare il bundle di produzione del plugin (`minify` in `esbuild.config.mjs`; oggi 99,4 KB solo con `minifySyntax`).
 - **Fase UI:** i punti aperti di M0 (flash del tema, modalità "sistema", chiavi `theme.*`, `<title>`/`lang`) sono **chiusi** nella sotto-fase 1. Restano: ripetizione insistente delle notice (S-05) e pannello di stato completo → sotto-fase 2 / M1; su mobile, senza una nota aperta (grafo, canvas, scheda vuota) l'azione nell'intestazione non può comparire e restano solo ribbon (nel menu laterale) e notice → da riconsiderare nella sotto-fase 2; verifica delle icone sul `minAppVersion` scelto (oggi `1.5.0`) → revisione della galleria del plugin.
 - **M7 (hardening/release):** CLI `release-names` con errori non gestiti e test deboli; `statement_timeout` sul ping di readiness; redazione di `databaseUrl` annidato; rigore del base64 della chiave; rotazione chiave (regola "riga attiva di altra chiave → rifiuto", tabella con sole righe ritirate); `versions.json` del plugin generato in release (R19); password DB via `*_FILE`; `cloudflared` da pinnare e `--token-file` da provare; `compose run … keys generate` da provare; commitlint sul primo push di un branch; cache della build Docker in CI.
 - **Cosmetici:** estensioni di import miste e output nascosto nel test di build del plugin; riga lunga e data fissa in `CLAUDE.md`; file segreto UTF-16BE di lunghezza dispari segnalato come "illeggibile"; il suggerimento `docker compose run` nel messaggio d'errore della chiave non riporta `-T`/`-f`.
@@ -130,7 +145,7 @@ Esito della revisione finale di M0: questi restano aperti di proposito.
 ## In sospeso lato committente
 
 - Descrizione e topic del repo GitHub (ancora vuoti; `gh` ora è autenticato sul Mac, si possono impostare con `gh repo edit`).
-- **Prova del plugin su telefono** (rinviata dal committente il 2026-11-08, da fare insieme agli spike): copiare `vault/kamino/.obsidian/plugins/kamino-sync/` sul dispositivo, verificare icone (avvisi "status icon … not available"), colori col tema e azione nell'intestazione della nota solo dagli stati Attenzione/Decisione/Bloccato. La prova su desktop è fatta.
+- **Prova del plugin su telefono** (rinviata dal committente il 2026-11-08, da fare insieme agli spike): copiare `vault/kamino/.obsidian/plugins/kamino-sync/` sul dispositivo e verificare: icone (avvisi "status icon … not available"), colori col tema, azione nell'intestazione della nota solo dagli stati Attenzione/Decisione/Bloccato; pannello nel cassetto laterale; vista conflitto a schede con diff unificato e "Modifica e unisci" (completa anche R-3 su mobile). Su desktop tutto è provato.
 - Spike su iPhone/Android reali (task 12): seguire `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`, compilando le tabelle.
 
 ## Note sull'ambiente

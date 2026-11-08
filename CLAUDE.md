@@ -23,7 +23,7 @@ packages/protocol   schemi zod, PROTOCOL_VERSION, catalogo errori
 packages/status     lessico e logica degli stati di sync (livelli, describeStatus, testi it/en)
 packages/tsconfig   preset tsconfig condivisi
 packages/sync-core  (da M1) logica di sync pura, senza I/O (property-based testing)
-packages/ui-diff    (milestone successive) diff/merge su @codemirror/merge (web + plugin)
+packages/ui-diff    diff/merge su @codemirror/merge (plugin ora, web in M4)
 packages/i18n       (milestone successive) stringhe condivise
 docker/         Dockerfile e compose (lan, tunnel, caddy)
 spikes/         prototipi usa-e-getta R-1..R-5, fuori dal workspace; da rimuovere alla chiusura degli spike

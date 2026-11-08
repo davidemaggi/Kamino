@@ -79,7 +79,8 @@ Lessico e logica stanno in [`packages/status`](../../packages/status) e sono con
   - **mobile, dal livello Attenzione in su:** icona nell'intestazione della nota attiva (Obsidian mobile non ha la barra di stato); scompare quando il livello scende e segue il cambio di nota;
   - **notice** quando lo stato passa ad Attenzione o a un livello più grave. La ripetizione insistente prevista da S-05 arriva in M1 con il motore di sync.
 - **Icone di riserva:** se la versione di Obsidian non ha un'icona recente, l'indicatore usa un nome più vecchio per lo stesso livello (`check`, `clock`, `alert-triangle`, `git-compare`, `x-octagon`) e lo segnala in console.
-- Finché il motore di sync non esiste (M1), lo stato mostrato è "Mai sincronizzato".
+- **Clic** sull'indicatore (barra di stato, ribbon, azione nell'intestazione): apre il pannello di stato (§7). C'è anche il comando "Apri stato sync".
+- Finché il motore di sync non esiste (M1), i dati vengono da uno stato finto vuoto: lo stato mostrato è "Mai sincronizzato".
 
 ## 6. Gallerie
 
@@ -101,3 +102,37 @@ pnpm --filter @kamino/plugin build:vault
 ```
 
 Aprire la vault in Obsidian, abilitare il plugin, poi dalla palette comandi **"Mostra galleria stati (sviluppo)"**: a ogni esecuzione l'indicatore passa allo stato di esempio successivo. Il comando esiste solo nella build di sviluppo (verificato dal test del bundle).
+
+## 7. Pannello di stato e conflitti (plugin)
+
+Spec: [`2026-11-08-ui-stato-conflitti-design.md`](../superpowers/specs/2026-11-08-ui-stato-conflitti-design.md). Le viste leggono da `SyncStateSource` e agiscono tramite `ConflictActions` (`apps/plugin/src/state/types.ts`); fino a M1/M3 l'implementazione è `FakeSyncState`, in memoria.
+
+### Pannello di stato
+
+- Vista nella barra laterale destra; su mobile la stessa vista appare nel cassetto laterale.
+- **Riepilogo:** livello e messaggio (§3), messaggi secondari, ultimo sync confermato, "Sincronizza ora".
+- **Sezioni**, mostrate solo se non vuote, in quest'ordine: **Conflitti** (clic su una riga → vista di risoluzione; "Risolvi tutti…" da 2 conflitti in su) · **Non ancora sul server** (prime 5 righe, poi "Mostra tutte") · **In attesa di Wi-Fi** ("Carica ora") · **Questo dispositivo** (sempre).
+- Nello stato "Al sicuro" restano solo il riepilogo e "Questo dispositivo": niente rumore quando va tutto bene.
+
+### Risoluzione di un conflitto
+
+- Una scheda dell'editor per conflitto. Intestazione: nome del file, quando e dove sono nate le due versioni, "Entrambe le versioni sono salvate", numero di differenze.
+- **Desktop:** diff affiancato, "La tua versione" a sinistra e "In arrivo" a destra. **Mobile:** schede **La tua / Differenze / In arrivo**, si apre su "Differenze" (diff unificato); le altre due mostrano il testo intero, pulito.
+- **Colori del diff**, uguali nei due layout: la tua versione in rosso, quella in arrivo in verde (nel diff unificato il CSS del plugin riallinea i colori di `@codemirror/merge`).
+- **Azioni:** Tieni la mia · Tieni quella in arrivo · Tieni entrambe · Modifica e unisci… (su mobile in colonna, a tutta larghezza).
+- **Modifica e unisci** parte sempre dalla tua versione: su desktop le frecce portano un blocco da "in arrivo", su mobile ogni blocco ha "Tieni la mia" / "Prendi quella in arrivo". Poi "Salva l'unione" o "Annulla".
+- **Regola delle scelte:** si applicano subito, con una notice che dice cosa è successo e che l'altra versione resta nello storico. Nessuna finestra di conferma, perché nessuna scelta distrugge dati.
+- **Versione più recente arrivata nel frattempo:** la vista si ricarica e mostra un avviso; nessuna notice di successo. **Conflitto risolto altrove:** la vista lo dice e offre "Chiudi".
+- **File binari:** due riquadri (affiancati su desktop, impilati su mobile) con dispositivo, data, dimensione, tipo e anteprima se è un'immagine; niente "Modifica e unisci".
+
+### Risolvi tutti…
+
+Finestra con tre opzioni (tieni tutte le mie / tutte quelle in arrivo / entrambe per tutti), nessuna preselezionata; "Applica" resta disattivato finché non si sceglie. È l'unico punto con una conferma esplicita, perché un tocco cambia molti file.
+
+### Gallerie del plugin
+
+Con la build di sviluppo (`pnpm --filter @kamino/plugin build:vault`):
+
+- **"Carica scenario conflitti (sviluppo)":** 3 conflitti (nota corta, nota lunga, immagine), 3 modifiche in coda, 1 file in attesa di Wi-Fi; apre il pannello.
+- **"Apri diff di prova (sviluppo)":** diff di esempio nelle quattro combinazioni affiancato/unificato × sola lettura/modificabile (verifica R-3).
+- **"Mostra galleria stati (sviluppo)":** come prima, ora fa cambiare anche il pannello.

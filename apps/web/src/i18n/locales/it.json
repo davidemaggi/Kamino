@@ -120,7 +120,20 @@
       "hide": "Nascondi la password"
     },
     "totp": {
-      "title": "Verifica in due passaggi"
+      "title": "Verifica in due passaggi",
+      "required": "Per gli amministratori la verifica in due passaggi è obbligatoria: configurala per continuare.",
+      "step1": "Scansiona il codice con un'app di autenticazione (per esempio Aegis, Raivo, 1Password).",
+      "qrAlt": "Codice QR per l'app di autenticazione",
+      "secret": "Oppure inserisci questa chiave a mano",
+      "copy": "Copia",
+      "copied": "Copiato.",
+      "step2": "Inserisci il codice di 6 cifre che l'app mostra adesso.",
+      "code": "Codice",
+      "verify": "Verifica",
+      "step3": "Salva questi codici di recupero: ognuno funziona una sola volta se perdi il telefono.",
+      "download": "Scarica .txt",
+      "ack": "Li ho salvati in un posto sicuro",
+      "finish": "Fine"
     },
     "language": "Lingua"
   },

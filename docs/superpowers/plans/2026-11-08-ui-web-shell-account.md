@@ -2812,7 +2812,7 @@ describe("TotpSetupPage", () => {
     signInAs("newadmin");
     const { router } = await renderRoute("/account/totp-setup");
     expect(await screen.findByText(/obbligatoria: configurala per continuare/)).toBeDefined();
-    expect(screen.getByAltText("Codice QR per l'app di autenticazione").getAttribute("src")).toMatch(/^data:image\/svg\+xml,/);
+    expect((await screen.findByAltText("Codice QR per l'app di autenticazione")).getAttribute("src")).toMatch(/^data:image\/svg\+xml,/);
     expect(screen.getByText("JBSWY3DPEHPK3PXP")).toBeDefined();
     fireEvent.change(screen.getByLabelText("Codice", { selector: "input" }), { target: { value: "000000" } });
     fireEvent.click(screen.getByRole("button", { name: "Verifica" }));

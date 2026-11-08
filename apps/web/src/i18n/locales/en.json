@@ -120,7 +120,20 @@
       "hide": "Hide password"
     },
     "totp": {
-      "title": "Two-step verification"
+      "title": "Two-step verification",
+      "required": "Two-step verification is mandatory for administrators: set it up to continue.",
+      "step1": "Scan the code with an authenticator app (for example Aegis, Raivo, 1Password).",
+      "qrAlt": "QR code for the authenticator app",
+      "secret": "Or enter this key manually",
+      "copy": "Copy",
+      "copied": "Copied.",
+      "step2": "Enter the 6-digit code the app shows now.",
+      "code": "Code",
+      "verify": "Verify",
+      "step3": "Save these recovery codes: each works once if you lose your phone.",
+      "download": "Download .txt",
+      "ack": "I saved them somewhere safe",
+      "finish": "Done"
     },
     "language": "Language"
   },

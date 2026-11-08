@@ -20,6 +20,7 @@ import { LoginPage } from "./pages/auth/LoginPage.js";
 import { ResetPage } from "./pages/auth/ResetPage.js";
 import { SetupPage } from "./pages/auth/SetupPage.js";
 import { NotFoundPage } from "./pages/NotFoundPage.js";
+import { TotpSetupPage } from "./pages/TotpSetupPage.js";
 import { PlaceholderPage } from "./pages/PlaceholderPage.js";
 
 export interface RouterContext {
@@ -121,7 +122,11 @@ export const vaultsRoute = page("/vaults", "nav.vaults");
 export const devicesRoute = page("/devices", "nav.devices");
 export const conflictsRoute = page("/conflicts", "nav.conflicts");
 export const accountRoute = page("/account", "nav.account");
-export const totpSetupRoute = page("/account/totp-setup", "auth.totp.title");
+export const totpSetupRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/account/totp-setup",
+  component: () => <TotpSetupPage />,
+});
 export const aboutRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/about",

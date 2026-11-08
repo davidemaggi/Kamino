@@ -1108,7 +1108,9 @@ export const handlers = [
     const all = db.events.filter((e) => e.userId === u.id);
     const pages = Math.max(1, Math.ceil(all.length / 20));
     const page = Math.min(pages, Math.max(1, Number(new URL(request.url).searchParams.get("page")) || 1));
-    const items = all.slice((page - 1) * 20, page * 20).map(({ userId: _u, ...e }) => e);
+    const items = all
+      .slice((page - 1) * 20, page * 20)
+      .map(({ id, type, at, client }) => ({ id, type, at, ...(client ? { client } : {}) }));
     return HttpResponse.json({ items, page, pages });
   }),
   http.get(`${API}/vaults/summary`, () => {
@@ -1136,7 +1138,7 @@ import { handlers } from "../mocks/handlers.js";
 
 export const server = setupServer(...handlers);
 
-beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "bypass" }));
 afterEach(() => {
   server.resetHandlers();
   resetDb();
@@ -1778,7 +1780,7 @@ import { handlers } from "./handlers.js";
 export const MSW_MARKER = "data-msw";
 
 export async function startMocks(): Promise<void> {
-  await setupWorker(...handlers).start({ onUnhandledRequest: "bypass", quiet: true, serviceWorker: { url: "/mockServiceWorker.js" } });
+  await setupWorker(...handlers).start({ onUnhandledFrame: "bypass", quiet: true, serviceWorker: { url: "/mockServiceWorker.js" } });
 }
 ```
 

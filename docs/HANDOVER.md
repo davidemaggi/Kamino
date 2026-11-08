@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-07 — **M0 completata** sul branch `m0-fondamenta` (revisione finale superata). Aperta la **PR #1** (https://github.com/davidemaggi/Kamino/pull/1) verso `main`: il merge spetta al committente.
+**Ultimo aggiornamento:** 2026-11-08 — M0 mergiata su `main` (PR #1). Fase UI, sotto-fase 1 in esecuzione sul branch `ui-fondamenta` (task 1–2 di 8 completati).
 
 ## Dove siamo
 
@@ -12,7 +12,7 @@
 | Brainstorming e design (`docs/00`–`05`, ADR) | ✅ approvato 2026-11-06 |
 | Roadmap (`docs/06-roadmap.md`) | ✅ proposta |
 | **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
-| Fase UI | ⏳ **prossima** (skill UI/UX Pro Max e impeccable installate) |
+| Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | 🔧 in corso sul branch `ui-fondamenta`: task 1–2 ✅ (`packages/status`), prossimo task 3 |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -38,9 +38,9 @@
 
 ## Prossimi passi
 
-1. **Merge della PR #1** (`m0-fondamenta` → `main`, committente): PR aperta il 2026-11-07; il merge si fa quando la CI della PR è verde (anche commitlint su tutti i commit della PR).
-2. **Spike sui dispositivi** (committente): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
-3. **Fase UI** (da `docs/06-roadmap.md`): design system e schermate con le skill UI/UX Pro Max + impeccable, poi piano M1 con superpowers:writing-plans.
+1. **Fase UI, sotto-fase 1:** proseguire il piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md` dal primo task non completato (blocchi: 1–2 ✅, 3–5 web, 6–7 plugin, 8 documenti). Le sotto-fasi 2–4 sono descritte nella spec, §1.
+2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
+3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
 
 ## Come riprendere su un altro PC
@@ -111,7 +111,6 @@ Esito della revisione finale di M0: questi restano aperti di proposito.
 ## In sospeso lato committente
 
 - Descrizione e topic del repo GitHub (ancora vuoti; `gh` ora è autenticato sul Mac, si possono impostare con `gh repo edit`).
-- Merge della PR #1 su `main`.
 - Spike su iPhone/Android reali (task 12): seguire `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`, compilando le tabelle.
 
 ## Note sull'ambiente

@@ -3,11 +3,13 @@ import { App, moment, PluginSettingTab } from "obsidian";
 import { SettingsTab } from "../src/settings/SettingsTab.js";
 import { detectLanguage } from "../src/i18n/index.js";
 import { APP_CODENAME, APP_VERSION } from "../src/build-info.js";
+import { makeCtx } from "../src/__mocks__/ui-context.js";
 
 describe("SettingsTab", () => {
   it("shows version and codename", () => {
     const app = new App();
-    const tab = new SettingsTab(app, { app } as never);
+    const { ctx, plugin } = makeCtx();
+    const tab = new SettingsTab(app, plugin as never, ctx);
     expect(tab).toBeInstanceOf(PluginSettingTab);
     tab.display();
     expect(tab.containerEl.textContent).toContain(APP_VERSION);
@@ -31,11 +33,15 @@ describe("language", () => {
     expect(detectLanguage()).toBe(expected);
   });
 
-  it("renders Italian copy when locale is it", () => {
-    moment.locale("it");
-    const app = new App();
-    const tab = new SettingsTab(app, { app } as never);
-    tab.display();
-    expect(tab.containerEl.textContent).toContain("Versione");
+  it("renders the copy in the context language", () => {
+    for (const [lang, word] of [
+      ["it", "Versione"],
+      ["en", "Version"],
+    ] as const) {
+      const { ctx, plugin } = makeCtx({ lang });
+      const tab = new SettingsTab(new App(), plugin as never, ctx);
+      tab.display();
+      expect(tab.containerEl.textContent).toContain(word);
+    }
   });
 });

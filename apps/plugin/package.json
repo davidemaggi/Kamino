@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@kamino/brand": "workspace:*",
+    "@kamino/protocol": "workspace:*",
     "@kamino/status": "workspace:*",
     "@kamino/ui-diff": "workspace:*",
     "uqr": "^0.1.3"

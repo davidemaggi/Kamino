@@ -53,6 +53,9 @@ importers:
       '@kamino/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@kamino/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       '@kamino/status':
         specifier: workspace:*
         version: link:../../packages/status

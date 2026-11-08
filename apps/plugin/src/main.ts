@@ -13,6 +13,7 @@ import { FakeSyncState } from "./state/fake.js";
 import { AddDeviceModal } from "./ui/AddDeviceModal.js";
 import { BulkResolveModal } from "./ui/BulkResolveModal.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
+import { confirmDialog } from "./ui/ConfirmModal.js";
 import { ConflictView } from "./ui/ConflictView.js";
 import type { UiContext } from "./ui/context.js";
 import { PairingClaimModal } from "./ui/PairingClaimModal.js";
@@ -94,10 +95,10 @@ export default class SyncPlugin extends Plugin {
       openConnect: (mode) => new ConnectModal(this.app, ctx, mode).open(),
       openClaim: (link) => new PairingClaimModal(this.app, ctx, link).open(),
       openAddDevice: (request) => new AddDeviceModal(this.app, ctx, request).open(),
-      confirm: () => Promise.resolve(false),
+      confirm: (opts) => confirmDialog(this.app, opts),
     };
 
-    this.addSettingTab(new SettingsTab(this.app, this));
+    this.addSettingTab(new SettingsTab(this.app, this, ctx));
     this.registerView(STATUS_VIEW, (leaf) => new StatusPanelView(leaf, ctx));
     this.registerView(CONFLICT_VIEW, (leaf) => new ConflictView(leaf, ctx));
     this.registerView(WELCOME_VIEW, (leaf) => new WelcomeView(leaf, ctx));

@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 3 **implementata** sul branch `ui-onboarding` (9 task su 9) e provata su desktop dal committente. Prossimo: revisione finale del branch e PR.
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 3 implementata, rivista e provata su desktop: **PR #4** (https://github.com/davidemaggi/Kamino/pull/4) aperta verso `main`, merge al committente.
 
 ## Dove siamo
 
@@ -14,7 +14,7 @@
 | **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
 | Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | ✅ mergiata su `main` (PR #2, 2026-11-08) |
 | Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | ✅ mergiata su `main` (PR #3, 2026-11-08) |
-| Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ implementata, rivista (2 importanti + 8 minori corretti) e provata su desktop; ⏳ PR |
+| Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ implementata, rivista (2 importanti + 8 minori corretti) e provata su desktop; PR #4, ⏳ merge |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -40,7 +40,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 3 — chiusura:** revisione finale del branch `ui-onboarding` (un subagente), PR verso `main`, merge (committente). Poi **sotto-fase 4** (web app: struttura, login/2FA, dashboard, vault, dispositivi, centro conflitti, account, admin, più la schermata "aggiungi dispositivo" spostata qui) con brainstorming → spec → piano. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
+1. **Merge della PR #4** (committente). Poi **Fase UI, sotto-fase 4** (web app: struttura, login/2FA, dashboard, vault, dispositivi, centro conflitti, account, admin, più la schermata "aggiungi dispositivo") con brainstorming → spec → piano. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.

@@ -55,7 +55,7 @@ Finestra modale a passi (`ConnectModal`, modalità `create`), con "Indietro" e "
 
 - Il plugin registra `registerObsidianProtocolHandler(PROTOCOL_ACTION)`; `PROTOCOL_ACTION` deriva da `@kamino/brand` (oggi `kamino`).
 - `parsePairingLink(params)` valida i parametri: `server` URL `https://` o `http://`, `token` non vuoto. Link malformato → notice "Link di collegamento non valido"; mai un'eccezione. Su telefono un server `http://` segue la regola di §3.2 (bloccato).
-- Se il vault è **già collegato**: finestra che spiega che va prima scollegato (nessuna azione automatica).
+- Se il vault è **già collegato**: finestra informativa (`ConfirmModal` con il solo "Chiudi") che spiega che va prima scollegato; nessuna azione automatica.
 - Altrimenti si apre `PairingClaimModal`:
   - **Nome del dispositivo** (precompilato) → `claim(link, deviceName)`; esiti `invalid`, `expired` ("Il link è scaduto: generane uno nuovo"), `already_claimed` ("Il link è già stato usato").
   - **Codice**: "Collegamento a {host}", testo "Sul dispositivo da cui hai generato il codice comparirà una richiesta. Approvala solo se vedi questo stesso codice:", codice di 4 caratteri grande e monospazio, "In attesa di approvazione…", tempo rimasto, "Annulla". Polling di `claimStatus` ogni 2 s (fermato alla chiusura).
@@ -141,6 +141,7 @@ interface TransferProgress {
   bytes: { done: number; total: number };
 }
 interface InitialTransfer {
+  start(direction: "upload" | "download"): void; // dopo il collegamento e l'eventuale riconciliazione
   progress(): TransferProgress | null; // null = nessun trasferimento
   pause(): void;
   resume(): void;
@@ -153,7 +154,7 @@ interface InitialTransfer {
 
 - `FakeServer` implementa `ConnectionService` e `InitialTransfer` in memoria, con ritardi simulati (orologio e timer iniettabili per i test). Credenziali di prova: utente `demo`, password `demo`; utente `demo2fa` / `demo` richiede il TOTP `123456`; utente `locked` → `locked`. Server: qualsiasi URL valido risponde, tranne host che contengono `unreachable` / `old` (→ `unreachable` / `incompatible`).
 - Il trasferimento finto avanza a passi su un numero di file pari ai file del vault locale (upload) o fisso (download), con dimensioni simulate.
-- **Stato non collegato** nell'indicatore e nel pannello: nuovo messaggio di stato `working.notLinked` ("Non collegato") in `@kamino/status`, che ha la precedenza su `working.neverSynced`; il pannello mostra "Collega…" al posto di "Sincronizza ora". `SyncSnapshot` riceve il campo **opzionale** `linked?: boolean` (assente = collegato, così gli snapshot esistenti non cambiano); i test di proprietà si estendono: `linked: false` ⇒ mai `safe`.
+- **Stato non collegato** nell'indicatore e nel pannello: nuovo messaggio di stato `working.notLinked` ("Non collegato", icona `cloud-off`) in `@kamino/status`, che ha la precedenza su `working.neverSynced`; il pannello mostra "Collega…" al posto di "Sincronizza ora". `SyncSnapshot` riceve il campo **opzionale** `linked?: boolean` (assente = collegato, così gli snapshot esistenti non cambiano); i test di proprietà si estendono: `linked: false` ⇒ mai `safe`.
 - Le richieste di collegamento in attesa arrivano al pannello di stato tramite `ConnectionService.pairingRequests()` e `onChange`.
 
 ### 4.4 Impostazioni salvate

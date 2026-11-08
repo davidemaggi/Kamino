@@ -1948,7 +1948,8 @@ export class Workspace {
   trigger(name: string, ...args: unknown[]): void {
     for (const h of this.handlers.get(name) ?? []) h(...args);
   }
-  getActiveViewOfType<T>(_type: unknown): T | null {
+  getActiveViewOfType<T>(type: unknown): T | null {
+    void type;
     return this.activeView as T | null;
   }
 }
@@ -1989,7 +1990,9 @@ export class Plugin {
     this.commands.push(command);
     return command;
   }
-  registerEvent(_ref: unknown): void {}
+  registerEvent(ref: unknown): void {
+    void ref;
+  }
 }
 
 export class PluginSettingTab {

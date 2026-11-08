@@ -10,7 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@kamino/brand": "workspace:*"
+    "@kamino/brand": "workspace:*",
+    "@kamino/status": "workspace:*"
   },
   "devDependencies": {
     "@kamino/tsconfig": "workspace:*",

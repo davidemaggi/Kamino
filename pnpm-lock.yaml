@@ -53,6 +53,9 @@ importers:
       '@kamino/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@kamino/status':
+        specifier: workspace:*
+        version: link:../../packages/status
     devDependencies:
       '@kamino/tsconfig':
         specifier: workspace:*

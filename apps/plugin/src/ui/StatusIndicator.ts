@@ -39,6 +39,8 @@ export class StatusIndicator {
   private statusBarEl: HTMLElement | null = null;
   private ribbonEl: HTMLElement | null = null;
   private headerActionEl: HTMLElement | null = null;
+  /** icon|label|level of the current header action, to refresh it on any visible change. */
+  private headerActionKey: string | null = null;
   private status: StatusDescription | null = null;
   private current: Level | null = null;
 
@@ -60,6 +62,13 @@ export class StatusIndicator {
     this.plugin.registerEvent(
       this.plugin.app.workspace.on("active-leaf-change", () => this.syncHeaderAction(true)),
     );
+    // Obsidian removes status bar and ribbon items on unload, but not view actions.
+    this.plugin.register(() => this.unmount());
+  }
+
+  /** Removes what Obsidian does not clean up by itself (the header action). */
+  unmount(): void {
+    this.removeHeaderAction();
   }
 
   update(status: StatusDescription): void {
@@ -73,30 +82,38 @@ export class StatusIndicator {
       setIcon(this.ribbonEl, resolveIcon(status, this.deps.available));
       this.ribbonEl.setAttribute("aria-label", statusLabel(status, now, this.deps.lang));
     }
-    this.syncHeaderAction(prev !== status.level);
+    this.syncHeaderAction(false);
     if (shouldNotify(prev, status.level)) {
       new Notice(formatStatusMessage(status.message, this.deps.lang));
     }
   }
 
-  private syncHeaderAction(rebuild: boolean): void {
+  /**
+   * Keeps the mobile header action in line with the status: shown from "attention" up,
+   * rebuilt when icon, label or level change, moved when `moveToActive` (leaf change).
+   */
+  private syncHeaderAction(moveToActive: boolean): void {
     const status = this.status;
-    const show = status !== null && shouldShowHeaderAction(status.level, this.deps.isMobile);
-    if (this.headerActionEl && (rebuild || !show)) {
-      this.headerActionEl.remove();
-      this.headerActionEl.dataset["removed"] = "true";
-      this.headerActionEl = null;
+    if (status === null || !shouldShowHeaderAction(status.level, this.deps.isMobile)) {
+      this.removeHeaderAction();
+      return;
     }
-    if (!show || this.headerActionEl) return;
+    const icon = resolveIcon(status, this.deps.available);
+    const label = statusLabel(status, this.deps.now(), this.deps.lang);
+    const key = `${icon}|${label}|${status.level}`;
+    if (this.headerActionEl && !moveToActive && key === this.headerActionKey) return;
+    this.removeHeaderAction();
     const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!view) return;
-    const now = this.deps.now();
-    this.headerActionEl = view.addAction(
-      resolveIcon(status, this.deps.available),
-      statusLabel(status, now, this.deps.lang),
-      () => this.showDetails(),
-    );
+    if (!view) return; // no note open: the ribbon and notices still report the status
+    this.headerActionEl = view.addAction(icon, label, () => this.showDetails());
     this.headerActionEl.classList.add(`${STATUS_CLASS}-action--${status.level}`);
+    this.headerActionKey = key;
+  }
+
+  private removeHeaderAction(): void {
+    this.headerActionEl?.remove();
+    this.headerActionEl = null;
+    this.headerActionKey = null;
   }
 
   private showDetails(): void {

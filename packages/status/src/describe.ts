@@ -27,7 +27,7 @@ export function describeStatus(s: SyncSnapshot, th: Thresholds, now: number): St
     add("attention", "attention.stale", { count: s.queued, ageMs: now - s.oldestQueuedAt });
   }
   if (s.quotaRatio !== null && s.quotaRatio >= th.quotaWarnRatio) {
-    add("attention", "attention.quota", { percent: Math.round(s.quotaRatio * 100) });
+    add("attention", "attention.quota", { percent: Math.floor(s.quotaRatio * 100) });
   }
   if (s.queued > 0) {
     add("working", s.syncing ? "working.syncing" : "working.queued", { count: s.queued });

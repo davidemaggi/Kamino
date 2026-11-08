@@ -49,12 +49,15 @@ type Handler = (...args: unknown[]) => void;
 
 export class MarkdownView {
   actions: HTMLElement[] = [];
+  /** Attached to the document so tests can check removal with isConnected. */
+  headerEl: HTMLElement = document.body.appendChild(document.createElement("div"));
   addAction(icon: string, title: string, callback: (evt: MouseEvent) => unknown): HTMLElement {
     const el = document.createElement("a");
     el.dataset["icon"] = icon;
     el.setAttribute("aria-label", title);
     el.addEventListener("click", (e) => callback(e as MouseEvent));
     this.actions.push(el);
+    this.headerEl.append(el);
     return el;
   }
 }
@@ -113,6 +116,14 @@ export class Plugin {
   }
   registerEvent(ref: unknown): void {
     void ref;
+  }
+  private cleanups: Array<() => unknown> = [];
+  register(cb: () => unknown): void {
+    this.cleanups.push(cb);
+  }
+  /** Test helper: what Obsidian does when the plugin is disabled or reloaded. */
+  unload(): void {
+    for (const cb of this.cleanups.splice(0)) cb();
   }
 }
 

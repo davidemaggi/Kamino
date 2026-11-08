@@ -59,7 +59,7 @@ describe("StatusIndicator on mobile", () => {
     expect(view.actions).toHaveLength(1);
     expect(view.actions[0]!.dataset["icon"]).toBe("cloud-off");
     indicator.update(status("safe"));
-    expect(view.actions[0]!.dataset["removed"]).toBe("true");
+    expect(view.actions[0]!.isConnected).toBe(false);
   });
 
   it("moves the header action to the new active note", () => {
@@ -68,8 +68,36 @@ describe("StatusIndicator on mobile", () => {
     const other = new MarkdownView();
     plugin.app.workspace.activeView = other;
     plugin.app.workspace.trigger("active-leaf-change");
-    expect(view.actions[0]!.dataset["removed"]).toBe("true");
+    expect(view.actions[0]!.isConnected).toBe(false);
     expect(other.actions).toHaveLength(1);
+  });
+});
+
+describe("StatusIndicator header action lifecycle", () => {
+  it("refreshes icon and label when the status changes within the same level", () => {
+    const { view, indicator } = setup(true);
+    indicator.update(status("offline-2-days"));
+    indicator.update(status("stale-queue"));
+    const live = view.actions.filter((a) => a.isConnected);
+    expect(live).toHaveLength(1);
+    expect(live[0]!.dataset["icon"]).toBe("triangle-alert");
+    expect(live[0]!.getAttribute("aria-label")).toContain("5 modifiche non salvate da 2 h");
+  });
+
+  it("does not rebuild the action when nothing changed", () => {
+    const { view, indicator } = setup(true);
+    indicator.update(status("one-conflict"));
+    indicator.update(status("one-conflict"));
+    expect(view.actions).toHaveLength(1);
+    expect(view.actions[0]!.isConnected).toBe(true);
+  });
+
+  it("removes the header action when the plugin unloads", () => {
+    const { plugin, view, indicator } = setup(true);
+    indicator.update(status("revoked"));
+    expect(view.actions[0]!.isConnected).toBe(true);
+    plugin.unload();
+    expect(view.actions[0]!.isConnected).toBe(false);
   });
 });
 

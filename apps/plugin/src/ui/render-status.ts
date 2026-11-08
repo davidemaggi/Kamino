@@ -21,13 +21,19 @@ export const FALLBACK_ICON: Record<Level, string> = {
   blocked: "x-octagon",
 };
 
+/** Missing icons are reported once per name, not on every update. */
+const warnedIcons = new Set<string>();
+
 export function resolveIcon(
   status: StatusDescription,
   available: ReadonlySet<string> | null,
 ): string {
   if (available === null) return status.icon;
   if (available.has(status.icon) || available.has(`lucide-${status.icon}`)) return status.icon;
-  console.warn(`status icon "${status.icon}" not available, using fallback`);
+  if (!warnedIcons.has(status.icon)) {
+    warnedIcons.add(status.icon);
+    console.warn(`status icon "${status.icon}" not available, using fallback`);
+  }
   return FALLBACK_ICON[status.level];
 }
 

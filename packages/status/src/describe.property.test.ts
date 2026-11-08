@@ -5,7 +5,8 @@ import { severity } from "./levels.js";
 import { DEFAULT_THRESHOLDS, type SyncSnapshot } from "./types.js";
 
 const NOW = 1_800_000_000_000;
-const DAY = 86_400_000;
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 const past = fc.integer({ min: 0, max: 30 * DAY }).map((d) => NOW - d);
 
 const snapshotArb: fc.Arbitrary<SyncSnapshot> = fc
@@ -65,6 +66,12 @@ describe("describeStatus properties", () => {
         if (s.blocked) expect(keys).toContain(`blocked.${s.blocked}`);
         if (s.conflicts > 0) expect(keys).toContain("decision.conflicts");
         if (s.queued > 0) expect(keys.some((k) => k.startsWith("working."))).toBe(true);
+        if (s.queued === 0 && s.lastConfirmedAt === null)
+          expect(keys).toContain("working.neverSynced");
+        if (s.queued > 0 && s.oldestQueuedAt !== null && NOW - s.oldestQueuedAt >= HOUR) {
+          expect(keys).toContain("attention.stale");
+        }
+        if (s.quotaRatio !== null && s.quotaRatio >= 0.9) expect(keys).toContain("attention.quota");
         if (s.unreachableSince !== null) {
           expect(keys.some((k) => k === "attention.offline" || k === "note.unreachable")).toBe(
             true,

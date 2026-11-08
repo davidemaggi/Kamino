@@ -67,9 +67,9 @@ describe("describeStatus rules", () => {
     ]);
   });
 
-  it("quota percent is rounded", () => {
-    const d = describeStatus({ ...synced, quotaRatio: 0.926 }, DEFAULT_THRESHOLDS, NOW);
-    expect(d.message).toEqual({ key: "attention.quota", params: { percent: 93 } });
+  it("quota percent is floored, so a warning never reads 100%", () => {
+    const d = describeStatus({ ...synced, quotaRatio: 0.996 }, DEFAULT_THRESHOLDS, NOW);
+    expect(d.message).toEqual({ key: "attention.quota", params: { percent: 99 } });
   });
 
   it("carries icon and lastConfirmedAt", () => {

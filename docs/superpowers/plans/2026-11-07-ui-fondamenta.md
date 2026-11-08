@@ -571,7 +571,11 @@ describe("describeStatus properties", () => {
   });
 
   it("P3: deterministic", () => {
-    fc.assert(fc.property(snapshotArb, (s) => expect(describe_(s)).toEqual(describe_(s))));
+    fc.assert(
+      fc.property(snapshotArb, (s) => {
+        expect(describe_(s)).toEqual(describe_(s));
+      }),
+    );
   });
 
   it("P4: every true condition is reported", () => {

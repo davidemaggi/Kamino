@@ -567,7 +567,8 @@ export const userHandlers = [
     if (!v) return unauthorized() ?? fail(404, "not_found");
     const at = new URL(request.url).searchParams.get("at");
     if (at && Date.parse(at) < Date.parse(v.historyFrom)) return fail(410, "history_window");
-    return new HttpResponse(new Blob(["PK\u0003\u0004 fake zip"]), {
+    // String body: a jsdom Blob is not accepted by MSW under Node; the client reads it as a blob anyway.
+    return new HttpResponse("PK\u0003\u0004 fake zip", {
       headers: { "content-type": "application/zip", "content-disposition": `attachment; filename="${v.name}.zip"` },
     });
   }),
@@ -685,7 +686,11 @@ export const userHandlers = [
   }),
   http.get(`${API}/vaults/:id/trash`, ({ params }) =>
     unauthorized() ??
-    HttpResponse.json({ items: ud.trash.filter((t) => t.vaultId === params["id"]).map(({ vaultId: _v, ...t }) => t) }),
+    HttpResponse.json({
+      items: ud.trash
+        .filter((t) => t.vaultId === params["id"])
+        .map(({ fileId, path, deletedAt, expiresAt, size }) => ({ fileId, path, deletedAt, expiresAt, size })),
+    }),
   ),
   http.post(`${API}/trash/:id/restore`, ({ params }) => {
     const t = ud.trash.find((x) => x.fileId === params["id"]);

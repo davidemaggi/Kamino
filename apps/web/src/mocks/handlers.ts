@@ -15,6 +15,7 @@ import {
 } from "@kamino/protocol";
 import { http, HttpResponse } from "msw";
 import type { z } from "zod";
+import { userHandlers } from "./user-handlers.js";
 import {
   addEvent,
   currentUser,
@@ -68,7 +69,7 @@ const codes = () =>
       `${nextId("R").slice(2).padStart(4, "B")}-${String(Math.floor(1000 + Math.random() * 8999))}`,
   );
 
-export const handlers = [
+const authHandlers = [
   http.get(`*/version`, () =>
     HttpResponse.json({
       version: "0.0.0",
@@ -300,14 +301,6 @@ export const handlers = [
       .map(({ id, type, at, client }) => ({ id, type, at, ...(client ? { client } : {}) }));
     return HttpResponse.json({ items, page, pages });
   }),
-  http.get(`${API}/vaults/summary`, () => {
-    const u = auth();
-    if (u instanceof Response) return u;
-    return HttpResponse.json({
-      vaults: [
-        { id: "v-notes", name: "Note", level: "decision", conflicts: 2 },
-        { id: "v-work", name: "Lavoro", level: "safe", conflicts: 0 },
-      ],
-    });
-  }),
 ];
+
+export const handlers = [...authHandlers, ...userHandlers];

@@ -17,7 +17,7 @@ describe("AppShell", () => {
     expect(within(nav).queryByText("Amministrazione")).toBeNull();
     expect(within(nav).getByTestId("brand-logo").getAttribute("alt")).toBe("");
     expect(await within(nav).findByText("Conflitti da risolvere")).toBeDefined();
-    expect(within(nav).getByText("2")).toBeDefined();
+    expect(within(nav).getByText("3")).toBeDefined(); // 2 in Note + 1 in Lavoro (fake data)
     expect(
       within(nav)
         .getByRole("link", { name: /Panoramica/ })

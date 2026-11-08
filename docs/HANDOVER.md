@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 3 in esecuzione sul branch `ui-onboarding` (task 1–6 di 9: link e QR verificati, server finto, impostazioni, benvenuto, collegamento manuale, trasferimento iniziale).
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 3 in esecuzione sul branch `ui-onboarding` (task 1–8 di 9: link e QR, benvenuto, collegamento manuale, trasferimento, pairing con approvazione, impostazioni).
 
 ## Dove siamo
 
@@ -14,7 +14,7 @@
 | **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
 | Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | ✅ mergiata su `main` (PR #2, 2026-11-08) |
 | Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | ✅ mergiata su `main` (PR #3, 2026-11-08) |
-| Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | 🔧 in esecuzione sul branch `ui-onboarding`: task 1–6 ✅, prossimo task 7 |
+| Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | 🔧 in esecuzione sul branch `ui-onboarding`: task 1–8 ✅, prossimo task 9 (documenti) |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -40,7 +40,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 3:** proseguire il piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md` dal primo task non completato (blocchi: A ✅, B ✅, C ✅, D = task 7–8, E = task 9). La schermata web "aggiungi dispositivo" è stata spostata nella sotto-fase 4. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
+1. **Fase UI, sotto-fase 3:** proseguire il piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md` dal primo task non completato (blocchi: A ✅, B ✅, C ✅, D ✅, E = task 9). La schermata web "aggiungi dispositivo" è stata spostata nella sotto-fase 4. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.

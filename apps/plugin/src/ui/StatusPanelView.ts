@@ -124,7 +124,7 @@ export class StatusPanelView extends ItemView {
         h(row, "button", {
           text: d.direction === "upload" ? m.uploadNow : m.downloadNow,
         }).addEventListener("click", () => {
-          void ctx.actions.uploadNow(d.path);
+          void ctx.actions.transferNow(d.path);
         });
       }
     }

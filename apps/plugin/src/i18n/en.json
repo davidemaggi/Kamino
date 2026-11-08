@@ -76,7 +76,9 @@
     "fileSize": "Size",
     "fileType": "Type",
     "noPreview": "No preview available",
-    "unchangedLines": "$ unchanged lines"
+    "unchangedLines": "$ unchanged lines",
+    "failed": "Could not apply your choice. Try again.",
+    "unsavedMerge": "Your merge was not saved: here it is, you can copy it."
   },
   "bulk": {
     "title": "Resolve all conflicts",
@@ -86,6 +88,7 @@
     "appliesTo": "Applies to {count} files",
     "apply": "Apply",
     "cancel": "Cancel",
-    "done": "Conflicts resolved: {count}"
+    "done": "Conflicts resolved: {count}",
+    "failed": "Could not resolve the conflicts. Try again."
   }
 }

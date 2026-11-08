@@ -73,9 +73,14 @@ describe("FakeSyncState", () => {
     });
   });
 
-  it("resolveAll resolves everything and returns the count", async () => {
+  it("resolveAll resolves the given conflicts and returns the count", async () => {
     const s = loaded();
-    expect(await s.resolveAll("keep_both")).toEqual({ resolved: 3 });
+    expect(
+      await s.resolveAll(
+        "keep_both",
+        s.conflicts().map((c) => c.id),
+      ),
+    ).toEqual({ resolved: 3 });
     expect(s.conflicts()).toEqual([]);
     expect(s.snapshot().conflicts).toBe(0);
   });
@@ -88,10 +93,17 @@ describe("FakeSyncState", () => {
     expect(s.snapshot().lastConfirmedAt).toBe(NOW);
   });
 
-  it("uploadNow removes the deferred file", async () => {
+  it("resolveAll leaves conflicts it was not given", async () => {
+    const s = loaded();
+    expect(await s.resolveAll("keep_mine", ["c-shopping", "gone"])).toEqual({ resolved: 1 });
+    expect(s.conflicts().map((c) => c.id)).toEqual(["c-plan", "c-photo"]);
+    expect(s.snapshot().conflicts).toBe(2);
+  });
+
+  it("transferNow removes the deferred file", async () => {
     const s = loaded();
     const path = s.deferred()[0]!.path;
-    await s.uploadNow(path);
+    await s.transferNow(path);
     expect(s.deferred().map((d) => d.path)).not.toContain(path);
   });
 
@@ -100,7 +112,7 @@ describe("FakeSyncState", () => {
     const cb = vi.fn();
     const off = s.onChange(cb);
     off();
-    await s.resolveAll("keep_mine");
+    await s.resolveAll("keep_mine", ["c-shopping"]);
     expect(cb).not.toHaveBeenCalled();
   });
 });

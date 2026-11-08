@@ -17,7 +17,9 @@ export async function openStatusPanel(app: App): Promise<void> {
 export async function openConflict(app: App, id: string): Promise<void> {
   const existing = app.workspace
     .getLeavesOfType(CONFLICT_VIEW)
-    .find((l) => l.view.getState()["conflictId"] === id);
+    // getViewState, not view.getState: restored background tabs are deferred (Obsidian ≥ 1.7)
+    // and their view is not a ConflictView until shown.
+    .find((l) => l.getViewState().state?.["conflictId"] === id);
   const leaf = existing ?? app.workspace.getLeaf("tab");
   if (!existing)
     await leaf.setViewState({ type: CONFLICT_VIEW, active: true, state: { conflictId: id } });

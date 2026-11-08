@@ -2,7 +2,7 @@ import { createDiffView, diffSummary, type DiffViewHandle } from "@kamino/ui-dif
 import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import { basename, fmt, formatSize, formatWhen } from "../i18n/format.js";
 import { t } from "../i18n/index.js";
-import type { BinaryInfo, ConflictDetail, Resolution } from "../state/types.js";
+import type { BinaryInfo, ConflictDetail, Resolution, ResolveOutcome } from "../state/types.js";
 import type { UiContext } from "./context.js";
 import { h } from "./dom.js";
 import { CLASS_PREFIX } from "./status-classes.js";
@@ -20,6 +20,13 @@ export class ConflictView extends ItemView {
   private tab: Tab = "diff";
   private staleWarning = false;
   private unsubscribe: (() => void) | null = null;
+  /** A resolution is being sent: actions are disabled and re-entry is ignored. */
+  private busy = false;
+  /** Merged text not yet saved (kept across a "stale" answer and shown if the conflict goes away). */
+  private draft: string | null = null;
+  /** Guards async loads: only the latest one may render, never after close. */
+  private loadSeq = 0;
+  private closed = false;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -51,23 +58,30 @@ export class ConflictView extends ItemView {
   protected override onOpen(): Promise<void> {
     // Resolved elsewhere (another view, bulk, M3 push) → show "already resolved".
     this.unsubscribe = this.ctx.source.onChange(() => {
-      if (this.detail && !this.ctx.source.conflicts().some((c) => c.id === this.conflictId))
-        void this.loadConflict();
+      if (!this.detail || this.ctx.source.conflicts().some((c) => c.id === this.conflictId)) return;
+      // Keep an in-progress merge visible, so it can be copied after the conflict goes away.
+      if (this.editing && this.diff) this.draft = this.diff.getMerged();
+      void this.loadConflict();
     });
     return Promise.resolve();
   }
 
   protected override onClose(): Promise<void> {
+    this.closed = true;
+    this.loadSeq += 1;
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.destroyDiff();
     return Promise.resolve();
   }
 
-  private async loadConflict(): Promise<void> {
-    this.editing = false;
+  private async loadConflict(keepEditing = false): Promise<void> {
+    const seq = ++this.loadSeq;
+    const detail = this.conflictId ? await this.ctx.source.conflict(this.conflictId) : null;
+    if (seq !== this.loadSeq || this.closed) return;
+    this.detail = detail;
+    this.editing = keepEditing && detail !== null && !detail.binary;
     this.tab = "diff";
-    this.detail = this.conflictId ? await this.ctx.source.conflict(this.conflictId) : null;
     this.render();
   }
 
@@ -87,6 +101,10 @@ export class ConflictView extends ItemView {
     const d = this.detail;
     if (!d) {
       h(root, "p", { text: m.gone });
+      if (this.draft !== null) {
+        h(root, "p", { cls: `${P}__muted`, text: m.unsavedMerge });
+        h(root, "pre", { cls: `${P}__text`, text: this.draft });
+      }
       h(root, "button", { text: m.close }).addEventListener("click", () => this.leaf.detach());
       return;
     }
@@ -133,10 +151,13 @@ export class ConflictView extends ItemView {
       "$ unchanged lines": m.unchangedLines,
     };
 
+    // While editing, a merge kept across a "stale" answer replaces your version as the base.
+    const mine = this.editing && this.draft !== null ? this.draft : d.mineText;
+
     if (!this.ctx.isMobile) {
       const host = h(root, "div", { cls: `${P}__diff` });
       this.diff = createDiffView(host, {
-        mine: d.mineText,
+        mine,
         incoming: d.incomingText,
         layout: "split",
         editable: this.editing,
@@ -146,6 +167,7 @@ export class ConflictView extends ItemView {
       return;
     }
 
+    const panelId = `${P}-panel-${this.conflictId ?? ""}`;
     const tabs = h(root, "div", { cls: `${P}__tabs`, attrs: { role: "tablist" } });
     for (const [id, label] of [
       ["mine", m.tabMine],
@@ -154,7 +176,12 @@ export class ConflictView extends ItemView {
     ] as const) {
       const tab = h(tabs, "button", {
         text: label,
-        attrs: { role: "tab", "aria-selected": String(this.tab === id) },
+        attrs: {
+          role: "tab",
+          id: `${panelId}-${id}`,
+          "aria-selected": String(this.tab === id),
+          "aria-controls": panelId,
+        },
       });
       tab.disabled = this.editing && id !== "diff";
       tab.addEventListener("click", () => {
@@ -162,10 +189,13 @@ export class ConflictView extends ItemView {
         this.render();
       });
     }
-    const panel = h(root, "div", { cls: `${P}__tabpanel`, attrs: { role: "tabpanel" } });
+    const panel = h(root, "div", {
+      cls: `${P}__tabpanel`,
+      attrs: { role: "tabpanel", id: panelId, "aria-labelledby": `${panelId}-${this.tab}` },
+    });
     if (this.tab === "diff") {
       this.diff = createDiffView(panel, {
-        mine: d.mineText,
+        mine,
         incoming: d.incomingText,
         layout: "unified",
         editable: this.editing,
@@ -206,20 +236,24 @@ export class ConflictView extends ItemView {
   private renderActions(root: HTMLElement, d: ConflictDetail): void {
     const m = t(this.ctx.lang).conflict;
     const bar = h(root, "div", { cls: `${P}__actions` });
-    const button = (text: string, onClick: () => void, cta = false) =>
-      h(bar, "button", { text, ...(cta ? { cls: "mod-cta" } : {}) }).addEventListener(
-        "click",
-        onClick,
-      );
+    const button = (text: string, onClick: () => void, cta = false) => {
+      const b = h(bar, "button", { text, ...(cta ? { cls: "mod-cta" } : {}) });
+      b.disabled = this.busy;
+      b.addEventListener("click", onClick);
+    };
 
     if (this.editing) {
       button(
         m.saveMerge,
-        () => void this.apply({ type: "manual", text: this.diff?.getMerged() ?? "" }),
+        () => {
+          // Never save an empty merge because the diff view is missing.
+          if (this.diff) void this.apply({ type: "manual", text: this.diff.getMerged() });
+        },
         true,
       );
       button(m.cancel, () => {
         this.editing = false;
+        this.draft = null;
         this.render();
       });
       return;
@@ -242,10 +276,22 @@ export class ConflictView extends ItemView {
 
   private async apply(resolution: Resolution): Promise<void> {
     const d = this.detail;
-    if (!d || !this.conflictId) return;
+    if (!d || !this.conflictId || this.busy) return;
     const m = t(this.ctx.lang).conflict;
-    const outcome = await this.ctx.actions.resolve(this.conflictId, resolution);
+    if (resolution.type === "manual") this.draft = resolution.text;
+    this.setBusy(true);
+    let outcome: ResolveOutcome;
+    try {
+      outcome = await this.ctx.actions.resolve(this.conflictId, resolution);
+    } catch {
+      // Nothing was applied: say so and let the user try again (the view stays as it was).
+      this.setBusy(false);
+      new Notice(m.failed);
+      return;
+    }
+    this.busy = false;
     if (outcome.ok) {
+      this.draft = null;
       const text = {
         keep_mine: fmt(m.doneMine, { device: d.incoming.device }),
         keep_incoming: fmt(m.doneIncoming, { device: d.incoming.device }),
@@ -257,6 +303,14 @@ export class ConflictView extends ItemView {
       return;
     }
     this.staleWarning = outcome.reason === "stale";
-    await this.loadConflict();
+    // A manual merge survives a newer incoming version: stay in edit mode on the draft.
+    await this.loadConflict(resolution.type === "manual");
+  }
+
+  private setBusy(busy: boolean): void {
+    this.busy = busy;
+    for (const b of this.contentEl.querySelectorAll<HTMLButtonElement>(`.${P}__actions button`)) {
+      b.disabled = busy;
+    }
   }
 }

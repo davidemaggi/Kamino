@@ -105,11 +105,13 @@ export class FakeSyncState implements SyncStateSource, ConflictActions {
     return Promise.resolve({ ok: true });
   }
 
-  resolveAll(strategy: BulkStrategy): Promise<{ resolved: number }> {
+  resolveAll(strategy: BulkStrategy, ids: readonly string[]): Promise<{ resolved: number }> {
     void strategy;
-    const resolved = this.items.length;
-    this.items = [];
-    this.snap = { ...this.snap, conflicts: 0 };
+    const wanted = new Set(ids);
+    const before = this.items.length;
+    this.items = this.items.filter((c) => !wanted.has(c.id));
+    const resolved = before - this.items.length;
+    this.snap = { ...this.snap, conflicts: Math.max(0, this.snap.conflicts - resolved) };
     this.emit();
     return Promise.resolve({ resolved });
   }
@@ -123,7 +125,7 @@ export class FakeSyncState implements SyncStateSource, ConflictActions {
     return Promise.resolve();
   }
 
-  uploadNow(path: string): Promise<void> {
+  transferNow(path: string): Promise<void> {
     this.deferredList = this.deferredList.filter((d) => d.path !== path);
     this.emit();
     return Promise.resolve();

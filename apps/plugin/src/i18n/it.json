@@ -76,7 +76,9 @@
     "fileSize": "Dimensione",
     "fileType": "Tipo",
     "noPreview": "Anteprima non disponibile",
-    "unchangedLines": "$ righe invariate"
+    "unchangedLines": "$ righe invariate",
+    "failed": "Non è stato possibile applicare la scelta. Riprova.",
+    "unsavedMerge": "La tua unione non è stata salvata: eccola, puoi copiarla."
   },
   "bulk": {
     "title": "Risolvi tutti i conflitti",
@@ -86,6 +88,7 @@
     "appliesTo": "Si applica a {count} file",
     "apply": "Applica",
     "cancel": "Annulla",
-    "done": "Conflitti risolti: {count}"
+    "done": "Conflitti risolti: {count}",
+    "failed": "Non è stato possibile risolvere i conflitti. Riprova."
   }
 }

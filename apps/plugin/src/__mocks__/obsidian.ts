@@ -106,10 +106,14 @@ export class WorkspaceLeaf {
     const creator = this.app.workspace.creators.get(state.type);
     if (!creator) throw new Error(`no view registered: ${state.type}`);
     if (this.view) await this.view.close();
-    this.view = creator(this);
+    const view = creator(this);
+    this.view = view;
     if (!this.app.workspace.leaves.includes(this)) this.app.workspace.leaves.push(this);
-    await this.view.open();
-    await this.view.setState(state.state ?? {}, { history: false });
+    await view.open();
+    await view.setState(state.state ?? {}, { history: false });
+  }
+  getViewState(): { type: string; state: Record<string, unknown> } {
+    return { type: this.view?.getViewType() ?? "empty", state: this.view?.getState() ?? {} };
   }
   detach(): void {
     this.app.workspace.leaves = this.app.workspace.leaves.filter((l) => l !== this);

@@ -71,7 +71,9 @@ export interface SyncStateSource {
 
 export interface ConflictActions {
   resolve(id: string, resolution: Resolution): Promise<ResolveOutcome>;
-  resolveAll(strategy: BulkStrategy): Promise<{ resolved: number }>;
+  /** Resolves only the given conflicts (the ones the user saw), if still open. */
+  resolveAll(strategy: BulkStrategy, ids: readonly string[]): Promise<{ resolved: number }>;
   syncNow(): Promise<void>;
-  uploadNow(path: string): Promise<void>;
+  /** Sends or fetches now a file deferred to Wi-Fi (direction from DeferredFile). */
+  transferNow(path: string): Promise<void>;
 }

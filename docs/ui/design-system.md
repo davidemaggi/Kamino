@@ -122,12 +122,13 @@ Spec: [`2026-11-08-ui-stato-conflitti-design.md`](../superpowers/specs/2026-11-0
 - **Azioni:** Tieni la mia · Tieni quella in arrivo · Tieni entrambe · Modifica e unisci… (su mobile in colonna, a tutta larghezza).
 - **Modifica e unisci** parte sempre dalla tua versione: su desktop le frecce portano un blocco da "in arrivo", su mobile ogni blocco ha "Tieni la mia" / "Prendi quella in arrivo". Poi "Salva l'unione" o "Annulla".
 - **Regola delle scelte:** si applicano subito, con una notice che dice cosa è successo e che l'altra versione resta nello storico. Nessuna finestra di conferma, perché nessuna scelta distrugge dati.
-- **Versione più recente arrivata nel frattempo:** la vista si ricarica e mostra un avviso; nessuna notice di successo. **Conflitto risolto altrove:** la vista lo dice e offre "Chiudi".
+- **Versione più recente arrivata nel frattempo:** la vista si ricarica e mostra un avviso; nessuna notice di successo. Se stavi unendo a mano resti in modifica, con la tua unione come base. **Conflitto risolto altrove:** la vista lo dice e offre "Chiudi"; un'unione non salvata resta visibile per poterla copiare.
+- **Mentre una scelta viene inviata** le azioni sono disattivate (niente doppi invii); se l'invio fallisce compare un errore e la vista resta com'era.
 - **File binari:** due riquadri (affiancati su desktop, impilati su mobile) con dispositivo, data, dimensione, tipo e anteprima se è un'immagine; niente "Modifica e unisci".
 
 ### Risolvi tutti…
 
-Finestra con tre opzioni (tieni tutte le mie / tutte quelle in arrivo / entrambe per tutti), nessuna preselezionata; "Applica" resta disattivato finché non si sceglie. È l'unico punto con una conferma esplicita, perché un tocco cambia molti file.
+Finestra con tre opzioni (tieni tutte le mie / tutte quelle in arrivo / entrambe per tutti), nessuna preselezionata; "Applica" resta disattivato finché non si sceglie. Si applica solo ai conflitti contati all'apertura: quelli arrivati dopo restano aperti. È l'unico punto con una conferma esplicita, perché un tocco cambia molti file.
 
 ### Gallerie del plugin
 

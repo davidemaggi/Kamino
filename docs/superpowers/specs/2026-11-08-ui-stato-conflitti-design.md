@@ -97,9 +97,9 @@ interface SyncStateSource {
 
 interface ConflictActions {
   resolve(id: string, resolution: Resolution): Promise<ResolveOutcome>;
-  resolveAll(strategy: BulkStrategy): Promise<{ resolved: number }>;
+  resolveAll(strategy: BulkStrategy, ids: readonly string[]): Promise<{ resolved: number }>; // solo i conflitti mostrati
   syncNow(): Promise<void>;
-  uploadNow(path: string): Promise<void>;
+  transferNow(path: string): Promise<void>; // carica o scarica, secondo DeferredFile.direction
 }
 ```
 
@@ -119,7 +119,7 @@ Tutti i testi nei JSON i18n del plugin (it/en); nessun termine del lessico a tem
 - **Sezioni**, ciascuna mostrata solo se non vuota, nell'ordine:
   1. **Conflitti · N**: righe con nome del file, dispositivo e ora della versione in arrivo; clic → apre la vista di risoluzione. "Risolvi tutti…" se N ≥ 2.
   2. **Non ancora sul server · N**: le prime 5 righe (nome, tipo di modifica localizzato, età), poi "Mostra tutte (N)" che espande l'elenco.
-  3. **In attesa di Wi-Fi · N**: nome, dimensione, "Carica ora" (`uploadNow`).
+  3. **In attesa di Wi-Fi · N**: nome, dimensione, "Carica ora" / "Scarica ora" (`transferNow`).
   4. **Questo dispositivo** (sempre): nome, modalità, host del server.
 - Nello stato `safe` il riepilogo è "Tutto al sicuro" e restano solo riepilogo e "Questo dispositivo".
 - Si aggiorna a ogni `onChange`; smette di ascoltare in `onClose`.

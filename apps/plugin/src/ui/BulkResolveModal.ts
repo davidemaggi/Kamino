@@ -8,6 +8,10 @@ import { h } from "./dom.js";
 /** "Resolve all…": explicit choice and confirmation (spec §5.4). */
 export class BulkResolveModal extends Modal {
   private choice: BulkStrategy | null = null;
+  /** The conflicts shown when the modal opened: only these are resolved. */
+  private ids: string[] = [];
+  private busy = false;
+  private applyButton: HTMLButtonElement | null = null;
 
   constructor(
     app: App,
@@ -21,12 +25,14 @@ export class BulkResolveModal extends Modal {
     this.titleEl.textContent = m.title;
     const root = this.contentEl;
     root.replaceChildren();
+    this.ids = this.ctx.source.conflicts().map((c) => c.id);
 
     const apply = root.ownerDocument.createElement("button");
     apply.className = "mod-cta";
     apply.textContent = m.apply;
     apply.disabled = true;
     apply.addEventListener("click", () => void this.apply());
+    this.applyButton = apply;
 
     const group = h(root, "div", { attrs: { role: "radiogroup", "aria-label": m.title } });
     for (const [value, label] of [
@@ -40,24 +46,39 @@ export class BulkResolveModal extends Modal {
       input.addEventListener("change", () => {
         if (!input.checked) return;
         this.choice = value;
-        apply.disabled = false;
+        apply.disabled = this.busy;
       });
     }
 
-    h(root, "p", { text: fmt(m.appliesTo, { count: this.ctx.source.conflicts().length }) });
+    h(root, "p", { text: fmt(m.appliesTo, { count: this.ids.length }) });
     const bar = h(root, "div", { cls: "modal-button-container" });
     bar.append(apply);
     h(bar, "button", { text: m.cancel }).addEventListener("click", () => this.close());
   }
 
   override onClose(): void {
+    this.applyButton = null;
     this.contentEl.replaceChildren();
   }
 
   private async apply(): Promise<void> {
-    if (!this.choice) return;
-    const { resolved } = await this.ctx.actions.resolveAll(this.choice);
-    new Notice(fmt(t(this.ctx.lang).bulk.done, { count: resolved }));
-    this.close();
+    if (!this.choice || this.busy) return;
+    const m = t(this.ctx.lang).bulk;
+    this.setBusy(true);
+    try {
+      const { resolved } = await this.ctx.actions.resolveAll(this.choice, this.ids);
+      new Notice(fmt(m.done, { count: resolved }));
+      this.close();
+    } catch {
+      // Nothing confirmed: say so and leave the modal open to retry.
+      new Notice(m.failed);
+    } finally {
+      this.setBusy(false);
+    }
+  }
+
+  private setBusy(busy: boolean): void {
+    this.busy = busy;
+    if (this.applyButton) this.applyButton.disabled = busy || this.choice === null;
   }
 }

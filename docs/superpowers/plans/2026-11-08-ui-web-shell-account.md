@@ -372,7 +372,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, request, requestVoid } from "./http.js";
 
 function stub(status: number, body: unknown) {
-  const fn = vi.fn((_url: string | URL, _init?: RequestInit) =>
+  const fn = vi.fn<(url: string | URL, init?: RequestInit) => Promise<Response>>(() =>
     Promise.resolve(new Response(body === undefined ? null : JSON.stringify(body), { status })),
   );
   vi.stubGlobal("fetch", fn);

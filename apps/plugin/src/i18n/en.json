@@ -75,7 +75,8 @@
     "fileDate": "Date",
     "fileSize": "Size",
     "fileType": "Type",
-    "noPreview": "No preview available"
+    "noPreview": "No preview available",
+    "unchangedLines": "$ unchanged lines"
   },
   "bulk": {
     "title": "Resolve all conflicts",

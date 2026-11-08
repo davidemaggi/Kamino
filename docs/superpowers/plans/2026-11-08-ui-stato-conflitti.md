@@ -2106,14 +2106,14 @@ export class ConflictView extends ItemView {
   override async setState(state: unknown, result: ViewStateResult): Promise<void> {
     const id = (state as { conflictId?: unknown } | null)?.conflictId;
     this.conflictId = typeof id === "string" ? id : null;
-    await this.load();
+    await this.loadConflict();
     await super.setState(state, result);
   }
 
   protected override onOpen(): Promise<void> {
     // Resolved elsewhere (another view, bulk, M3 push) → show "already resolved".
     this.unsubscribe = this.ctx.source.onChange(() => {
-      if (this.detail && !this.ctx.source.conflicts().some((c) => c.id === this.conflictId)) void this.load();
+      if (this.detail && !this.ctx.source.conflicts().some((c) => c.id === this.conflictId)) void this.loadConflict();
     });
     return Promise.resolve();
   }
@@ -2125,7 +2125,7 @@ export class ConflictView extends ItemView {
     return Promise.resolve();
   }
 
-  private async load(): Promise<void> {
+  private async loadConflict(): Promise<void> {
     this.editing = false;
     this.tab = "diff";
     this.detail = this.conflictId ? await this.ctx.source.conflict(this.conflictId) : null;
@@ -2273,7 +2273,7 @@ export class ConflictView extends ItemView {
       return;
     }
     this.staleWarning = outcome.reason === "stale";
-    await this.load();
+    await this.loadConflict();
   }
 }
 ```
@@ -2355,19 +2355,21 @@ Aggiungere a `apps/plugin/src/styles.css`:
   border-radius: var(--radius-s);
 }
 /* Unified diff: the document is "mine", the original is "incoming".
-   Recolor so that mine = red and incoming = green in both layouts, without strikethrough.
-   Class names from @codemirror/merge (verify in its dist when upgrading). */
-.kamino-conflict .diff-view--unified .cm-changedLine {
+   @codemirror/merge colors the document as inserted (green) and the original as deleted (red):
+   recolor so that mine = red and incoming = green, as in the split view.
+   Class names checked against @codemirror/merge 6.12 (re-check when upgrading). */
+.kamino-conflict .diff-view--unified .cm-changedLine,
+.kamino-conflict .diff-view--unified .cm-inlineChangedLine {
   background-color: rgba(var(--color-red-rgb), 0.12);
 }
 .kamino-conflict .diff-view--unified .cm-changedText {
-  background-color: rgba(var(--color-red-rgb), 0.25);
+  background: rgba(var(--color-red-rgb), 0.25);
 }
 .kamino-conflict .diff-view--unified .cm-deletedChunk {
   background-color: rgba(var(--color-green-rgb), 0.12);
 }
-.kamino-conflict .diff-view--unified .cm-deletedChunk del {
-  text-decoration: none;
+.kamino-conflict .diff-view--unified .cm-deletedChunk .cm-deletedText {
+  background: rgba(var(--color-green-rgb), 0.25);
 }
 ```
 

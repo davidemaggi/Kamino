@@ -75,7 +75,8 @@
     "fileDate": "Data",
     "fileSize": "Dimensione",
     "fileType": "Tipo",
-    "noPreview": "Anteprima non disponibile"
+    "noPreview": "Anteprima non disponibile",
+    "unchangedLines": "$ righe invariate"
   },
   "bulk": {
     "title": "Risolvi tutti i conflitti",

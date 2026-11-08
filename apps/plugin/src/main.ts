@@ -6,8 +6,9 @@ import { SettingsTab } from "./settings/SettingsTab.js";
 import { FakeSyncState } from "./state/fake.js";
 import type { UiContext } from "./ui/context.js";
 import { StatusIndicator } from "./ui/StatusIndicator.js";
+import { ConflictView } from "./ui/ConflictView.js";
 import { StatusPanelView } from "./ui/StatusPanelView.js";
-import { openConflict, openStatusPanel, STATUS_VIEW } from "./ui/workspace.js";
+import { CONFLICT_VIEW, openConflict, openStatusPanel, STATUS_VIEW } from "./ui/workspace.js";
 
 export default class SyncPlugin extends Plugin {
   override onload(): void {
@@ -34,6 +35,7 @@ export default class SyncPlugin extends Plugin {
     };
 
     this.registerView(STATUS_VIEW, (leaf) => new StatusPanelView(leaf, ctx));
+    this.registerView(CONFLICT_VIEW, (leaf) => new ConflictView(leaf, ctx));
 
     const indicator = new StatusIndicator(this, {
       isMobile: ctx.isMobile,

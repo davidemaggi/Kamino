@@ -2,11 +2,13 @@ import type { VersionInfo } from "@kamino/protocol";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchVersion } from "../api/client.js";
+import { useDocumentTitle } from "../app/useDocumentTitle.js";
 
 type State = { status: "loading" } | { status: "error" } | { status: "ready"; info: VersionInfo };
 
 export function AboutPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t("about.title"));
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {

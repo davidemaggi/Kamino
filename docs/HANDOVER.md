@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 3 implementata, rivista e provata su desktop: **PR #4** (https://github.com/davidemaggi/Kamino/pull/4) aperta verso `main`, merge al committente.
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 4a (web: struttura e account) implementata, rivista e provata: **PR #5** (https://github.com/davidemaggi/Kamino/pull/5) aperta verso `main`, merge al committente.
 
 ## Dove siamo
 
@@ -14,7 +14,9 @@
 | **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
 | Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | ✅ mergiata su `main` (PR #2, 2026-11-08) |
 | Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | ✅ mergiata su `main` (PR #3, 2026-11-08) |
-| Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ implementata, rivista (2 importanti + 8 minori corretti) e provata su desktop; PR #4, ⏳ merge |
+| Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ mergiata su `main` (PR #4, 2026-11-08) |
+| Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; PR #5, ⏳ merge |
+| Fase UI — sotto-fasi 4b (area utente) e 4c (area admin) | ⏳ |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -40,7 +42,7 @@
 
 ## Prossimi passi
 
-1. **Merge della PR #4** (committente). Poi **Fase UI, sotto-fase 4** (web app: struttura, login/2FA, dashboard, vault, dispositivi, centro conflitti, account, admin, più la schermata "aggiungi dispositivo") con brainstorming → spec → piano. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
+1. **Merge della PR #5** (committente). Poi **4b** (area utente: panoramica, vault, dispositivi, centro conflitti con `ui-diff`, storico/cestino, aggiungi dispositivo/QR) e **4c** (area admin), ciascuna con brainstorming → spec → piano. Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
@@ -131,6 +133,16 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
 
+### Decisioni della fase UI (sotto-fase 4a)
+
+| # | Decisione |
+|---|---|
+| W1 | Sotto-fase 4 divisa in 4a (struttura e account), 4b (area utente), 4c (area admin) |
+| W2 | Barra laterale su desktop, barra in alto + menu a scomparsa su telefono |
+| W3 | Client HTTP vero (TanStack Query) su un contratto zod in `@kamino/protocol`; API simulate con **MSW** (3.x: opzione `onUnhandledFrame`) in sviluppo e test, assente in produzione |
+| W4 | Router: TanStack Router, route e redirect tipizzati |
+| W5 | Durante il brainstorming niente conferme sezione per sezione: solo le scelte vere (preferenza del committente) |
+
 ### Decisioni della fase UI (sotto-fase 3)
 
 Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`.
@@ -146,6 +158,9 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | O7 | QR generati con `uqr` (MIT, nessuna dipendenza); azione del link `PROTOCOL_ACTION` in `@kamino/brand` |
 
 ## Punti aperti (rinviati, con milestone)
+
+- **Sotto-fase 4b:** applicare lingua e tema salvati sul server (`me.lang`, `me.theme`) all'accesso (oggi si salvano ma non si riapplicano); suddividere il bundle (avviso di Vite oltre 500 KB, utile con il centro conflitti); valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
+- **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.
 
 - **Vincolo di rilascio:** **nessuna release pubblica del plugin prima di M1.** Fino ad allora il plugin contiene il `FakeServer` (credenziali `demo`/`demo`) e il trasferimento finto segna come "sync confermato" dati mai caricati: in una build pubblica romperebbe la promessa "sai sempre se sei al sicuro".
 - **Notice cliccabile:** `Notice.noticeEl` è deprecato nei tipi di Obsidian 1.14 ma è quello giusto per `minAppVersion` 1.5.0; da rivedere quando si alza la versione minima (con gli esiti di R-1).

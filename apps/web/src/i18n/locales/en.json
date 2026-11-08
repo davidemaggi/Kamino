@@ -27,5 +27,192 @@
     "sampleDevice": "Sample laptop",
     "syncNow": "Sync now",
     "secondary": "Secondary"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "skip": "Skip to content",
+    "menu": "Open the menu",
+    "overview": "Overview",
+    "vaults": "Vaults",
+    "devices": "Devices",
+    "conflicts": "Conflicts",
+    "admin": "Administration",
+    "users": "Users",
+    "system": "System",
+    "account": "Account",
+    "about": "About",
+    "logout": "Sign out",
+    "roles": {
+      "user": "User",
+      "admin": "Administrator"
+    },
+    "logoutFailed": "Sign-out not confirmed by the server: close the browser if you are on a shared computer."
+  },
+  "shell": {
+    "levels": {
+      "safe": "All safe",
+      "working": "Syncing",
+      "attention": "Attention",
+      "decision": "Conflicts to resolve",
+      "blocked": "Sync blocked"
+    },
+    "conflictsCount": "{{count}} conflicts",
+    "placeholder": "This section comes with the next part.",
+    "notFound": "Page not found.",
+    "backHome": "Back to the overview",
+    "resetBanner": "The administrator started a reset of your password on {{date}}. If you didn't ask for it, contact them.",
+    "resetBannerOk": "Got it",
+    "error": "Can't reach the server. Check the connection and try again.",
+    "retry": "Try again"
+  },
+  "dev": {
+    "panel": "Fake data",
+    "reset": "Reset",
+    "empty": "No users (setup)",
+    "smtpOn": "SMTP on",
+    "smtpOff": "SMTP not configured",
+    "signInAs": "Sign in as {{user}}"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "username": "Username",
+      "password": "Password",
+      "submit": "Sign in",
+      "totpTitle": "Verification code",
+      "totpHint": "Enter the 6-digit code from your authenticator app.",
+      "code": "Code",
+      "useRecovery": "Use a recovery code",
+      "useTotp": "Use the app code",
+      "recoveryCode": "Recovery code",
+      "verify": "Verify",
+      "forgot": "Forgot your password?",
+      "back": "Back to sign in"
+    },
+    "setup": {
+      "title": "Initial setup",
+      "intro": "Create the administrator account. You find the setup code in the server start-up logs.",
+      "token": "Setup code",
+      "email": "Email",
+      "submit": "Create the administrator"
+    },
+    "forgot": {
+      "title": "Forgot password",
+      "intro": "Enter the email of your account.",
+      "email": "Email",
+      "submit": "Send instructions",
+      "sent": "If the address is registered, we sent you an email with instructions.",
+      "noSmtp": "Email is not configured: ask the administrator for a password reset link."
+    },
+    "reset": {
+      "title": "New password",
+      "submit": "Save the password",
+      "done": "Password updated: you can now sign in."
+    },
+    "invite": {
+      "title": "Welcome",
+      "intro": "You were invited as {{username}} ({{email}}). Choose a password to get started.",
+      "submit": "Create the account"
+    },
+    "password": {
+      "new": "New password",
+      "repeat": "Repeat the password",
+      "rule": "At least {{min}} characters.",
+      "mismatch": "The two passwords don't match.",
+      "show": "Show password",
+      "hide": "Hide password"
+    },
+    "totp": {
+      "title": "Two-step verification",
+      "required": "Two-step verification is mandatory for administrators: set it up to continue.",
+      "step1": "Scan the code with an authenticator app (for example Aegis, Raivo, 1Password).",
+      "qrAlt": "QR code for the authenticator app",
+      "secret": "Or enter this key manually",
+      "copy": "Copy",
+      "copied": "Copied.",
+      "step2": "Enter the 6-digit code the app shows now.",
+      "code": "Code",
+      "verify": "Verify",
+      "step3": "Save these recovery codes: each works once if you lose your phone.",
+      "download": "Download .txt",
+      "ack": "I saved them somewhere safe",
+      "finish": "Done"
+    },
+    "language": "Language"
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "unauthorized": "Session expired: sign in again.",
+    "invalid_credentials": "Wrong username or password.",
+    "user_blocked": "Account locked: contact the administrator.",
+    "totp_invalid": "Wrong code.",
+    "challenge_expired": "Time is up: sign in again.",
+    "setup_not_needed": "The initial setup has already been done.",
+    "setup_token_invalid": "Wrong setup code.",
+    "token_invalid": "This link is not valid.",
+    "token_expired": "This link has expired: ask for a new one.",
+    "password_weak": "The password must be at least 12 characters long.",
+    "password_wrong": "The current password is wrong.",
+    "totp_mandatory": "Two-step verification is mandatory for administrators.",
+    "forbidden": "You don't have permission for this.",
+    "internal": "Something went wrong. Try again.",
+    "rate_limited": "Too many attempts: wait a few minutes and try again."
+  },
+  "account": {
+    "title": "Account",
+    "saved": "Saved.",
+    "profile": {
+      "title": "Profile",
+      "email": "Email",
+      "language": "Language",
+      "theme": "Theme",
+      "save": "Save"
+    },
+    "password": {
+      "title": "Password",
+      "current": "Current password",
+      "save": "Change password",
+      "done": "Password changed."
+    },
+    "totp": {
+      "title": "Two-step verification",
+      "on": "On",
+      "off": "Off",
+      "enable": "Turn on",
+      "disable": "Turn off",
+      "regenerate": "Regenerate recovery codes",
+      "adminNote": "It is mandatory for administrators.",
+      "confirmPassword": "Confirm with your password",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "newCodes": "New recovery codes: the old ones no longer work.",
+      "hideCodes": "I saved the codes",
+      "cancelEnable": "Cancel"
+    },
+    "sessions": {
+      "title": "Active sessions",
+      "current": "This session",
+      "lastUsed": "Last used: {{when}}",
+      "end": "Sign out",
+      "endOthers": "Sign out of all others"
+    },
+    "log": {
+      "title": "Security log",
+      "newer": "Newer",
+      "older": "Older",
+      "page": "Page {{page}} of {{pages}}",
+      "types": {
+        "login": "Sign-in",
+        "login_failed": "Failed sign-in",
+        "device_linked": "New device linked",
+        "password_changed": "Password changed",
+        "admin_reset": "Password reset started by the administrator",
+        "totp_enabled": "Two-step verification turned on",
+        "totp_disabled": "Two-step verification turned off"
+      }
+    }
+  },
+  "common": {
+    "close": "Close"
   }
 }

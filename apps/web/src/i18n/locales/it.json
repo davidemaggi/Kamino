@@ -27,5 +27,192 @@
     "sampleDevice": "Portatile di esempio",
     "syncNow": "Sincronizza ora",
     "secondary": "Altro"
+  },
+  "nav": {
+    "label": "Navigazione principale",
+    "skip": "Vai al contenuto",
+    "menu": "Apri il menu",
+    "overview": "Panoramica",
+    "vaults": "Vault",
+    "devices": "Dispositivi",
+    "conflicts": "Conflitti",
+    "admin": "Amministrazione",
+    "users": "Utenti",
+    "system": "Sistema",
+    "account": "Account",
+    "about": "Informazioni",
+    "logout": "Esci",
+    "roles": {
+      "user": "Utente",
+      "admin": "Amministratore"
+    },
+    "logoutFailed": "Uscita non confermata dal server: chiudi il browser se sei su un computer condiviso."
+  },
+  "shell": {
+    "levels": {
+      "safe": "Tutto al sicuro",
+      "working": "Sincronizzazione in corso",
+      "attention": "Attenzione",
+      "decision": "Conflitti da risolvere",
+      "blocked": "Sync bloccato"
+    },
+    "conflictsCount": "{{count}} conflitti",
+    "placeholder": "Questa sezione arriva con la prossima parte.",
+    "notFound": "Pagina non trovata.",
+    "backHome": "Torna alla panoramica",
+    "resetBanner": "L'amministratore ha avviato il reset della tua password il {{date}}. Se non l'hai chiesto tu, contattalo.",
+    "resetBannerOk": "Ho capito",
+    "error": "Non riesco a contattare il server. Controlla la connessione e riprova.",
+    "retry": "Riprova"
+  },
+  "dev": {
+    "panel": "Dati finti",
+    "reset": "Ripristina",
+    "empty": "Nessun utente (setup)",
+    "smtpOn": "SMTP attivo",
+    "smtpOff": "SMTP non configurato",
+    "signInAs": "Accedi come {{user}}"
+  },
+  "auth": {
+    "login": {
+      "title": "Accedi",
+      "username": "Nome utente",
+      "password": "Password",
+      "submit": "Accedi",
+      "totpTitle": "Codice di verifica",
+      "totpHint": "Inserisci il codice di 6 cifre dell'app di autenticazione.",
+      "code": "Codice",
+      "useRecovery": "Usa un codice di recupero",
+      "useTotp": "Usa il codice dell'app",
+      "recoveryCode": "Codice di recupero",
+      "verify": "Verifica",
+      "forgot": "Password dimenticata?",
+      "back": "Torna all'accesso"
+    },
+    "setup": {
+      "title": "Configurazione iniziale",
+      "intro": "Crea l'account amministratore. Il codice di configurazione lo trovi nei log di avvio del server.",
+      "token": "Codice di configurazione",
+      "email": "Email",
+      "submit": "Crea l'amministratore"
+    },
+    "forgot": {
+      "title": "Password dimenticata",
+      "intro": "Scrivi l'email del tuo account.",
+      "email": "Email",
+      "submit": "Invia le istruzioni",
+      "sent": "Se l'indirizzo è registrato, ti abbiamo mandato un'email con le istruzioni.",
+      "noSmtp": "L'invio di email non è configurato: chiedi all'amministratore un link per reimpostare la password."
+    },
+    "reset": {
+      "title": "Nuova password",
+      "submit": "Salva la password",
+      "done": "Password aggiornata: ora puoi accedere."
+    },
+    "invite": {
+      "title": "Benvenuto",
+      "intro": "Sei stato invitato come {{username}} ({{email}}). Scegli una password per iniziare.",
+      "submit": "Crea l'account"
+    },
+    "password": {
+      "new": "Nuova password",
+      "repeat": "Ripeti la password",
+      "rule": "Almeno {{min}} caratteri.",
+      "mismatch": "Le due password non coincidono.",
+      "show": "Mostra la password",
+      "hide": "Nascondi la password"
+    },
+    "totp": {
+      "title": "Verifica in due passaggi",
+      "required": "Per gli amministratori la verifica in due passaggi è obbligatoria: configurala per continuare.",
+      "step1": "Scansiona il codice con un'app di autenticazione (per esempio Aegis, Raivo, 1Password).",
+      "qrAlt": "Codice QR per l'app di autenticazione",
+      "secret": "Oppure inserisci questa chiave a mano",
+      "copy": "Copia",
+      "copied": "Copiato.",
+      "step2": "Inserisci il codice di 6 cifre che l'app mostra adesso.",
+      "code": "Codice",
+      "verify": "Verifica",
+      "step3": "Salva questi codici di recupero: ognuno funziona una sola volta se perdi il telefono.",
+      "download": "Scarica .txt",
+      "ack": "Li ho salvati in un posto sicuro",
+      "finish": "Fine"
+    },
+    "language": "Lingua"
+  },
+  "errors": {
+    "generic": "Qualcosa è andato storto. Riprova.",
+    "unauthorized": "Sessione scaduta: accedi di nuovo.",
+    "invalid_credentials": "Nome utente o password non corretti.",
+    "user_blocked": "Account bloccato: contatta l'amministratore.",
+    "totp_invalid": "Codice non corretto.",
+    "challenge_expired": "Tempo scaduto: accedi di nuovo.",
+    "setup_not_needed": "La configurazione iniziale è già stata fatta.",
+    "setup_token_invalid": "Codice di configurazione non corretto.",
+    "token_invalid": "Questo link non è valido.",
+    "token_expired": "Questo link è scaduto: chiedine uno nuovo.",
+    "password_weak": "La password deve avere almeno 12 caratteri.",
+    "password_wrong": "La password attuale non è corretta.",
+    "totp_mandatory": "Per gli amministratori la verifica in due passaggi è obbligatoria.",
+    "forbidden": "Non hai i permessi per questa operazione.",
+    "internal": "Qualcosa è andato storto. Riprova.",
+    "rate_limited": "Troppi tentativi: aspetta qualche minuto e riprova."
+  },
+  "account": {
+    "title": "Account",
+    "saved": "Salvato.",
+    "profile": {
+      "title": "Profilo",
+      "email": "Email",
+      "language": "Lingua",
+      "theme": "Tema",
+      "save": "Salva"
+    },
+    "password": {
+      "title": "Password",
+      "current": "Password attuale",
+      "save": "Cambia la password",
+      "done": "Password cambiata."
+    },
+    "totp": {
+      "title": "Verifica in due passaggi",
+      "on": "Attiva",
+      "off": "Non attiva",
+      "enable": "Attiva",
+      "disable": "Disattiva",
+      "regenerate": "Rigenera i codici di recupero",
+      "adminNote": "Per gli amministratori è obbligatoria.",
+      "confirmPassword": "Conferma con la tua password",
+      "confirm": "Conferma",
+      "cancel": "Annulla",
+      "newCodes": "Nuovi codici di recupero: quelli vecchi non funzionano più.",
+      "hideCodes": "Ho salvato i codici",
+      "cancelEnable": "Annulla"
+    },
+    "sessions": {
+      "title": "Sessioni attive",
+      "current": "Questa sessione",
+      "lastUsed": "Ultimo uso: {{when}}",
+      "end": "Esci",
+      "endOthers": "Esci da tutte le altre"
+    },
+    "log": {
+      "title": "Registro di sicurezza",
+      "newer": "Più recenti",
+      "older": "Meno recenti",
+      "page": "Pagina {{page}} di {{pages}}",
+      "types": {
+        "login": "Accesso",
+        "login_failed": "Accesso non riuscito",
+        "device_linked": "Nuovo dispositivo collegato",
+        "password_changed": "Password cambiata",
+        "admin_reset": "Reset della password avviato dall'amministratore",
+        "totp_enabled": "Verifica in due passaggi attivata",
+        "totp_disabled": "Verifica in due passaggi disattivata"
+      }
+    }
+  },
+  "common": {
+    "close": "Chiudi"
   }
 }

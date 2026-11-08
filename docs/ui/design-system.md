@@ -180,3 +180,35 @@ Sezioni: **Collegamento** (server, utente, vault, nome del dispositivo, Aggiungi
 | Errori del link | token `expired`, `used`, `bad` |
 | Comandi | "Mostra QR di prova", "Simula richiesta di collegamento", "Simula approvazione/rifiuto", "Simula nuovo dispositivo", "Simula interruzione/errore del trasferimento" (tutti "(sviluppo)") |
 | Ricominciare da capo | "Scollega" nelle impostazioni (oppure cancellare `data.json` nella cartella del plugin) |
+
+## 9. Web app: struttura e account
+
+Spec: [`2026-11-08-ui-web-shell-account-design.md`](../superpowers/specs/2026-11-08-ui-web-shell-account-design.md).
+
+### Struttura
+
+- **Desktop:** barra laterale (240 px) con nome del prodotto, **stato complessivo** (il livello più grave tra i vault), Panoramica, Vault, Dispositivi, Conflitti (badge viola col numero), sezione **Amministrazione** solo per gli admin, in fondo Account, Informazioni, Esci e il ruolo. Voce attiva con sfondo tenue, mai bordo laterale.
+- **Telefono:** barra in alto (menu, nome, badge di stato) e menu a scomparsa con le stesse voci.
+- Accessibilità: `nav` con etichetta, `aria-current="page"`, "Vai al contenuto", titolo della finestra "{pagina} · {prodotto}".
+- Banner in cima a ogni pagina dopo un reset della password avviato dall'amministratore, finché non si chiude.
+
+### Accesso e account
+
+- **Pagine pubbliche** (card centrata, scelta della lingua): accesso → codice TOTP o codice di recupero; setup iniziale (token dai log del server, il primo utente è admin); password dimenticata (stessa risposta che l'email esista o no; senza SMTP rimanda all'amministratore); nuova password; invito.
+- **Regole:** password di almeno 12 caratteri; dopo un errore di accesso il campo password si svuota; dopo l'accesso si torna solo a percorsi interni (mai `//…` o altri siti).
+- **TOTP:** QR + chiave, codice di verifica, **10 codici di recupero** (copia, scarica, casella "Li ho salvati" obbligatoria). Obbligatorio per gli admin: finché non è fatto è l'unica pagina disponibile.
+- **Account:** Profilo (email, lingua, tema), Password, Verifica in due passaggi (gli admin non possono disattivarla), Sessioni attive (client, IP abbreviato, "Esci da tutte le altre"), Registro di sicurezza (20 voci per pagina).
+
+### Dati in sviluppo (MSW)
+
+Le pagine chiamano le API vere descritte in `@kamino/protocol` (`auth.ts`, `account.ts`); in sviluppo e nei test le risponde **MSW** con un database in memoria (`apps/web/src/mocks/`). Nella build di produzione MSW non c'è (test sulla build).
+
+| Utente | Password | Note |
+|---|---|---|
+| `admin` | `admin-password-1` | admin, TOTP `123456`, codici di recupero `AAAA-1111`…`AAAA-1120` |
+| `demo` | `demo-password-1` | utente senza TOTP |
+| `newadmin` | `newadmin-pass-1` | admin che deve configurare il TOTP |
+| `reset` | `reset-password-1` | mostra il banner del reset avviato dall'admin |
+| `locked` | qualsiasi | account bloccato |
+
+Link di prova: `/reset/reset-token`, `/invite/invite-token`, `/reset/expired-token`; codice di setup `setup-token`. Il pulsante **"Dati finti"** in basso a destra ripristina i dati, simula "nessun utente" (per vedere il setup), attiva/disattiva l'SMTP e permette di entrare come uno degli utenti di prova.

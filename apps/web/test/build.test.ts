@@ -53,6 +53,16 @@ describe("production build", () => {
     expect(files.some((f) => f.endsWith(".woff2"))).toBe(true);
   });
 
+  it("does not ship the fake API", () => {
+    for (const f of files.filter((x) => /\.(js|html)$/.test(x))) {
+      const text = readFileSync(f, "utf8");
+      expect(text, f).not.toContain("mockServiceWorker");
+      expect(text, f).not.toContain("data-msw");
+      expect(text, f).not.toContain("admin-password-1");
+    }
+    expect(files.some((f) => f.endsWith("mockServiceWorker.js"))).toBe(false);
+  });
+
   it("injects the product name into the title", () => {
     const html = readFileSync(join(out, "index.html"), "utf8");
     expect(html).toMatch(/<title>[^%<]+<\/title>/);

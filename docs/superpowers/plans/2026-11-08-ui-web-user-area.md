@@ -994,7 +994,7 @@ describe("Vaults", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/vaults/v-notes"));
     expect(await screen.findByRole("heading", { name: "Note" })).toBeDefined();
     expect(screen.getByRole("tab", { name: "Dispositivi" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByText("MacBook")).toBeDefined();
+    expect(await screen.findByText("MacBook")).toBeDefined();
   });
 
   it("tabs follow the URL", async () => {
@@ -1400,7 +1400,7 @@ export function DevicePage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   useEffect(() => {
     if (d) setName(d.name);
-  }, [d?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [d?.id]); // only when another device is loaded
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["device", deviceId] }), qc.invalidateQueries({ queryKey: ["devices"] }), qc.invalidateQueries({ queryKey: ["vaults"] })]);
   const onError = (err: unknown) => toast.error(errorMessage(err, t));
   const rename = useMutation({ mutationFn: () => api.renameDevice(deviceId, name), onSuccess: () => { toast(t("device.renamed")); void refresh(); }, onError });
@@ -1934,7 +1934,6 @@ export function DiffView({
       handle.current = null;
     };
     // labels/phrases compared by value
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mine, incoming, layout, editable, labels.mine, labels.incoming, phrasesKey]);
   useImperativeHandle(ref, () => ({ getMerged: () => handle.current?.getMerged() ?? null }), []);
   return <div ref={host} className="kamino-diff overflow-hidden rounded-lg border" />;
@@ -3016,7 +3015,6 @@ In `apps/web/test/build.test.ts`:
       document.documentElement.lang = me.lang;
     }
     setTheme(me.theme);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id]);
 ```
 

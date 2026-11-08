@@ -214,5 +214,58 @@
   },
   "common": {
     "close": "Close"
+  },
+  "overview": {
+    "title": "Overview",
+    "space": "Storage",
+    "spaceOf": "{{used}} of {{limit}}",
+    "spaceUnlimited": "{{used}}, no limit",
+    "spaceWarning": "Storage almost full: free some space or ask the administrator to raise the quota.",
+    "vaults": "Vaults",
+    "noVaults": "No vaults yet. The first one is created from Obsidian, with the plugin.",
+    "attention": "Devices to check",
+    "allDevices": "All devices",
+    "addDevice": "Add a device"
+  },
+  "vault": {
+    "files": "{{count}} files",
+    "devices": "{{count}} devices",
+    "conflicts": "{{count}} conflicts",
+    "space": "{{total}} · history {{history}} · trash {{trash}}",
+    "tabs": {
+      "devices": "Devices",
+      "conflicts": "Conflicts",
+      "history": "History and trash",
+      "settings": "Settings"
+    },
+    "noConflicts": "No conflicts in this vault.",
+    "openConflicts": "Open in the conflict center",
+    "notFound": "Vault not found."
+  },
+  "device": {
+    "title": "Devices",
+    "vault": "Vault",
+    "platform": "Platform",
+    "pluginVersion": "Plugin version",
+    "lastSeen": "Last seen",
+    "lastSync": "Last successful sync",
+    "never": "never",
+    "lag": "Lag",
+    "lagValue": "{{count}} changes behind",
+    "pending": "Pending changes",
+    "lastError": "Last error",
+    "noError": "none",
+    "revoked": "Revoked",
+    "rename": "Rename",
+    "name": "Name",
+    "save": "Save",
+    "revoke": "Revoke the device",
+    "revokeTitle": "Revoke “{{name}}”?",
+    "revokeText": "The device stops syncing right away. Files already on the device are not deleted.",
+    "revokeConfirm": "Revoke",
+    "revokedDone": "Device revoked.",
+    "renamed": "Name updated.",
+    "notFound": "Device not found.",
+    "cancel": "Cancel"
   }
 }

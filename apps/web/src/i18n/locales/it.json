@@ -214,5 +214,58 @@
   },
   "common": {
     "close": "Chiudi"
+  },
+  "overview": {
+    "title": "Panoramica",
+    "space": "Spazio",
+    "spaceOf": "{{used}} di {{limit}}",
+    "spaceUnlimited": "{{used}}, nessun limite",
+    "spaceWarning": "Spazio quasi esaurito: libera spazio o chiedi all'amministratore di aumentare la quota.",
+    "vaults": "Vault",
+    "noVaults": "Nessun vault. Il primo si crea da Obsidian, con il plugin.",
+    "attention": "Dispositivi da guardare",
+    "allDevices": "Tutti i dispositivi",
+    "addDevice": "Aggiungi un dispositivo"
+  },
+  "vault": {
+    "files": "{{count}} file",
+    "devices": "{{count}} dispositivi",
+    "conflicts": "{{count}} conflitti",
+    "space": "{{total}} · storico {{history}} · cestino {{trash}}",
+    "tabs": {
+      "devices": "Dispositivi",
+      "conflicts": "Conflitti",
+      "history": "Storico e cestino",
+      "settings": "Impostazioni"
+    },
+    "noConflicts": "Nessun conflitto in questo vault.",
+    "openConflicts": "Apri nel centro conflitti",
+    "notFound": "Vault non trovato."
+  },
+  "device": {
+    "title": "Dispositivi",
+    "vault": "Vault",
+    "platform": "Piattaforma",
+    "pluginVersion": "Versione del plugin",
+    "lastSeen": "Ultimo contatto",
+    "lastSync": "Ultimo sync riuscito",
+    "never": "mai",
+    "lag": "Ritardo",
+    "lagValue": "{{count}} modifiche indietro",
+    "pending": "Modifiche in attesa",
+    "lastError": "Ultimo errore",
+    "noError": "nessuno",
+    "revoked": "Revocato",
+    "rename": "Rinomina",
+    "name": "Nome",
+    "save": "Salva",
+    "revoke": "Revoca il dispositivo",
+    "revokeTitle": "Revocare “{{name}}”?",
+    "revokeText": "Il dispositivo smette subito di sincronizzare. I file già presenti sul dispositivo non vengono cancellati.",
+    "revokeConfirm": "Revoca",
+    "revokedDone": "Dispositivo revocato.",
+    "renamed": "Nome aggiornato.",
+    "notFound": "Dispositivo non trovato.",
+    "cancel": "Annulla"
   }
 }

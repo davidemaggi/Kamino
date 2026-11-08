@@ -3347,7 +3347,6 @@ describe("PairingClaimModal", () => {
 `src/ui/PairingClaimModal.ts`:
 
 ```ts
-import { formatAge } from "@kamino/status";
 import { Modal, type App } from "obsidian";
 import type { PairingLink } from "../connection/link.js";
 import { fmt } from "../i18n/format.js";

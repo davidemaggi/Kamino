@@ -3,15 +3,19 @@ import { DEFAULT_THRESHOLDS, describeStatus } from "@kamino/status";
 import { getIconIds, Platform, Plugin } from "obsidian";
 import { APP_VERSION } from "./build-info.js";
 import { FakeServer } from "./connection/fake-server.js";
+import { handlePairingLink } from "./connection/handle-link.js";
+import { watchPairingEvents } from "./connection/pairing-notices.js";
 import { registerDevCommands } from "./dev/commands.js";
 import { detectLanguage, t } from "./i18n/index.js";
 import { SettingsStore } from "./settings/store.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
 import { FakeSyncState } from "./state/fake.js";
+import { AddDeviceModal } from "./ui/AddDeviceModal.js";
 import { BulkResolveModal } from "./ui/BulkResolveModal.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
 import { ConflictView } from "./ui/ConflictView.js";
 import type { UiContext } from "./ui/context.js";
+import { PairingClaimModal } from "./ui/PairingClaimModal.js";
 import { StatusIndicator } from "./ui/StatusIndicator.js";
 import { StatusPanelView } from "./ui/StatusPanelView.js";
 import { TransferView } from "./ui/TransferView.js";
@@ -88,8 +92,8 @@ export default class SyncPlugin extends Plugin {
       openWelcome: () => openWelcome(this.app),
       openTransfer: () => openTransfer(this.app),
       openConnect: (mode) => new ConnectModal(this.app, ctx, mode).open(),
-      openClaim: () => undefined,
-      openAddDevice: () => undefined,
+      openClaim: (link) => new PairingClaimModal(this.app, ctx, link).open(),
+      openAddDevice: (request) => new AddDeviceModal(this.app, ctx, request).open(),
       confirm: () => Promise.resolve(false),
     };
 
@@ -129,9 +133,19 @@ export default class SyncPlugin extends Plugin {
       callback: () => void ctx.openWelcome(),
     });
 
-    // Pairing link handler: validated here, full flow in task 7.
-    this.registerObsidianProtocolHandler(PROTOCOL_ACTION, (params) => {
-      void params;
+    // Pairing link (QR / magic link): obsidian://<action>?server=…&token=…
+    this.registerObsidianProtocolHandler(PROTOCOL_ACTION, (params) =>
+      handlePairingLink(params, ctx),
+    );
+    this.register(watchPairingEvents(ctx));
+    this.addCommand({
+      id: "add-device",
+      name: m.commands.addDevice,
+      checkCallback: (checking) => {
+        if (!server.link()) return false;
+        if (!checking) ctx.openAddDevice();
+        return true;
+      },
     });
 
     this.app.workspace.onLayoutReady(() => {

@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 1 mergiata su `main` (PR #2). Sotto-fase 2 (pannello di stato e risoluzione conflitti nel plugin) in brainstorming sul branch `ui-stato-conflitti`.
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 2 in esecuzione sul branch `ui-stato-conflitti` (task 1–3 di 6). R-3 superato su desktop (Obsidian 1.15.0).
 
 ## Dove siamo
 
@@ -13,7 +13,7 @@
 | Roadmap (`docs/06-roadmap.md`) | ✅ proposta |
 | **M0 — Fondamenta** (`docs/superpowers/plans/2026-11-06-m0-fondamenta.md`) | ✅ completata sul branch (spike da eseguire su dispositivi reali) |
 | Fase UI — sotto-fase 1: fondamenta del design system (spec `docs/superpowers/specs/2026-11-07-ui-fondamenta-design.md`, piano `docs/superpowers/plans/2026-11-07-ui-fondamenta.md`) | ✅ mergiata su `main` (PR #2, 2026-11-08) |
-| Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) | 🔧 brainstorming sul branch `ui-stato-conflitti` |
+| Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | 🔧 in esecuzione sul branch `ui-stato-conflitti`: task 1–3 ✅ (`ui-diff`, R-3 desktop superato, dati finti, pannello), prossimo task 4 |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -39,7 +39,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 2** (pannello di stato sync e risoluzione conflitti nel plugin): brainstorming → spec in `docs/superpowers/specs/` → piano → esecuzione a blocchi. Parte dal design system della sotto-fase 1 (`docs/ui/design-system.md`).
+1. **Fase UI, sotto-fase 2:** proseguire il piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md` dal primo task non completato (blocchi: A ✅, B ✅, C = task 4–5, D = task 6).
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.

@@ -10,6 +10,8 @@ export default tseslint.config(
       "**/node_modules/**",
       // Throwaway M0 spikes: standalone project outside the workspace.
       "spikes/**",
+      // Local Obsidian test vault (gitignored): contains copied plugin builds.
+      "vault/**",
     ],
   },
   js.configs.recommended,

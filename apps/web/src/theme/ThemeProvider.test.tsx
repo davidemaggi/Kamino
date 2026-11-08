@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider, useTheme, type Theme } from "./ThemeProvider.js";
 
 let api: { theme: Theme; setTheme: (t: Theme) => void };
@@ -41,5 +41,45 @@ describe("ThemeProvider", () => {
     localStorage.setItem("theme", "dark");
     mount();
     expect(api.theme).toBe("dark");
+  });
+});
+
+describe("ThemeProvider system mode", () => {
+  function stubMatchMedia(initial: boolean) {
+    const listeners = new Set<() => void>();
+    const mq = {
+      matches: initial,
+      addEventListener: (_: string, l: () => void) => listeners.add(l),
+      removeEventListener: (_: string, l: () => void) => listeners.delete(l),
+    };
+    vi.stubGlobal("matchMedia", () => mq);
+    return {
+      set(dark: boolean) {
+        mq.matches = dark;
+        for (const l of listeners) l();
+      },
+      listeners,
+    };
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("follows the system preference and its changes", () => {
+    const media = stubMatchMedia(false);
+    mount();
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    act(() => media.set(true));
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    act(() => media.set(false));
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  it("stops listening when leaving system mode", () => {
+    const media = stubMatchMedia(false);
+    mount();
+    act(() => api.setTheme("light"));
+    expect(media.listeners.size).toBe(0);
+    act(() => media.set(true));
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 });

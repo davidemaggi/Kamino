@@ -1,3 +1,10 @@
 {
-  "settings": { "title": "Impostazioni", "version": "Versione", "release": "Rilascio" }
+  "settings": {
+    "title": "Impostazioni",
+    "version": "Versione",
+    "release": "Rilascio"
+  },
+  "dev": {
+    "statusGallery": "Mostra galleria stati (sviluppo)"
+  }
 }

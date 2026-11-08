@@ -1,1 +1,40 @@
 /* Plugin styles. */
+
+/* Sync status indicator. Prefix = PRODUCT_SLUG (see docs/renaming.md); checked by test/styles.test.ts.
+   Colors come only from Obsidian variables, so every theme stays consistent. */
+.kamino-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+.kamino-status__icon {
+  display: inline-flex;
+}
+.kamino-status__icon svg {
+  width: var(--icon-s);
+  height: var(--icon-s);
+}
+.kamino-status--safe .kamino-status__icon {
+  color: var(--color-green);
+}
+.kamino-status--working .kamino-status__icon {
+  color: var(--text-muted);
+}
+.kamino-status--attention .kamino-status__icon {
+  color: var(--color-yellow);
+}
+.kamino-status--decision .kamino-status__icon {
+  color: var(--color-purple);
+}
+.kamino-status--blocked .kamino-status__icon {
+  color: var(--color-red);
+}
+.kamino-status-action--attention {
+  color: var(--color-yellow);
+}
+.kamino-status-action--decision {
+  color: var(--color-purple);
+}
+.kamino-status-action--blocked {
+  color: var(--color-red);
+}

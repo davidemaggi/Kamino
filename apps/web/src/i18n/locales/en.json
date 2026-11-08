@@ -13,5 +13,19 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "gallery": {
+    "title": "Design system gallery",
+    "palette": "Palette",
+    "typography": "Typography",
+    "components": "Components",
+    "statuses": "Sync statuses",
+    "device": "Device card",
+    "language": "Language",
+    "sampleHeading": "Page title",
+    "sampleBody": "Interface text: clear, readable, no technical jargon.",
+    "sampleDevice": "Sample laptop",
+    "syncNow": "Sync now",
+    "secondary": "Secondary"
   }
 }

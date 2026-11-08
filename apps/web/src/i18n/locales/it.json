@@ -13,5 +13,19 @@
     "light": "Chiaro",
     "dark": "Scuro",
     "system": "Sistema"
+  },
+  "gallery": {
+    "title": "Galleria del design system",
+    "palette": "Palette",
+    "typography": "Tipografia",
+    "components": "Componenti",
+    "statuses": "Stati di sync",
+    "device": "Card dispositivo",
+    "language": "Lingua",
+    "sampleHeading": "Titolo di pagina",
+    "sampleBody": "Testo dell'interfaccia: chiaro, leggibile, senza gergo tecnico.",
+    "sampleDevice": "Portatile di esempio",
+    "syncNow": "Sincronizza ora",
+    "secondary": "Altro"
   }
 }

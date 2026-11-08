@@ -1,13 +1,122 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource/source-serif-4/600.css";
+@import "@fontsource/source-serif-4/700.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
+/* Direction C ("hybrid"): docs/ui/design-system.md. Contrast enforced by src/theme/tokens.test.ts. */
+:root,
+.light {
   color-scheme: light;
+  --background: #f7f9f9;
+  --foreground: #132a36;
+  --card: #ffffff;
+  --card-foreground: #132a36;
+  --popover: #ffffff;
+  --popover-foreground: #132a36;
+  --primary: #0d2230;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f2;
+  --secondary-foreground: #132a36;
+  --muted: #eef1f2;
+  --muted-foreground: #5b6b73;
+  --accent: #e6f3f5;
+  --accent-foreground: #0d2230;
+  --destructive: #a3261b;
+  --border: #e3e9eb;
+  --input: #d5dde0;
+  --ring: #0b7685;
+  --link: #0b7685;
+  --status-safe: #0b6b52;
+  --status-safe-surface: #e3f6ef;
+  --status-working: #3f5059;
+  --status-working-surface: #eef1f2;
+  --status-attention: #8a5a00;
+  --status-attention-surface: #fbf0d9;
+  --status-decision: #5a3fb0;
+  --status-decision-surface: #efeafd;
+  --status-blocked: #a3261b;
+  --status-blocked-surface: #fbe4e1;
+  --radius: 10px;
 }
+
 .dark {
   color-scheme: dark;
+  --background: #0b1820;
+  --foreground: #e7eef0;
+  --card: #13232c;
+  --card-foreground: #e7eef0;
+  --popover: #13232c;
+  --popover-foreground: #e7eef0;
+  --primary: #4fd6e3;
+  --primary-foreground: #071118;
+  --secondary: #1d3340;
+  --secondary-foreground: #e7eef0;
+  --muted: #1d3340;
+  --muted-foreground: #8a9ba3;
+  --accent: #16303d;
+  --accent-foreground: #e7eef0;
+  --destructive: #ff9c90;
+  --border: #1d3340;
+  --input: #27404d;
+  --ring: #4fd6e3;
+  --link: #4fd6e3;
+  --status-safe: #7ff0c9;
+  --status-safe-surface: #0e3b33;
+  --status-working: #b4c3ca;
+  --status-working-surface: #1d3340;
+  --status-attention: #ffd166;
+  --status-attention-surface: #3a2e0c;
+  --status-decision: #c4b2ff;
+  --status-decision-surface: #2c2250;
+  --status-blocked: #ff9c90;
+  --status-blocked-surface: #401a17;
 }
-body {
-  @apply bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100;
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-link: var(--link);
+  --color-status-safe: var(--status-safe);
+  --color-status-safe-surface: var(--status-safe-surface);
+  --color-status-working: var(--status-working);
+  --color-status-working-surface: var(--status-working-surface);
+  --color-status-attention: var(--status-attention);
+  --color-status-attention-surface: var(--status-attention-surface);
+  --color-status-decision: var(--status-decision);
+  --color-status-decision-surface: var(--status-decision-surface);
+  --color-status-blocked: var(--status-blocked);
+  --color-status-blocked-surface: var(--status-blocked-surface);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
 }

@@ -38,7 +38,15 @@ M0 Fondamenta + spike ──▶ Fase UI ──▶ M1 Sync 1 dispositivo ──�
 - Priorità di copertura: pannello di stato sync del plugin e risoluzione conflitti (sono il cuore della promessa), poi onboarding/collegamento, poi web.
 
 **Uscita:** schermate approvate dal committente.
-Nota: le skill UI/UX Pro Max e impeccable vanno installate prima di questa fase (oggi non sono presenti nell'ambiente).
+
+Scomposizione (2026-11-07), ogni sotto-fase con spec → piano → implementazione → approvazione:
+
+1. Fondamenta del design system: [spec](superpowers/specs/2026-11-07-ui-fondamenta-design.md), [design system](ui/design-system.md).
+2. Plugin: pannello di stato sync e risoluzione conflitti.
+3. Onboarding e collegamento (plugin e web, QR).
+4. Web app: login/2FA, dashboard, vault, dispositivi, centro conflitti, account, admin.
+
+Nota: le skill UI/UX Pro Max e impeccable sono installate (verificato il 2026-11-07).
 
 ## M1 — Sync con un dispositivo
 

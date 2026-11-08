@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "build": "tsx esbuild.config.mjs",
+    "build:dev": "tsx esbuild.config.mjs --dev",
+    "build:vault": "tsx esbuild.config.mjs --dev && tsx scripts/install-vault.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {
-    "@kamino/brand": "workspace:*"
+    "@kamino/brand": "workspace:*",
+    "@kamino/status": "workspace:*"
   },
   "devDependencies": {
     "@kamino/tsconfig": "workspace:*",

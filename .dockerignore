@@ -18,3 +18,5 @@ apps/server/src/build-info.generated.ts
 docs
 kickstart.md
 spikes
+vault
+.impeccable

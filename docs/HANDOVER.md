@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 4a mergiata su `main` (PR #5). Sotto-fase 4b (area utente della web app) in brainstorming sul branch `ui-web-user`.
+**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 4b (web: area utente) **implementata** sul branch `ui-web-user` (8 task su 8); prossimo: revisione finale, PR, prova del committente.
 
 ## Dove siamo
 
@@ -16,7 +16,7 @@
 | Fase UI — sotto-fase 2: pannello di stato e risoluzione conflitti (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-stato-conflitti-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-stato-conflitti.md`) | ✅ mergiata su `main` (PR #3, 2026-11-08) |
 | Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ mergiata su `main` (PR #4, 2026-11-08) |
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
-| Fase UI — sotto-fase 4b: area utente della web app | 🔧 brainstorming sul branch `ui-web-user` |
+| Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata sul branch `ui-web-user`; ⏳ revisione finale e PR |
 | Fase UI — sotto-fase 4c: area admin | ⏳ |
 | M1…M7 | ⏳ |
 
@@ -43,7 +43,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 4b** (branch `ui-web-user`): area utente della web app — panoramica, vault, dispositivi, centro conflitti con `ui-diff`, storico/cestino, download ZIP, aggiungi dispositivo/QR; più i rinvii della 4a (lingua/tema da `me`, suddivisione del bundle). Brainstorming → spec → piano → esecuzione. Poi 4c (admin). Resta aperta la navigazione con le frecce tra le schede della vista conflitto su mobile (minore).
+1. **Fase UI, sotto-fase 4b — chiusura:** revisione finale del branch `ui-web-user` (un subagente), PR, prova del committente nel browser, merge. Poi **4c** (area admin: utenti, quote, configurazione con campi "impostati dall'ambiente", salute del sistema, audit log; solo metriche aggregate, U-03).
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
@@ -134,6 +134,15 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
 
+### Decisioni della fase UI (sotto-fase 4b)
+
+| # | Decisione |
+|---|---|
+| X1 | Area utente in un'unica sotto-fase |
+| X2 | Dettaglio vault: intestazione + schede nell'URL |
+| X3 | Centro conflitti: elenco + dettaglio affiancati su desktop, due pagine su telefono |
+| X4 | Contratto zod + MSW come in 4a; diff tramite l'adattatore React `DiffView` caricato a richiesta |
+
 ### Decisioni della fase UI (sotto-fase 4a)
 
 | # | Decisione |
@@ -160,7 +169,8 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 
 ## Punti aperti (rinviati, con milestone)
 
-- **Sotto-fase 4b:** applicare lingua e tema salvati sul server (`me.lang`, `me.theme`) all'accesso (oggi si salvano ma non si riapplicano); suddividere il bundle (avviso di Vite oltre 500 KB, utile con il centro conflitti); valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
+- **Web:** valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
+- **M1+ (server):** implementare anche le rotte di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.
 - **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.
 
 - **Vincolo di rilascio:** **nessuna release pubblica del plugin prima di M1.** Fino ad allora il plugin contiene il `FakeServer` (credenziali `demo`/`demo`) e il trasferimento finto segna come "sync confermato" dati mai caricati: in una build pubblica romperebbe la promessa "sai sempre se sei al sicuro".

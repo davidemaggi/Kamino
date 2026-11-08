@@ -212,3 +212,17 @@ Le pagine chiamano le API vere descritte in `@kamino/protocol` (`auth.ts`, `acco
 | `locked` | qualsiasi | account bloccato |
 
 Link di prova: `/reset/reset-token`, `/invite/invite-token`, `/reset/expired-token`; codice di setup `setup-token`. Il pulsante **"Dati finti"** in basso a destra ripristina i dati, simula "nessun utente" (per vedere il setup), attiva/disattiva l'SMTP e permette di entrare come uno degli utenti di prova.
+
+## 10. Web app: area utente
+
+Spec: [`2026-11-08-ui-web-user-area-design.md`](../superpowers/specs/2026-11-08-ui-web-user-area-design.md). Dati dal contratto `@kamino/protocol` (`vaults.ts`, `devices.ts`, `conflicts.ts`, `history.ts`); in sviluppo e nei test li simula MSW.
+
+- **Panoramica:** spazio usato (avviso ambra da 90% della quota, Q-05), card dei vault (pallino, nome, file, dispositivi, `LevelBadge`), "Dispositivi da guardare" (livello ≥ Attenzione), "Aggiungi un dispositivo". Senza vault: spiega che il primo si crea da Obsidian.
+- **Vault:** intestazione (nome, stato, file, dispositivi, spazio con storico e cestino) + schede nell'URL (`?tab=devices|conflicts|history|settings`).
+  - *Storico e cestino:* ricerca dei file, storico di un file (versioni, anteprima, "Ripristina questa versione": diventa l'attuale, la precedente resta nello storico); cestino con ripristino ("almeno 7 giorni").
+  - *Impostazioni:* rinomina, retention (fino al massimo dell'admin), ZIP dello stato attuale o "com'era il…" (entro lo storico), **elimina** solo digitando il nome esatto.
+- **Dispositivi:** elenco (revocati in fondo, attenuati) e dettaglio D-06 (piattaforma, versione, ultimo contatto e sync, ritardo, modifiche in attesa, ultimo errore), rinomina, **revoca** con conferma ("i file sul dispositivo non vengono cancellati").
+- **Aggiungi un dispositivo (web):** scelta del vault, QR + link + scadenza, attesa; la richiesta mostra il **codice** con "approva solo se coincide"; Approva/Rifiuta; chiudendo la finestra l'offerta viene annullata.
+- **Centro conflitti:** su desktop elenco raggruppato per vault a sinistra e dettaglio a destra (si apre il primo; dopo una scelta si passa al successivo); su telefono due pagine, con le schede "La tua / Differenze / In arrivo" come nel plugin. Stesse regole del plugin per azioni, "Modifica e unisci", versione più recente arrivata nel frattempo, conflitto già risolto, "Risolvi tutti…". Il diff è `@kamino/ui-diff` tramite l'adattatore React `DiffView`, caricato a richiesta (chunk separato).
+- **Lingua e tema** salvati sul server vengono applicati all'accesso.
+- **Pannello "Dati finti"** (sviluppo): in più "Richiesta di collegamento in arrivo", "Versione più recente in arrivo", "Quota quasi piena".

@@ -1553,7 +1553,22 @@ function walk(dir: string): string[] {
 
 beforeAll(async () => {
   out = mkdtempSync(join(tmpdir(), "web-build-"));
-  await build({ root, configFile: join(root, "vite.config.ts"), logLevel: "silent", build: { outDir: out, emptyOutDir: true } });
+  // Vitest sets NODE_ENV=test, which makes Vite treat the build as dev
+  // (import.meta.env.DEV = true). Build exactly like `vite build` does.
+  const prevEnv = process.env["NODE_ENV"];
+  process.env["NODE_ENV"] = "production";
+  try {
+    await build({
+      root,
+      configFile: join(root, "vite.config.ts"),
+      mode: "production",
+      logLevel: "silent",
+      build: { outDir: out, emptyOutDir: true },
+    });
+  } finally {
+    if (prevEnv === undefined) delete process.env["NODE_ENV"];
+    else process.env["NODE_ENV"] = prevEnv;
+  }
   files = walk(out);
 }, 120_000);
 

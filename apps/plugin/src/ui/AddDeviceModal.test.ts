@@ -91,4 +91,48 @@ describe("AddDeviceModal", () => {
     const root = (modal as unknown as { contentEl: HTMLElement }).contentEl;
     expect(root.textContent).toContain("Nuovo dispositivo: “Pixel”");
   });
+
+  it("opened on a request that is no longer pending says so", async () => {
+    const made = makeCtx();
+    const login = await made.server.login("https://sync.example", "demo", "demo");
+    if (!login.ok) throw new Error("login");
+    await made.server.linkDevice(login.session, "v-notes", "Laptop");
+    await made.server.startPairing();
+    made.server.simulateIncomingClaim("Pixel");
+    const request = made.server.pairingRequests()[0]!;
+    await made.server.deny(request.pairingId);
+    const modal = new AddDeviceModal(new App() as never, made.ctx, request);
+    modal.open();
+    await vi.advanceTimersByTimeAsync(0);
+    const root = (modal as unknown as { contentEl: HTMLElement }).contentEl;
+    expect(root.textContent).toContain("Questa richiesta non è più valida");
+    expect([...root.querySelectorAll("button")].some((b) => b.textContent === "Approva")).toBe(
+      false,
+    );
+  });
+
+  it("a failed answer shows an error, not success", async () => {
+    const o = await open();
+    o.server.simulateIncomingClaim();
+    await vi.advanceTimersByTimeAsync(0);
+    vi.spyOn(o.server, "approve").mockRejectedValueOnce(new Error("network"));
+    await o.click("Approva");
+    expect(o.root.textContent).toContain("Non è stato possibile inviare la risposta. Riprova.");
+    expect(o.root.textContent).not.toContain("Dispositivo collegato.");
+  });
+
+  it("closing while the offer is being created cancels it and leaves no trace", async () => {
+    const made = makeCtx();
+    const login = await made.server.login("https://sync.example", "demo", "demo");
+    if (!login.ok) throw new Error("login");
+    await made.server.linkDevice(login.session, "v-notes", "Laptop");
+    const cancel = vi.spyOn(made.server, "cancelPairing");
+    const modal = new AddDeviceModal(new App() as never, made.ctx);
+    modal.open();
+    modal.close();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(cancel).toHaveBeenCalled();
+    const id = cancel.mock.calls[0]![0];
+    expect(AddDeviceModal.isShowing(id)).toBe(false);
+  });
 });

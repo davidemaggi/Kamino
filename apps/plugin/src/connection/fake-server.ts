@@ -22,6 +22,8 @@ const PAIRING_TTL = 10 * 60_000;
 const SESSION_TTL = 5 * 60_000;
 const BYTES_PER_FILE = 24_000;
 const DOWNLOAD_FILES = 128;
+/** Distinct id prefix per instance: ids never collide across instances (like a real server). */
+let instances = 0;
 
 export interface LinkStore {
   load(): LinkInfo | null;
@@ -77,6 +79,7 @@ export class FakeServer implements ConnectionService {
   private requests: PairingRequest[] = [];
   private createdVaults: VaultSummary[] = [];
   private seq = 0;
+  private readonly prefix = `s${++instances}`;
   private progressState: TransferProgress | null = null;
   private running = false;
 
@@ -171,6 +174,7 @@ export class FakeServer implements ConnectionService {
     if (this.current) {
       this.current = { ...this.current, deviceName: name };
       this.o.store.save(this.current);
+      this.emit({ type: "device_renamed" });
     }
   }
 
@@ -186,7 +190,7 @@ export class FakeServer implements ConnectionService {
 
   async startPairing(): Promise<PairingOffer> {
     await this.o.delay(100);
-    const pairingId = `p-${++this.seq}`;
+    const pairingId = `p-${this.prefix}-${++this.seq}`;
     const token = `t-${this.seq}-${Math.floor(this.o.random() * 1e9)}`;
     const expiresAt = this.o.clock() + PAIRING_TTL;
     this.offers.push({ pairingId, token, expiresAt, claimId: null, open: true });
@@ -283,7 +287,7 @@ export class FakeServer implements ConnectionService {
     let offer = [...this.offers].reverse().find((x) => x.open && !x.claimId && x.expiresAt > now);
     if (!offer) {
       offer = {
-        pairingId: `p-${++this.seq}`,
+        pairingId: `p-${this.prefix}-${++this.seq}`,
         token: `t-${this.seq}`,
         expiresAt: now + PAIRING_TTL,
         claimId: null,
@@ -346,7 +350,12 @@ export class FakeServer implements ConnectionService {
     await this.o.delay(100);
     const offer = this.offers.find((x) => x.pairingId === pairingId);
     const claim = this.claims.find((c) => c.claimId === offer?.claimId);
-    if (claim && claim.status === "pending") {
+    // Like the real server: an expired or already answered request cannot be approved or denied.
+    if (claim && (claim.status !== "pending" || claim.expiresAt <= this.o.clock())) {
+      this.closeOffer(pairingId);
+      throw new Error("pairing request no longer pending");
+    }
+    if (claim) {
       claim.status = status;
       // Same instance on both sides (dev): the approved device is this one only if not linked yet.
       if (status === "approved" && !this.current) this.linkFromClaim(claim);

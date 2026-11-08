@@ -115,9 +115,19 @@ export default class SyncPlugin extends Plugin {
     const refresh = () =>
       indicator.update(describeStatus(state.snapshot(), DEFAULT_THRESHOLDS, now()));
     this.register(state.onChange(refresh));
+    const deviceInfo = () => {
+      const link = server.link();
+      return {
+        name: link?.deviceName ?? m.panel.notLinked,
+        mode: "live" as const,
+        server: link?.host ?? m.panel.noServer,
+      };
+    };
     this.register(
       server.onChange((e) => {
         if (e.type === "linked" || e.type === "unlinked") state.setLinked(e.type === "linked");
+        if (e.type === "linked" || e.type === "unlinked" || e.type === "device_renamed")
+          state.setDevice(deviceInfo());
       }),
     );
     this.register(server.transfer.onChange(() => state.setTransfer(server.transfer.progress())));

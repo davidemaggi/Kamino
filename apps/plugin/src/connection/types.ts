@@ -58,7 +58,8 @@ export type ConnectionEvent =
   | { type: "pairing_request"; request: PairingRequest }
   | { type: "pairing_closed"; pairingId: string }
   | { type: "pairing_reused"; pairingId: string }
-  | { type: "device_joined"; deviceName: string };
+  | { type: "device_joined"; deviceName: string }
+  | { type: "device_renamed" };
 
 export interface ConnectionService {
   link(): LinkInfo | null;

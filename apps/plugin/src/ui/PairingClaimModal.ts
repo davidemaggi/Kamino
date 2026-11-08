@@ -21,6 +21,8 @@ export class PairingClaimModal extends Modal {
   private timer: number | null = null;
   private ticks = 0;
   private busy = false;
+  /** Set on close: late answers must not render, poll or link anything. */
+  private closed = false;
 
   constructor(
     app: App,
@@ -37,8 +39,11 @@ export class PairingClaimModal extends Modal {
   }
 
   override onClose(): void {
+    this.closed = true;
     this.stopTimer();
     if (this.step === "code" && this.claimId) void this.ctx.connection.cancelClaim(this.claimId);
+    // Approved but reconciliation not confirmed: closing means cancelling, so leave the vault unlinked.
+    if (this.step === "reconcile") void this.ctx.connection.unlink();
     this.contentEl.replaceChildren();
   }
 
@@ -77,7 +82,7 @@ export class PairingClaimModal extends Modal {
         attrs: { "aria-label": this.code.split("").join(" ") },
       });
       h(root, "p", {
-        cls: `${P}__muted`,
+        cls: `${P}__muted ${P}__waiting`,
         attrs: { "aria-live": "polite" },
         text: fmt(m.waiting, { left: this.left() }),
       });
@@ -104,8 +109,17 @@ export class PairingClaimModal extends Modal {
   private async claim(): Promise<void> {
     if (this.busy || !this.deviceName.trim()) return;
     this.busy = true;
-    const r = await this.ctx.connection.claim(this.link, this.deviceName.trim());
-    this.busy = false;
+    let r: Awaited<ReturnType<UiContext["connection"]["claim"]>>;
+    try {
+      r = await this.ctx.connection.claim(this.link, this.deviceName.trim());
+    } finally {
+      this.busy = false;
+    }
+    if (this.closed) {
+      // Closed while the claim was in flight: withdraw it so the other device gets nothing to approve.
+      if (r.ok) void this.ctx.connection.cancelClaim(r.claimId);
+      return;
+    }
     if (!r.ok) {
       this.result = {
         invalid: this.m.invalidToken,
@@ -128,7 +142,7 @@ export class PairingClaimModal extends Modal {
     this.ticks += 1;
     if (this.ticks % 2 === 0 && this.claimId) {
       const status = await this.ctx.connection.claimStatus(this.claimId);
-      if (this.step !== "code") return;
+      if (this.closed || this.step !== "code") return;
       if (status === "approved") {
         this.stopTimer();
         if (this.ctx.localFileCount() > 0) {
@@ -147,7 +161,10 @@ export class PairingClaimModal extends Modal {
         return;
       }
     }
-    if (this.step === "code") this.render();
+    // Countdown only: update the text, never rebuild the window (keeps focus and aria-live stable).
+    const waiting = this.contentEl.querySelector(`.${P}__waiting`);
+    if (this.step === "code" && waiting)
+      waiting.textContent = fmt(this.m.waiting, { left: this.left() });
   }
 
   private startDownload(): void {

@@ -25,6 +25,8 @@ export class ConnectModal extends Modal {
   private deviceName: string;
   private error: string | null = null;
   private busy = false;
+  /** Set on close: a late answer must not link or start anything. */
+  private closed = false;
 
   constructor(
     app: App,
@@ -37,10 +39,18 @@ export class ConnectModal extends Modal {
   }
 
   override onOpen(): void {
+    // Enter submits the current step (keyboard users).
+    this.contentEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.target as HTMLElement | null)?.tagName === "INPUT") {
+        e.preventDefault();
+        void this.next();
+      }
+    });
     this.render();
   }
 
   override onClose(): void {
+    this.closed = true;
     // Never keep the password around (D-08).
     this.password = "";
     this.totp = "";
@@ -145,6 +155,7 @@ export class ConnectModal extends Modal {
   }
 
   private back(): void {
+    if (this.busy) return;
     const order: Step[] = ["server", "login", "vault", "device", "reconcile"];
     this.error = null;
     this.step = order[Math.max(0, order.indexOf(this.step) - 1)]!;
@@ -190,8 +201,14 @@ export class ConnectModal extends Modal {
           this.needTotp ? this.totp : undefined,
         );
         if (!r.ok) {
-          if (r.reason === "totp_required") this.needTotp = true;
-          else this.error = m.errors[r.reason];
+          if (r.reason === "totp_required") {
+            this.needTotp = true;
+          } else {
+            // The field is re-rendered empty: never resubmit a password the user cannot see.
+            this.password = "";
+            this.totp = "";
+            this.error = m.errors[r.reason];
+          }
           return;
         }
         this.password = "";
@@ -241,8 +258,13 @@ export class ConnectModal extends Modal {
     let vaultId = this.vaultId;
     if (this.mode === "create")
       vaultId = (await connection.createVault(session, this.vaultName.trim())).id;
-    if (!vaultId) return;
+    if (!vaultId || this.closed) return;
     await connection.linkDevice(session, vaultId, this.deviceName.trim());
+    if (this.closed) {
+      // Closed (Esc) while linking: the user cancelled, so do not stay linked.
+      await connection.unlink();
+      return;
+    }
     transfer.start(this.mode === "create" ? "upload" : "download");
     this.close();
     void this.ctx.openTransfer();

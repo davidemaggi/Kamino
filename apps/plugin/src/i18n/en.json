@@ -180,7 +180,9 @@
     "rejected": "Request denied.",
     "noticeRequest": "A new device asks to link. Tap to answer.",
     "noticeJoined": "New device linked: {name}.",
-    "noticeReused": "The link was used by a second device and has been blocked."
+    "noticeReused": "The link was used by a second device and has been blocked.",
+    "requestGone": "This request is no longer valid: it expired or was already answered.",
+    "answerFailed": "Could not send the answer. Try again."
   },
   "welcome": {
     "viewTitle": "Link this vault",

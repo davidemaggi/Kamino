@@ -180,7 +180,9 @@
     "rejected": "Richiesta rifiutata.",
     "noticeRequest": "Un nuovo dispositivo chiede di collegarsi. Tocca per rispondere.",
     "noticeJoined": "Nuovo dispositivo collegato: {name}.",
-    "noticeReused": "Il link è stato usato da un secondo dispositivo ed è stato bloccato."
+    "noticeReused": "Il link è stato usato da un secondo dispositivo ed è stato bloccato.",
+    "requestGone": "Questa richiesta non è più valida: è scaduta o ha già avuto risposta.",
+    "answerFailed": "Non è stato possibile inviare la risposta. Riprova."
   },
   "welcome": {
     "viewTitle": "Collega questo vault",

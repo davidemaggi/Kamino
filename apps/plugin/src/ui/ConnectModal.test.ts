@@ -75,13 +75,34 @@ describe("ConnectModal, login step", () => {
     expect(o.root.textContent).toContain("Codice di verifica non corretto.");
   });
 
-  it("the password is not left in the DOM after closing", async () => {
+  it("the password is not kept after a failed sign-in", async () => {
+    const o = open("join");
+    await toLogin(o);
+    o.type("Nome utente", "demo");
+    o.type("Password", "wrong");
+    await o.click("Accedi");
+    expect(o.input("Password")!.value).toBe("");
+    // The field looks empty: submitting again must not reuse the old password.
+    await o.click("Accedi");
+    expect(o.root.textContent).toContain("Compila questo campo.");
+  });
+
+  it("closing removes the password field", async () => {
     const o = open("join");
     await toLogin(o);
     o.type("Password", "secret");
     o.modal.close();
-    expect(o.root.innerHTML).not.toContain("secret");
     expect(o.input("Password")).toBeNull();
+  });
+
+  it("Enter submits the current step", async () => {
+    const o = open("join");
+    o.type("Indirizzo del server", "https://sync.example");
+    o.input("Indirizzo del server")!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    await flush();
+    expect(o.input("Nome utente")).not.toBeNull();
   });
 });
 

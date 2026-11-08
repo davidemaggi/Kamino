@@ -107,6 +107,15 @@ describe("FakeSyncState", () => {
     expect(s.deferred().map((d) => d.path)).not.toContain(path);
   });
 
+  it("setDevice updates the device info and notifies", () => {
+    const s = new FakeSyncState(device, () => NOW);
+    const cb = vi.fn();
+    s.onChange(cb);
+    s.setDevice({ name: "Studio", mode: "live", server: "other.example" });
+    expect(s.device().name).toBe("Studio");
+    expect(cb).toHaveBeenCalled();
+  });
+
   it("onChange unsubscribe stops notifications", async () => {
     const s = loaded();
     const cb = vi.fn();

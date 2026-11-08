@@ -27,6 +27,8 @@ export class AddDeviceModal extends Modal {
   private timer: number | null = null;
   private unsubscribe: (() => void) | null = null;
   private busy = false;
+  /** Set on close: a late startPairing() must not register anything. */
+  private closed = false;
 
   constructor(
     app: App,
@@ -59,13 +61,15 @@ export class AddDeviceModal extends Modal {
     if (this.request) {
       this.setPairing(this.request.pairingId, this.request.expiresAt);
       this.step = "request";
-      this.render();
+      if (!this.stillPending()) this.showGone();
+      else this.render();
     } else {
       void this.offer();
     }
   }
 
   override onClose(): void {
+    this.closed = true;
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
     this.unsubscribe?.();
@@ -85,13 +89,32 @@ export class AddDeviceModal extends Modal {
 
   private async offer(): Promise<void> {
     const offer = await this.ctx.connection.startPairing();
+    if (this.closed) {
+      // Closed while the offer was being created: withdraw it, register nothing.
+      void this.ctx.connection.cancelPairing(offer.pairingId);
+      return;
+    }
     this.setPairing(offer.pairingId, offer.expiresAt);
     this.link = offer.link;
     this.step = "offer";
     this.render();
   }
 
+  private stillPending(): boolean {
+    return this.ctx.connection.pairingRequests().some((r) => r.pairingId === this.pairingId);
+  }
+
+  private showGone(): void {
+    this.doneText = t(this.ctx.lang).pairing.requestGone;
+    this.step = "done";
+    this.render();
+  }
+
   private tick(): void {
+    if (this.step === "request" && !this.busy && !this.stillPending()) {
+      this.showGone();
+      return;
+    }
     if (this.step === "offer" && this.ctx.now() >= this.expiresAt) {
       this.step = "expired";
       this.render();
@@ -183,8 +206,11 @@ export class AddDeviceModal extends Modal {
       if (approve) await this.ctx.connection.approve(this.pairingId);
       else await this.ctx.connection.deny(this.pairingId);
       this.doneText = approve ? m.approved : m.rejected;
-      this.step = "done";
+    } catch {
+      // Not confirmed by the server: never report success.
+      this.doneText = this.stillPending() ? m.answerFailed : m.requestGone;
     } finally {
+      this.step = "done";
       this.busy = false;
       this.render();
     }

@@ -91,6 +91,7 @@ describe("vaults and linking", () => {
     expect(events).toContainEqual({ type: "linked" });
     await server.renameDevice("Studio");
     expect(server.link()?.deviceName).toBe("Studio");
+    expect(events).toContainEqual({ type: "device_renamed" });
     await server.unlink();
     expect(server.link()).toBeNull();
     expect(saved()).toBeNull();
@@ -171,6 +172,26 @@ describe("pairing", () => {
     tick(10 * MIN);
     expect(server.pairingRequests()).toEqual([]);
     expect(await server.claimStatus(claim.claimId)).toBe("expired");
+  });
+
+  it("approving an expired or already answered request is refused", async () => {
+    const { server, tick } = await linkedDemo();
+    const offer = await server.startPairing();
+    const token = new URL(offer.link).searchParams.get("token")!;
+    const claim = await server.claim({ server: "https://sync.example", token }, "iPhone");
+    if (!claim.ok) throw new Error("claim");
+    tick(10 * 60_000);
+    await expect(server.approve(offer.pairingId)).rejects.toThrow();
+    expect(await server.claimStatus(claim.claimId)).toBe("expired");
+  });
+
+  it("answering twice is refused", async () => {
+    const { server } = await linkedDemo();
+    const offer = await server.startPairing();
+    const token = new URL(offer.link).searchParams.get("token")!;
+    await server.claim({ server: "https://sync.example", token }, "iPhone");
+    await server.deny(offer.pairingId);
+    await expect(server.approve(offer.pairingId)).rejects.toThrow();
   });
 
   it("special tokens simulate remote errors", async () => {

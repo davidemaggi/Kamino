@@ -34,7 +34,7 @@ export class FakeSyncState implements SyncStateSource, ConflictActions {
   private staleNext = false;
 
   constructor(
-    private readonly deviceInfo: DeviceInfo,
+    private deviceInfo: DeviceInfo,
     private readonly clock: () => number,
   ) {}
 
@@ -81,6 +81,12 @@ export class FakeSyncState implements SyncStateSource, ConflictActions {
     this.deferredList = [...sc.deferred];
     this.emit();
   }
+  /** Updates the device info shown in the panel (link, unlink, rename). */
+  setDevice(info: DeviceInfo): void {
+    this.deviceInfo = info;
+    this.emit();
+  }
+
   /** Reflects the link state in the snapshot (not linked → "Not linked", never "safe"). */
   setLinked(linked: boolean): void {
     this.snap = { ...this.snap, linked };

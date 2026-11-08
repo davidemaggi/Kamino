@@ -81,4 +81,49 @@ describe("PairingClaimModal", () => {
     await vi.advanceTimersByTimeAsync(10_000);
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it("closing while the claim is in flight cancels it and never links", async () => {
+    const o = await open();
+    let release: (v: Awaited<ReturnType<typeof o.server.claim>>) => void = () => undefined;
+    const real = o.server.claim.bind(o.server);
+    vi.spyOn(o.server, "claim").mockImplementation(
+      (link, name) => new Promise((r) => void real(link, name).then((v) => (release = () => r(v)))),
+    );
+    const cancel = vi.spyOn(o.server, "cancelClaim");
+    const start = vi.spyOn(o.ctx.transfer, "start");
+    [...o.root.querySelectorAll("button")].find((b) => b.textContent === "Collega")!.click();
+    await vi.advanceTimersByTimeAsync(0);
+    o.modal.close();
+    release(undefined as never);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(cancel).toHaveBeenCalled();
+    o.server.simulateClaimAnswer("approved");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("closing on the reconciliation step after approval unlinks", async () => {
+    const o = await open("remote", 5);
+    await o.click("Collega");
+    o.server.simulateClaimAnswer("approved");
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(o.root.textContent).toContain("Questo vault contiene già 5 file");
+    o.modal.close();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(o.server.link()).toBeNull();
+  });
+
+  it("the countdown does not rebuild the window (focus stays on Cancel)", async () => {
+    const o = await open();
+    await o.click("Collega");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(o.root.querySelector(".kamino-pairing__code")).not.toBeNull();
+    const cancel = [...o.root.querySelectorAll("button")].find((b) => b.textContent === "Annulla")!;
+    await vi.advanceTimersByTimeAsync(3000);
+    // Same element: the window was not rebuilt (the modal content is detached in the mock, so no isConnected).
+    expect([...o.root.querySelectorAll("button")].find((b) => b.textContent === "Annulla")).toBe(
+      cancel,
+    );
+    expect(o.root.textContent).toContain("scade tra");
+  });
 });

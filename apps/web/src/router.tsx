@@ -4,6 +4,7 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   notFound,
   Outlet,
   redirect,
@@ -116,14 +117,6 @@ export const appRoute = createRoute({
   component: AppShell,
 });
 
-/** Generic on the path so the route keeps its literal type (typed links and redirects). */
-const page = <P extends string>(path: P, titleKey: string) =>
-  createRoute({
-    getParentRoute: () => appRoute,
-    path,
-    component: () => <PlaceholderPage titleKey={titleKey} />,
-  });
-
 export const VAULT_TABS = ["devices", "conflicts", "history", "settings"] as const;
 export type VaultTab = (typeof VAULT_TABS)[number];
 
@@ -155,9 +148,23 @@ export const deviceRoute = createRoute({
   path: "/devices/$deviceId",
   component: DevicePage,
 });
-export const conflictsRoute = page("/conflicts", "nav.conflicts");
-// Placeholder until task 5 (conflict center).
-export const conflictRoute = page("/conflicts/$conflictId", "nav.conflicts");
+// Lazy: the conflict center pulls in CodeMirror (keeps the main chunk small).
+export const conflictsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/conflicts",
+  component: lazyRouteComponent(
+    () => import("./pages/conflicts/ConflictCenter.js"),
+    "ConflictsIndexPage",
+  ),
+});
+export const conflictRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/conflicts/$conflictId",
+  component: lazyRouteComponent(
+    () => import("./pages/conflicts/ConflictRoutePage.js"),
+    "ConflictRoutePage",
+  ),
+});
 export const accountRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/account",

@@ -2187,7 +2187,7 @@ export function BulkResolveDialog({
 `apps/web/src/pages/conflicts/ConflictDetailPane.tsx`:
 
 ```tsx
-import type { BinaryMeta, ConflictDetail, Resolution } from "@kamino/protocol";
+import type { BinaryMeta, Resolution } from "@kamino/protocol";
 import { diffSummary } from "@kamino/ui-diff";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";

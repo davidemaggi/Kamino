@@ -159,7 +159,13 @@
     "totp_mandatory": "Two-step verification is mandatory for administrators.",
     "forbidden": "You don't have permission for this.",
     "internal": "Something went wrong. Try again.",
-    "rate_limited": "Too many attempts: wait a few minutes and try again."
+    "rate_limited": "Too many attempts: wait a few minutes and try again.",
+    "confirm_mismatch": "The name doesn't match.",
+    "history_window": "That moment is outside the available history.",
+    "pairing_closed": "This request is no longer valid.",
+    "stale_resolution": "A newer version arrived.",
+    "not_found": "Not found.",
+    "quota_exceeded": "Storage full"
   },
   "account": {
     "title": "Account",
@@ -334,5 +340,48 @@
     "bulkAppliesTo": "Applies to {{count}} files",
     "bulkApply": "Apply",
     "bulkDone": "Conflicts resolved: {{count}}"
+  },
+  "history": {
+    "search": "Search a file",
+    "noFiles": "No files found.",
+    "versions": "{{count}} versions",
+    "changed": "changed {{when}}",
+    "title": "History of {{path}}",
+    "current": "current",
+    "preview": "Preview",
+    "noPreview": "No preview available",
+    "restore": "Restore this version",
+    "restoreHint": "It becomes the current version; the current one stays in the history.",
+    "restored": "Version restored.",
+    "trash": "Trash",
+    "trashHint": "Deleted files stay here for at least 7 days.",
+    "trashEmpty": "The trash is empty.",
+    "deletedOn": "deleted on {{when}} · permanently removed on {{expires}}",
+    "restoreFile": "Restore",
+    "fileRestored": "File restored."
+  },
+  "vaultSettings": {
+    "name": "Vault name",
+    "rename": "Rename",
+    "renamed": "Name updated.",
+    "retention": "Version history",
+    "retentionHint": "How many days to keep previous versions (up to {{max}}).",
+    "days": "{{count}} days",
+    "save": "Save",
+    "saved": "Saved.",
+    "zip": "Download the vault (ZIP)",
+    "zipNow": "Current state",
+    "zipAt": "As it was on…",
+    "zipAtLabel": "Date and time",
+    "zipHint": "You can pick a moment from {{from}} on.",
+    "download": "Download",
+    "danger": "Danger zone",
+    "delete": "Delete the vault",
+    "deleteTitle": "Delete “{{name}}”?",
+    "deleteText": "The vault is permanently deleted from the server, history and trash included: the encrypted data becomes unreadable. Files on the devices stay where they are.",
+    "deleteConfirmLabel": "Type the vault name to confirm",
+    "deleteConfirm": "Delete permanently",
+    "deleted": "Vault deleted.",
+    "cancel": "Cancel"
   }
 }

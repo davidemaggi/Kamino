@@ -159,7 +159,13 @@
     "totp_mandatory": "Per gli amministratori la verifica in due passaggi è obbligatoria.",
     "forbidden": "Non hai i permessi per questa operazione.",
     "internal": "Qualcosa è andato storto. Riprova.",
-    "rate_limited": "Troppi tentativi: aspetta qualche minuto e riprova."
+    "rate_limited": "Troppi tentativi: aspetta qualche minuto e riprova.",
+    "confirm_mismatch": "Il nome non coincide.",
+    "history_window": "Quel momento è fuori dallo storico disponibile.",
+    "pairing_closed": "Questa richiesta non è più valida.",
+    "stale_resolution": "È arrivata una versione più recente.",
+    "not_found": "Non trovato.",
+    "quota_exceeded": "Spazio esaurito"
   },
   "account": {
     "title": "Account",
@@ -334,5 +340,48 @@
     "bulkAppliesTo": "Si applica a {{count}} file",
     "bulkApply": "Applica",
     "bulkDone": "Conflitti risolti: {{count}}"
+  },
+  "history": {
+    "search": "Cerca un file",
+    "noFiles": "Nessun file trovato.",
+    "versions": "{{count}} versioni",
+    "changed": "modificato {{when}}",
+    "title": "Storico di {{path}}",
+    "current": "attuale",
+    "preview": "Anteprima",
+    "noPreview": "Anteprima non disponibile",
+    "restore": "Ripristina questa versione",
+    "restoreHint": "Diventa la versione attuale; quella di adesso resta nello storico.",
+    "restored": "Versione ripristinata.",
+    "trash": "Cestino",
+    "trashHint": "I file eliminati restano qui almeno 7 giorni.",
+    "trashEmpty": "Il cestino è vuoto.",
+    "deletedOn": "eliminato il {{when}} · si cancella definitivamente il {{expires}}",
+    "restoreFile": "Ripristina",
+    "fileRestored": "File ripristinato."
+  },
+  "vaultSettings": {
+    "name": "Nome del vault",
+    "rename": "Rinomina",
+    "renamed": "Nome aggiornato.",
+    "retention": "Storico delle versioni",
+    "retentionHint": "Quanti giorni conservare le versioni precedenti (massimo {{max}}).",
+    "days": "{{count}} giorni",
+    "save": "Salva",
+    "saved": "Salvato.",
+    "zip": "Scarica il vault (ZIP)",
+    "zipNow": "Stato attuale",
+    "zipAt": "Com'era il…",
+    "zipAtLabel": "Data e ora",
+    "zipHint": "Puoi scegliere un momento dal {{from}} in poi.",
+    "download": "Scarica",
+    "danger": "Zona pericolosa",
+    "delete": "Elimina il vault",
+    "deleteTitle": "Eliminare “{{name}}”?",
+    "deleteText": "Il vault viene eliminato dal server in modo definitivo, compresi storico e cestino: i dati cifrati diventano illeggibili. I file sui dispositivi restano dove sono.",
+    "deleteConfirmLabel": "Scrivi il nome del vault per confermare",
+    "deleteConfirm": "Elimina definitivamente",
+    "deleted": "Vault eliminato.",
+    "cancel": "Annulla"
   }
 }

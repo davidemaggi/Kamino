@@ -1,12 +1,12 @@
-import { DEFAULT_THRESHOLDS, describeStatus, exampleSnapshots, type Lang } from "@kamino/status";
+import { exampleSnapshots, type Lang } from "@kamino/status";
 import { Notice, type Plugin } from "obsidian";
 import { t } from "../i18n/index.js";
-import type { StatusIndicator } from "../ui/StatusIndicator.js";
+import type { FakeSyncState } from "../state/fake.js";
 
-/** Dev-only: cycles the indicator through the shared example snapshots. */
+/** Dev-only: cycles the fake state through the shared example snapshots (indicator and panel follow). */
 export function registerStatusGallery(
   plugin: Plugin,
-  indicator: StatusIndicator,
+  state: FakeSyncState,
   deps: { now: () => number; lang: Lang },
 ): void {
   let i = 0;
@@ -14,12 +14,11 @@ export function registerStatusGallery(
     id: "dev-status-gallery",
     name: t(deps.lang).dev.statusGallery,
     callback: () => {
-      const now = deps.now();
-      const examples = exampleSnapshots(now);
+      const examples = exampleSnapshots(deps.now());
       const ex = examples[i % examples.length]!;
       i += 1;
       new Notice(`${i}/${examples.length} · ${ex.id}`);
-      indicator.update(describeStatus(ex.snapshot, DEFAULT_THRESHOLDS, now));
+      state.setSnapshot(ex.snapshot);
     },
   });
 }

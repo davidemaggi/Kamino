@@ -13,9 +13,12 @@
   },
   "dependencies": {
     "@kamino/brand": "workspace:*",
-    "@kamino/status": "workspace:*"
+    "@kamino/status": "workspace:*",
+    "@kamino/ui-diff": "workspace:*"
   },
   "devDependencies": {
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
     "@kamino/tsconfig": "workspace:*",
     "esbuild": "^0.28.2",
     "jsdom": "^31.0.0",

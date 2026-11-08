@@ -127,6 +127,23 @@ export class Plugin {
   }
 }
 
+export class Modal {
+  contentEl: ObsidianElement = makeEl();
+  titleEl: ObsidianElement = makeEl();
+  isOpen = false;
+  constructor(public app: App) {}
+  open(): void {
+    this.isOpen = true;
+    void this.onOpen();
+  }
+  close(): void {
+    this.isOpen = false;
+    void this.onClose();
+  }
+  onOpen(): void | Promise<void> {}
+  onClose(): void {}
+}
+
 export class PluginSettingTab {
   containerEl: ObsidianElement = makeEl();
   constructor(

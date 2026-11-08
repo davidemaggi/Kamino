@@ -5,6 +5,12 @@
     "release": "Release"
   },
   "dev": {
-    "statusGallery": "Show status gallery (development)"
+    "statusGallery": "Show status gallery (development)",
+    "diffTest": "Open test diff (development)",
+    "diffSplit": "Side by side",
+    "diffUnified": "Unified",
+    "diffEditable": "Editable",
+    "diffMine": "Yours (test)",
+    "diffIncoming": "Incoming (test)"
   }
 }

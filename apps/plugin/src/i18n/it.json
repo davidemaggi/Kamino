@@ -5,6 +5,12 @@
     "release": "Rilascio"
   },
   "dev": {
-    "statusGallery": "Mostra galleria stati (sviluppo)"
+    "statusGallery": "Mostra galleria stati (sviluppo)",
+    "diffTest": "Apri diff di prova (sviluppo)",
+    "diffSplit": "Affiancato",
+    "diffUnified": "Unificato",
+    "diffEditable": "Modificabile",
+    "diffMine": "La tua (prova)",
+    "diffIncoming": "In arrivo (prova)"
   }
 }

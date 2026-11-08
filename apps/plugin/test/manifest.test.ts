@@ -58,7 +58,7 @@ describe("plugin build output", () => {
   });
 
   it("production bundle has no dev gallery", () => {
-    expect(read("dist/main.js")).not.toContain("dev-status-gallery");
+    expect(read("dist/main.js")).not.toMatch(/"dev-[a-z-]+"/);
   });
 
   it("bundle uses no Node/Electron modules", () => {

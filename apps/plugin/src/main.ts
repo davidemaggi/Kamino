@@ -1,5 +1,6 @@
 import { DEFAULT_THRESHOLDS, describeStatus } from "@kamino/status";
 import { getIconIds, Platform, Plugin } from "obsidian";
+import { registerDevCommands } from "./dev/commands.js";
 import { registerStatusGallery } from "./dev/status-gallery.js";
 import { detectLanguage } from "./i18n/index.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
@@ -21,6 +22,9 @@ export default class SyncPlugin extends Plugin {
     // Until the sync engine lands (M1) the honest state is "never synced".
     indicator.update(describeStatus(INITIAL_SNAPSHOT, DEFAULT_THRESHOLDS, now()));
 
-    if (__DEV__) registerStatusGallery(this, indicator, { now, lang });
+    if (__DEV__) {
+      registerStatusGallery(this, indicator, { now, lang });
+      registerDevCommands(this, { lang });
+    }
   }
 }

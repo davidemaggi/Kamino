@@ -221,3 +221,48 @@
   min-height: 1em;
   margin: 0;
 }
+
+.kamino-connect__body,
+.kamino-connect__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+}
+.kamino-connect__field input {
+  width: 100%;
+}
+.kamino-connect__vault {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 var(--size-4-2);
+  padding: var(--size-4-2) 0;
+}
+.kamino-connect__vault .kamino-connect__muted {
+  grid-column: 2;
+}
+.kamino-connect__muted,
+.kamino-transfer__muted {
+  color: var(--text-muted);
+}
+.kamino-connect__warning {
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--color-yellow);
+  border-radius: var(--radius-s);
+}
+.kamino-connect__error {
+  color: var(--text-error);
+}
+.kamino-transfer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+  max-width: 560px;
+  padding: var(--size-4-6) var(--size-4-4);
+}
+.kamino-transfer progress {
+  width: 100%;
+}
+.kamino-transfer__actions {
+  display: flex;
+  gap: var(--size-4-2);
+}

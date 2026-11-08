@@ -2811,6 +2811,11 @@ export class ConnectModal extends Modal {
         return;
       }
       case "vault": {
+        if (this.mode === "join") {
+          // Read the selection from the DOM: robust whatever event the radio fires.
+          const picked = this.contentEl.querySelector<HTMLInputElement>('input[name="vault"]:checked');
+          this.vaultId = picked?.value ?? this.vaultId;
+        }
         if (this.mode === "create" ? !this.vaultName.trim() : !this.vaultId) {
           this.error = m.errors.required;
           return;

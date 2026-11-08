@@ -127,5 +127,56 @@
   "commands": {
     "connect": "Collega questo vault",
     "addDevice": "Aggiungi un dispositivo"
+  },
+  "connect": {
+    "titleCreate": "È il primo dispositivo",
+    "titleJoin": "Collega a un vault esistente",
+    "serverLabel": "Indirizzo del server",
+    "serverPlaceholder": "https://sync.esempio.it",
+    "check": "Verifica",
+    "insecure": "Connessione non cifrata: usa questo server solo in una rete di cui ti fidi.",
+    "user": "Nome utente",
+    "password": "Password",
+    "totp": "Codice di verifica",
+    "totpHint": "Inserisci il codice di 6 cifre dell'app di autenticazione.",
+    "signIn": "Accedi",
+    "vaultName": "Nome del vault sul server",
+    "vaultPick": "Scegli il vault",
+    "vaultMeta": "{files} file · {devices} dispositivi",
+    "noVaults": "Nessun vault su questo server: usa 'È il primo dispositivo'.",
+    "deviceName": "Nome di questo dispositivo",
+    "createAndLink": "Crea e collega",
+    "link": "Collega",
+    "reconcile": "Questo vault contiene già {count} file: li confronto con quelli sul server. Quelli identici restano come sono, quelli diversi diventano conflitti da guardare. Nessun file viene sovrascritto.",
+    "continue": "Continua",
+    "next": "Avanti",
+    "back": "Indietro",
+    "cancel": "Annulla",
+    "errors": {
+      "invalid_url": "Indirizzo non valido.",
+      "unreachable": "Server non raggiungibile: controlla l'indirizzo e la connessione.",
+      "incompatible": "Versione del server non compatibile con questo plugin: aggiorna il plugin o il server.",
+      "insecure_on_mobile": "Su telefono serve un indirizzo https://. Per un server in casa puoi usare Tailscale, Cloudflare Tunnel o un reverse proxy con certificato.",
+      "bad_credentials": "Nome utente o password non corretti.",
+      "bad_totp": "Codice di verifica non corretto.",
+      "locked": "Account bloccato: contatta l'amministratore.",
+      "required": "Compila questo campo."
+    }
+  },
+  "transfer": {
+    "viewTitle": "Sincronizzazione iniziale",
+    "upload": "Caricamento iniziale",
+    "download": "Download iniziale",
+    "none": "Nessun trasferimento in corso.",
+    "progress": "{files} di {total} file · {bytes} di {bytesTotal}",
+    "keepWorking": "Puoi continuare a lavorare: le modifiche nuove si aggiungono alla coda.",
+    "pause": "Pausa",
+    "resume": "Riprendi",
+    "paused": "In pausa.",
+    "interrupted": "Interrotto: riprendo appena possibile.",
+    "failed": "Il trasferimento si è fermato per un errore.",
+    "retry": "Riprova",
+    "done": "Fatto: {count} file sincronizzati.",
+    "openStatus": "Apri lo stato sync"
   }
 }

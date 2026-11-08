@@ -9,10 +9,12 @@ import { SettingsStore } from "./settings/store.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
 import { FakeSyncState } from "./state/fake.js";
 import { BulkResolveModal } from "./ui/BulkResolveModal.js";
+import { ConnectModal } from "./ui/ConnectModal.js";
 import { ConflictView } from "./ui/ConflictView.js";
 import type { UiContext } from "./ui/context.js";
 import { StatusIndicator } from "./ui/StatusIndicator.js";
 import { StatusPanelView } from "./ui/StatusPanelView.js";
+import { TransferView } from "./ui/TransferView.js";
 import { WelcomeView } from "./ui/WelcomeView.js";
 import {
   CONFLICT_VIEW,
@@ -21,6 +23,7 @@ import {
   openTransfer,
   openWelcome,
   STATUS_VIEW,
+  TRANSFER_VIEW,
   WELCOME_VIEW,
 } from "./ui/workspace.js";
 
@@ -84,7 +87,7 @@ export default class SyncPlugin extends Plugin {
       openBulkResolve: () => new BulkResolveModal(this.app, ctx).open(),
       openWelcome: () => openWelcome(this.app),
       openTransfer: () => openTransfer(this.app),
-      openConnect: () => undefined,
+      openConnect: (mode) => new ConnectModal(this.app, ctx, mode).open(),
       openClaim: () => undefined,
       openAddDevice: () => undefined,
       confirm: () => Promise.resolve(false),
@@ -94,6 +97,7 @@ export default class SyncPlugin extends Plugin {
     this.registerView(STATUS_VIEW, (leaf) => new StatusPanelView(leaf, ctx));
     this.registerView(CONFLICT_VIEW, (leaf) => new ConflictView(leaf, ctx));
     this.registerView(WELCOME_VIEW, (leaf) => new WelcomeView(leaf, ctx));
+    this.registerView(TRANSFER_VIEW, (leaf) => new TransferView(leaf, ctx));
 
     const indicator = new StatusIndicator(this, {
       isMobile,

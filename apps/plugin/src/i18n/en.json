@@ -127,5 +127,56 @@
   "commands": {
     "connect": "Link this vault",
     "addDevice": "Add a device"
+  },
+  "connect": {
+    "titleCreate": "This is the first device",
+    "titleJoin": "Link to an existing vault",
+    "serverLabel": "Server address",
+    "serverPlaceholder": "https://sync.example.com",
+    "check": "Check",
+    "insecure": "Unencrypted connection: use this server only on a network you trust.",
+    "user": "Username",
+    "password": "Password",
+    "totp": "Verification code",
+    "totpHint": "Enter the 6-digit code from your authenticator app.",
+    "signIn": "Sign in",
+    "vaultName": "Vault name on the server",
+    "vaultPick": "Choose the vault",
+    "vaultMeta": "{files} files · {devices} devices",
+    "noVaults": "No vaults on this server: use 'This is the first device'.",
+    "deviceName": "Name of this device",
+    "createAndLink": "Create and link",
+    "link": "Link",
+    "reconcile": "This vault already contains {count} files: I compare them with the ones on the server. Identical files stay as they are, different ones become conflicts to review. No file is overwritten.",
+    "continue": "Continue",
+    "next": "Next",
+    "back": "Back",
+    "cancel": "Cancel",
+    "errors": {
+      "invalid_url": "Invalid address.",
+      "unreachable": "Server unreachable: check the address and the connection.",
+      "incompatible": "Server version not compatible with this plugin: update the plugin or the server.",
+      "insecure_on_mobile": "On a phone an https:// address is required. For a home server you can use Tailscale, Cloudflare Tunnel or a reverse proxy with a certificate.",
+      "bad_credentials": "Wrong username or password.",
+      "bad_totp": "Wrong verification code.",
+      "locked": "Account locked: contact the administrator.",
+      "required": "Fill in this field."
+    }
+  },
+  "transfer": {
+    "viewTitle": "Initial sync",
+    "upload": "Initial upload",
+    "download": "Initial download",
+    "none": "No transfer in progress.",
+    "progress": "{files} of {total} files · {bytes} of {bytesTotal}",
+    "keepWorking": "You can keep working: new changes are added to the queue.",
+    "pause": "Pause",
+    "resume": "Resume",
+    "paused": "Paused.",
+    "interrupted": "Interrupted: resuming as soon as possible.",
+    "failed": "The transfer stopped because of an error.",
+    "retry": "Retry",
+    "done": "Done: {count} files synced.",
+    "openStatus": "Open sync status"
   }
 }

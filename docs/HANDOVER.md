@@ -38,7 +38,7 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 1 — chiusura:** il committente prova le gallerie (`docs/ui/design-system.md` §6: web `/dev/gallery`; plugin con `build:vault` nella vault `vault/kamino`, anche su telefono). Con l'approvazione: revisione finale del branch (un subagente), PR `ui-fondamenta` → `main`, merge.
+1. **Fase UI, sotto-fase 1 — chiusura:** gallerie provate dal committente su desktop (2026-11-08; telefono rinviato, vedi "In sospeso lato committente"). Restano: revisione finale del branch (un subagente), PR `ui-fondamenta` → `main`, merge.
 2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
 4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
@@ -129,6 +129,7 @@ Esito della revisione finale di M0: questi restano aperti di proposito.
 ## In sospeso lato committente
 
 - Descrizione e topic del repo GitHub (ancora vuoti; `gh` ora è autenticato sul Mac, si possono impostare con `gh repo edit`).
+- **Prova del plugin su telefono** (rinviata dal committente il 2026-11-08, da fare insieme agli spike): copiare `vault/kamino/.obsidian/plugins/kamino-sync/` sul dispositivo, verificare icone (avvisi "status icon … not available"), colori col tema e azione nell'intestazione della nota solo dagli stati Attenzione/Decisione/Bloccato. La prova su desktop è fatta.
 - Spike su iPhone/Android reali (task 12): seguire `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`, compilando le tabelle.
 
 ## Note sull'ambiente

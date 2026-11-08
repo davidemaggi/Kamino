@@ -1977,7 +1977,7 @@ describe("WelcomeView", () => {
     button("Ho un QR o un link")!.click();
     const input = root.querySelector("input") as HTMLInputElement;
     input.value = "nonsense";
-    button("Collega")!.click();
+    [...root.querySelectorAll("button")].find((b) => b.textContent === "Collega")!.click();
     expect(root.textContent).toContain("Questo non è un link di collegamento valido.");
     input.value = "obsidian://kamino?server=https%3A%2F%2Fsync.example&token=abc";
     [...root.querySelectorAll("button")].find((b) => b.textContent === "Collega")!.click();

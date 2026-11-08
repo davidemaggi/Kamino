@@ -18,7 +18,7 @@ const PENDING_PREVIEW = 5;
 
 /** Sync status panel: summary + non-empty sections (spec §5.1). */
 export class StatusPanelView extends ItemView {
-  private unsubscribe: (() => void) | null = null;
+  private unsubscribe: Array<() => void> = [];
   private showAllPending = false;
 
   constructor(
@@ -39,14 +39,17 @@ export class StatusPanelView extends ItemView {
   }
 
   protected override onOpen(): Promise<void> {
-    this.unsubscribe = this.ctx.source.onChange(() => this.render());
+    this.unsubscribe = [
+      this.ctx.source.onChange(() => this.render()),
+      this.ctx.connection.onChange(() => this.render()),
+    ];
     this.render();
     return Promise.resolve();
   }
 
   protected override onClose(): Promise<void> {
-    this.unsubscribe?.();
-    this.unsubscribe = null;
+    for (const off of this.unsubscribe) off();
+    this.unsubscribe = [];
     return Promise.resolve();
   }
 
@@ -58,7 +61,24 @@ export class StatusPanelView extends ItemView {
     root.replaceChildren();
     root.classList.add(P);
 
-    const status = describeStatus(ctx.source.snapshot(), DEFAULT_THRESHOLDS, now);
+    // Pairing requests waiting for an answer (origin side): on top, until answered or expired.
+    const requests = ctx.connection.pairingRequests();
+    if (requests.length > 0) {
+      const m2 = t(ctx.lang).panel2;
+      const sec = this.section(root, fmt(m2.requests, { count: requests.length }));
+      for (const r of requests) {
+        const meta = fmt(m2.requestMeta, {
+          platform: r.platform,
+          left: formatAge(Math.max(0, r.expiresAt - now), ctx.lang),
+        });
+        this.row(sec.list, r.deviceName, meta).addEventListener("click", () =>
+          ctx.openAddDevice(r),
+        );
+      }
+    }
+
+    const snapshot = ctx.source.snapshot();
+    const status = describeStatus(snapshot, DEFAULT_THRESHOLDS, now);
     const summary = h(root, "section", { cls: `${P}__summary`, attrs: { "aria-live": "polite" } });
     renderStatusIndicator(h(summary, "div", { cls: `${P}__headline` }), status, {
       lang: ctx.lang,
@@ -71,9 +91,16 @@ export class StatusPanelView extends ItemView {
       cls: `${P}__muted`,
       text: formatLastConfirmed(status.lastConfirmedAt, now, ctx.lang),
     });
-    h(summary, "button", { cls: "mod-cta", text: m.syncNow }).addEventListener("click", () => {
-      void ctx.actions.syncNow();
-    });
+    if (snapshot.linked === false) {
+      h(summary, "button", { cls: "mod-cta", text: t(ctx.lang).panel2.connect }).addEventListener(
+        "click",
+        () => void ctx.openWelcome(),
+      );
+    } else {
+      h(summary, "button", { cls: "mod-cta", text: m.syncNow }).addEventListener("click", () => {
+        void ctx.actions.syncNow();
+      });
+    }
 
     const conflicts = ctx.source.conflicts();
     if (conflicts.length > 0) {

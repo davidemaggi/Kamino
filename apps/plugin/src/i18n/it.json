@@ -14,7 +14,13 @@
     "diffIncoming": "In arrivo (prova)",
     "conflictScenario": "Carica scenario conflitti (sviluppo)",
     "linkTest": "Mostra QR di prova (sviluppo)",
-    "linkTestHint": "Inquadra il codice con la fotocamera del telefono, oppure esegui nel terminale: {command}"
+    "linkTestHint": "Inquadra il codice con la fotocamera del telefono, oppure esegui nel terminale: {command}",
+    "simPairingRequest": "Simula richiesta di collegamento (sviluppo)",
+    "simApprove": "Simula approvazione (sviluppo)",
+    "simDeny": "Simula rifiuto (sviluppo)",
+    "simDeviceJoined": "Simula nuovo dispositivo (sviluppo)",
+    "simInterrupt": "Simula interruzione del trasferimento (sviluppo)",
+    "simFail": "Simula errore del trasferimento (sviluppo)"
   },
   "panel": {
     "title": "Stato sync",
@@ -96,5 +102,30 @@
   "pairing": {
     "invalidLink": "Link di collegamento non valido.",
     "linkReceived": "Link ricevuto da {host}."
+  },
+  "welcome": {
+    "viewTitle": "Collega questo vault",
+    "title": "Benvenuto in {product}",
+    "intro": "Collega questo vault a un server per sincronizzarlo tra i tuoi dispositivi. Nessun file viene sovrascritto senza chiedertelo.",
+    "createTitle": "È il primo dispositivo",
+    "createDesc": "Crea il vault sul server partendo da questi file.",
+    "joinTitle": "Collega a un vault esistente",
+    "joinDesc": "Accedi al server con nome utente e password.",
+    "linkTitle": "Ho un QR o un link",
+    "linkDesc": "Generalo da un dispositivo già collegato e aprilo qui.",
+    "linkHowMobile": "Inquadra il QR con la fotocamera del telefono: si aprirà Obsidian e il collegamento partirà da solo.",
+    "linkHowDesktop": "Inquadra il QR con la fotocamera di un telefono, oppure incolla qui il link.",
+    "linkPaste": "Incolla il link",
+    "linkGo": "Collega",
+    "linkInvalid": "Questo non è un link di collegamento valido."
+  },
+  "panel2": {
+    "connect": "Collega…",
+    "requests": "Richieste di collegamento · {count}",
+    "requestMeta": "{platform} · scade tra {left}"
+  },
+  "commands": {
+    "connect": "Collega questo vault",
+    "addDevice": "Aggiungi un dispositivo"
   }
 }

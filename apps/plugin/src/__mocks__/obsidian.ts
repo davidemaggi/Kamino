@@ -38,12 +38,16 @@ export function setIcon(parent: HTMLElement, iconId: string): void {
 
 export class Notice {
   static shown: string[] = [];
-  constructor(message: string) {
+  static last: Notice | null = null;
+  noticeEl: HTMLElement = document.createElement("div");
+  constructor(message: string, duration?: number) {
+    void duration;
     Notice.shown.push(message);
+    Notice.last = this;
   }
 }
 
-export const Platform = { isMobile: false, isDesktop: true };
+export const Platform = { isMobile: false, isDesktop: true, isIosApp: false };
 
 type Handler = (...args: unknown[]) => void;
 
@@ -81,6 +85,9 @@ export class Workspace {
   getActiveViewOfType<T>(type: unknown): T | null {
     void type;
     return this.activeView as T | null;
+  }
+  onLayoutReady(cb: () => unknown): void {
+    cb();
   }
   getRightLeaf(split: boolean): WorkspaceLeaf {
     void split;
@@ -164,14 +171,27 @@ export class ItemView {
   }
 }
 
+export class Vault {
+  configDir = ".obsidian";
+  files: Array<{ path: string }> = [];
+  getFiles(): Array<{ path: string }> {
+    return this.files;
+  }
+  getName(): string {
+    return "Prova";
+  }
+}
+
 export class App {
   workspace: Workspace = new Workspace(this);
+  vault: Vault = new Vault();
 }
 
 export interface Command {
   id: string;
   name: string;
   callback?: () => unknown;
+  checkCallback?: (checking: boolean) => boolean | void;
 }
 
 export class Plugin {
@@ -180,6 +200,14 @@ export class Plugin {
   statusBarItems: ObsidianElement[] = [];
   ribbonIcons: HTMLElement[] = [];
   commands: Command[] = [];
+  data: unknown = null;
+  loadData(): Promise<unknown> {
+    return Promise.resolve(structuredClone(this.data));
+  }
+  saveData(d: unknown): Promise<void> {
+    this.data = structuredClone(d);
+    return Promise.resolve();
+  }
   addSettingTab(tab: PluginSettingTab): void {
     this.tabs.push(tab);
   }
@@ -248,23 +276,183 @@ export class PluginSettingTab {
   ) {}
 }
 
+class BaseComponent {
+  disabled = false;
+  setDisabled(disabled: boolean): this {
+    this.disabled = disabled;
+    return this;
+  }
+}
+
+export class TextComponent extends BaseComponent {
+  inputEl: HTMLInputElement = document.createElement("input");
+  constructor(container: HTMLElement) {
+    super();
+    this.inputEl.type = "text";
+    container.append(this.inputEl);
+  }
+  getValue(): string {
+    return this.inputEl.value;
+  }
+  setValue(value: string): this {
+    this.inputEl.value = value;
+    return this;
+  }
+  setPlaceholder(p: string): this {
+    this.inputEl.placeholder = p;
+    return this;
+  }
+  onChange(cb: (value: string) => unknown): this {
+    this.inputEl.addEventListener("input", () => cb(this.inputEl.value));
+    return this;
+  }
+}
+
+export class TextAreaComponent extends BaseComponent {
+  inputEl: HTMLTextAreaElement = document.createElement("textarea");
+  constructor(container: HTMLElement) {
+    super();
+    container.append(this.inputEl);
+  }
+  getValue(): string {
+    return this.inputEl.value;
+  }
+  setValue(value: string): this {
+    this.inputEl.value = value;
+    return this;
+  }
+  setPlaceholder(p: string): this {
+    this.inputEl.placeholder = p;
+    return this;
+  }
+  onChange(cb: (value: string) => unknown): this {
+    this.inputEl.addEventListener("input", () => cb(this.inputEl.value));
+    return this;
+  }
+}
+
+export class ToggleComponent extends BaseComponent {
+  toggleEl: HTMLInputElement = document.createElement("input");
+  constructor(container: HTMLElement) {
+    super();
+    this.toggleEl.type = "checkbox";
+    container.append(this.toggleEl);
+  }
+  getValue(): boolean {
+    return this.toggleEl.checked;
+  }
+  setValue(on: boolean): this {
+    this.toggleEl.checked = on;
+    return this;
+  }
+  onChange(cb: (value: boolean) => unknown): this {
+    this.toggleEl.addEventListener("change", () => cb(this.toggleEl.checked));
+    return this;
+  }
+}
+
+export class DropdownComponent extends BaseComponent {
+  selectEl: HTMLSelectElement = document.createElement("select");
+  constructor(container: HTMLElement) {
+    super();
+    container.append(this.selectEl);
+  }
+  addOption(value: string, display: string): this {
+    const o = document.createElement("option");
+    o.value = value;
+    o.textContent = display;
+    this.selectEl.append(o);
+    return this;
+  }
+  getValue(): string {
+    return this.selectEl.value;
+  }
+  setValue(value: string): this {
+    this.selectEl.value = value;
+    return this;
+  }
+  onChange(cb: (value: string) => unknown): this {
+    this.selectEl.addEventListener("change", () => cb(this.selectEl.value));
+    return this;
+  }
+}
+
+export class ButtonComponent extends BaseComponent {
+  buttonEl: HTMLButtonElement = document.createElement("button");
+  constructor(container: HTMLElement) {
+    super();
+    container.append(this.buttonEl);
+  }
+  setButtonText(text: string): this {
+    this.buttonEl.textContent = text;
+    return this;
+  }
+  setCta(): this {
+    this.buttonEl.classList.add("mod-cta");
+    return this;
+  }
+  setWarning(): this {
+    this.buttonEl.classList.add("mod-warning");
+    return this;
+  }
+  override setDisabled(disabled: boolean): this {
+    this.buttonEl.disabled = disabled;
+    return super.setDisabled(disabled);
+  }
+  onClick(cb: (evt: MouseEvent) => unknown): this {
+    this.buttonEl.addEventListener("click", (e) => cb(e as MouseEvent));
+    return this;
+  }
+}
+
 export class Setting {
-  private nameEl = document.createElement("div");
-  private descEl = document.createElement("div");
+  settingEl = document.createElement("div");
+  infoEl = document.createElement("div");
+  nameEl = document.createElement("div");
+  descEl = document.createElement("div");
+  controlEl = document.createElement("div");
   constructor(containerEl: HTMLElement) {
-    const item = document.createElement("div");
-    item.append(this.nameEl, this.descEl);
-    containerEl.append(item);
+    this.settingEl.className = "setting-item";
+    this.nameEl.className = "setting-item-name";
+    this.descEl.className = "setting-item-description";
+    this.infoEl.append(this.nameEl, this.descEl);
+    this.settingEl.append(this.infoEl, this.controlEl);
+    containerEl.append(this.settingEl);
   }
   setName(name: string): this {
     this.nameEl.textContent = name;
     return this;
   }
-  setDesc(desc: string): this {
-    this.descEl.textContent = desc;
+  setDesc(desc: string | DocumentFragment): this {
+    this.descEl.replaceChildren(desc);
     return this;
   }
   setHeading(): this {
+    this.settingEl.classList.add("setting-item-heading");
+    return this;
+  }
+  setClass(cls: string): this {
+    this.settingEl.classList.add(cls);
+    return this;
+  }
+  addText(cb: (c: TextComponent) => unknown): this {
+    cb(new TextComponent(this.controlEl));
+    return this;
+  }
+  addTextArea(cb: (c: TextAreaComponent) => unknown): this {
+    cb(new TextAreaComponent(this.controlEl));
+    return this;
+  }
+  addToggle(cb: (c: ToggleComponent) => unknown): this {
+    cb(new ToggleComponent(this.controlEl));
+    return this;
+  }
+  addDropdown(cb: (c: DropdownComponent) => unknown): this {
+    cb(new DropdownComponent(this.controlEl));
+    return this;
+  }
+  addButton(cb: (c: ButtonComponent) => unknown): this {
+    cb(new ButtonComponent(this.controlEl));
     return this;
   }
 }

@@ -29,7 +29,7 @@ import { VaultPage } from "./pages/vaults/VaultPage.js";
 import { VaultsPage } from "./pages/vaults/VaultsPage.js";
 import { NotFoundPage } from "./pages/NotFoundPage.js";
 import { TotpSetupPage } from "./pages/TotpSetupPage.js";
-import { PlaceholderPage } from "./pages/PlaceholderPage.js";
+import { SystemPage } from "./pages/admin/SystemPage.js";
 import { UserPage } from "./pages/admin/UserPage.js";
 import { UsersPage } from "./pages/admin/UsersPage.js";
 
@@ -212,10 +212,15 @@ export const adminUserRoute = createRoute({
   path: "/users/$userId",
   component: UserPage,
 });
+export const SYSTEM_TABS = ["config", "health", "audit"] as const;
+export type SystemTab = (typeof SYSTEM_TABS)[number];
 export const adminSystemRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/system",
-  component: () => <PlaceholderPage titleKey="nav.system" />,
+  validateSearch: (s: Record<string, unknown>): { tab: SystemTab } => ({
+    tab: SYSTEM_TABS.includes(s["tab"] as SystemTab) ? (s["tab"] as SystemTab) : "config",
+  }),
+  component: SystemPage,
 });
 
 export const routeTree = rootRoute.addChildren([

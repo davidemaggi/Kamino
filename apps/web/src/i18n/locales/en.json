@@ -57,7 +57,6 @@
       "blocked": "Sync blocked"
     },
     "conflictsCount": "{{count}} conflicts",
-    "placeholder": "This section comes with the next part.",
     "notFound": "Page not found.",
     "backHome": "Back to the overview",
     "resetBanner": "The administrator started a reset of your password on {{date}}. If you didn't ask for it, contact them.",

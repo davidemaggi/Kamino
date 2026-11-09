@@ -57,7 +57,6 @@
       "blocked": "Sync bloccato"
     },
     "conflictsCount": "{{count}} conflitti",
-    "placeholder": "Questa sezione arriva con la prossima parte.",
     "notFound": "Pagina non trovata.",
     "backHome": "Torna alla panoramica",
     "resetBanner": "L'amministratore ha avviato il reset della tua password il {{date}}. Se non l'hai chiesto tu, contattalo.",

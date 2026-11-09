@@ -17,7 +17,7 @@
 | Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ mergiata su `main` (PR #4, 2026-11-08) |
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
-| Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); PR aperta, in attesa di prova e merge |
+| Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); PR #7 aperta, in attesa di prova e merge |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -43,7 +43,7 @@
 
 ## Prossimi passi
 
-1. **Chiudere la sotto-fase 4c:** prova del committente nel browser (pannello "Dati finti", accesso come `admin`), merge della PR. Con questo la fase UI è completa.
+1. **Chiudere la sotto-fase 4c (PR #7):** prova del committente nel browser (pannello "Dati finti", accesso come `admin`), merge della PR. Con questo la fase UI è completa.
 2. **Piano di M1** (brainstorming → spec → piano): server vero per `auth`/`account` (vedi "Punti aperti"), con **R16** all'inizio (ordine migrazioni ↔ verifica chiave; `apps/server/test/migrations-guard.test.ts` fallisce apposta alla seconda migrazione). Le rotte `admin` del contratto vanno implementate quando il server ha utenti, quote e SMTP.
 3. **Spike sui dispositivi e prova del plugin su telefono** (committente, rinviati di proposito): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 

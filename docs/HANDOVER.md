@@ -18,7 +18,7 @@
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
-| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | 🔧 M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`, piano `docs/superpowers/plans/2026-11-09-m1a-sync-core.md`): implementata e rivista (2 critici + 3 importanti corretti), PR #8 aperta · M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`, piano `docs/superpowers/plans/2026-11-09-m1b-crypto-auth.md`): implementata sul branch `m1b-crypto-auth`, in revisione/PR · M1c, M1d ⏳ |
+| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | 🔧 M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`, piano `docs/superpowers/plans/2026-11-09-m1a-sync-core.md`): implementata e rivista (2 critici + 3 importanti corretti), PR #8 aperta · M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`, piano `docs/superpowers/plans/2026-11-09-m1b-crypto-auth.md`): implementata e rivista (2 critici + 8 importanti corretti), PR #9 aperta · M1c, M1d ⏳ |
 | M2…M7 | ⏳ |
 
 **Branch di lavoro:** `m1b-crypto-auth` (da `main` dopo la PR #8).
@@ -44,7 +44,7 @@
 
 ## Prossimi passi
 
-1. **Chiudere M1b:** revisione finale, PR, merge.
+1. **Chiudere M1b:** prova del committente e merge della PR #9.
 2. Prova del committente: `docker compose … up`, link di setup nei log, login con TOTP; oppure la modalità ibrida della web app.
 3. **M1c — vault/file/blob/commit sul server**, con device-login e token dei dispositivi (B1): rotte di `sync.ts` sopra `decide()` di `sync-core` dentro la transazione; `MemoryStore` come oracolo nei test (stesse op → stessi esiti).
 4. **M1d — motore del plugin** (dopo gli spike R-1…R-5, rinviati dal committente insieme alla prova su telefono): guscio di `step()` con file system di Obsidian, `requestUrl`, persistenza; cartelle sul client (Z9).

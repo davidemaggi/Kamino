@@ -5,6 +5,9 @@ import { pino } from "pino";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { buildInfo } from "../src/build-info.js";
+import { parseMasterKey } from "../src/crypto/keyring.js";
+
+const kek = parseMasterKey(Buffer.alloc(32, 5).toString("base64"));
 import type { Config } from "../src/config/schema.js";
 import { createDb, type Db } from "../src/db/client.js";
 import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
@@ -42,9 +45,9 @@ describe.skipIf(dockerUnavailable)("app", () => {
     const addr = hangServer.address();
     const hangPort = typeof addr === "object" && addr ? addr.port : 0;
     hangDb = createDb(`postgres://u:p@127.0.0.1:${hangPort}/none`);
-    hang = buildApp({ config, db: hangDb, logger, buildInfo });
-    up = buildApp({ config, db: upDb, logger, buildInfo });
-    down = buildApp({ config, db: downDb, logger, buildInfo });
+    hang = await buildApp({ kek, config, db: hangDb, logger, buildInfo });
+    up = await buildApp({ kek, config, db: upDb, logger, buildInfo });
+    down = await buildApp({ kek, config, db: downDb, logger, buildInfo });
   });
 
   afterAll(async () => {

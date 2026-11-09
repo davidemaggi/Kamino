@@ -6,6 +6,9 @@ import { pino } from "pino";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { buildInfo } from "../src/build-info.js";
+import { parseMasterKey } from "../src/crypto/keyring.js";
+
+const kek = parseMasterKey(Buffer.alloc(32, 5).toString("base64"));
 import type { Config } from "../src/config/schema.js";
 import { createDb } from "../src/db/client.js";
 
@@ -30,8 +33,9 @@ describe("web static serving", () => {
     writeFileSync(join(root, "index.html"), INDEX);
     mkdirSync(join(root, "assets"));
     writeFileSync(join(root, "assets", "app.js"), "console.log(1)");
-    app = buildApp({ config, db, logger, buildInfo, webRoot: root });
-    bare = buildApp({
+    app = await buildApp({ kek, config, db, logger, buildInfo, webRoot: root });
+    bare = await buildApp({
+      kek,
       config,
       db,
       logger,

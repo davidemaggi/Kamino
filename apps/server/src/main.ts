@@ -1,4 +1,6 @@
+import { PRODUCT_NAME } from "@kamino/brand";
 import { buildApp } from "./app.js";
+import { AuthService } from "./auth/service.js";
 import { buildInfo } from "./build-info.js";
 import { ConfigError, loadConfig } from "./config/load.js";
 import { ensureKeyCheck } from "./crypto/key-check.js";
@@ -51,7 +53,20 @@ async function main(): Promise<void> {
     throw e;
   }
 
-  const app = buildApp({ config, db, logger, buildInfo, webRoot: resolveWebRoot() });
+  const auth = new AuthService(db, kek, PRODUCT_NAME);
+  const setupToken = await auth.ensureSetupToken();
+  // 04 §8: the only token ever logged, once, while the server has no users.
+  if (setupToken)
+    logger.warn(`no users yet: finish the setup at ${config.publicUrl}/setup?token=${setupToken}`);
+  const app = await buildApp({
+    config,
+    db,
+    logger,
+    buildInfo,
+    kek,
+    auth,
+    webRoot: resolveWebRoot(),
+  });
 
   const shutdown = async (): Promise<void> => {
     try {

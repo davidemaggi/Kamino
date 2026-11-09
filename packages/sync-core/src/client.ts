@@ -32,6 +32,8 @@ export interface Entry {
   head: string | null;
   headHash: string | null;
   headSeq: number;
+  /** Journal position up to which `remotePath` reflects the server: older moves are stale. */
+  pathSeq: number;
   headDeleted: boolean;
   /** Content on disk as last seen; null = not on disk. */
   localHash: string | null;
@@ -239,6 +241,7 @@ function newLocalEntry(fileId: string, item: ScanItem): Entry {
     head: null,
     headHash: null,
     headSeq: 0,
+    pathSeq: 0,
     headDeleted: false,
     localHash: item.hash,
     size: item.size,
@@ -274,6 +277,7 @@ function remoteEntry(
     head: r.versionId,
     headHash: r.hash,
     headSeq: r.seq,
+    pathSeq: r.seq,
     headDeleted: false,
     localHash: null,
     size: r.size,
@@ -343,7 +347,12 @@ function trashIfClean(c: Ctx, e: Entry): void {
 }
 
 /** The server path changed: follow it, unless a local move is pending (first arrived wins, the server says). */
-function followRemotePath(c: Ctx, e: Entry, path: string): void {
+function followRemotePath(c: Ctx, e: Entry, path: string, seq: number | null): void {
+  // `seq` null = authoritative now (a rejection telling the current server path).
+  if (seq !== null) {
+    if (seq <= e.pathSeq) return; // older than what this device already knows
+    e.pathSeq = seq;
+  }
   const previous = e.remotePath;
   e.remotePath = path;
   if (e.path === path) {
@@ -360,9 +369,10 @@ function followRemotePath(c: Ctx, e: Entry, path: string): void {
   if (previous !== null && e.path !== previous && !e.renaming) return;
   const reason = unavailableReason(c.s, path);
   if (reason) {
-    // Stays where it is on this device; content still syncs (03 §6.4).
+    // Can't live here under its new name (Z10): the local copy leaves once the server has it.
     e.unavailable = reason;
     e.renaming = null;
+    retire(c, e);
     return;
   }
   e.unavailable = null;
@@ -403,6 +413,8 @@ function onSync(c: Ctx, scan: ScanItem[]): void {
   for (const e of entries(s)) {
     follow(c, e);
     materialize(c, e);
+    catchUp(c, e);
+    retire(c, e);
     trashIfClean(c, e);
   }
   if (!startPush(c)) startPull(c);
@@ -590,9 +602,13 @@ function onAccepted(c: Ctx, e: Entry, op: Op, res: Pick<AcceptedResult, "seq" | 
       e.headDeleted = false;
     }
     if (!wasConfirmed || e.remotePath === null) e.remotePath = op.path;
-    if (res.path !== e.remotePath) followRemotePath(c, e, res.path);
+    if (res.path !== e.remotePath) followRemotePath(c, e, res.path, res.seq);
+    else e.pathSeq = Math.max(e.pathSeq, res.seq);
   } else if (op.type === "move") {
-    e.remotePath = res.path;
+    if (res.seq >= e.pathSeq) {
+      e.remotePath = res.path;
+      e.pathSeq = res.seq;
+    }
   } else if (op.type === "delete") {
     e.headDeleted = true;
     if (e.localHash === null) delete c.s.durable.index[e.fileId];
@@ -690,7 +706,7 @@ function applyEntry(c: Ctx, entry: JournalEntry): boolean {
       return true;
     case "file_moved": {
       const e = s.durable.index[entry.fileId];
-      if (e) followRemotePath(c, e, entry.path);
+      if (e) followRemotePath(c, e, entry.path, entry.seq);
       return true;
     }
     case "file_deleted":
@@ -734,21 +750,32 @@ function onRemotePut(c: Ctx, entry: JournalEntry): void {
     e.headSeq = entry.seq;
     e.headDeleted = false;
   }
-  if (e.remotePath !== entry.path) followRemotePath(c, e, entry.path);
+  if (e.remotePath !== entry.path) followRemotePath(c, e, entry.path, entry.seq);
   if (e.conflictId || e.pendingWrite) return;
   if (!e.materialized) {
     materialize(c, e);
     return;
   }
-  // Unmodified here → write; local edits wait and their put will meet the conflict (no overwrite).
-  if (e.localHash !== null && e.localHash === e.baseHash && e.headHash !== e.localHash) write(c, e);
+  catchUp(c, e);
+}
+
+/**
+ * Unmodified here and the server has a newer version → write it. Local edits wait: their put
+ * meets the conflict on the server (no overwrite).
+ */
+function catchUp(c: Ctx, e: Entry): void {
+  if (!e.materialized || e.pendingWrite || e.conflictId || e.headDeleted || e.localHash === null)
+    return;
+  if (e.unavailable) return;
+  if (e.localHash === e.baseHash && e.headHash !== null && e.headHash !== e.localHash) write(c, e);
 }
 
 function onRemoteDelete(c: Ctx, entry: JournalEntry): void {
   const e = c.s.durable.index[entry.fileId];
-  if (!e) return;
+  // Stale: this device already knows a later state (e.g. its own edit resurrected the file).
+  if (!e || entry.seq <= e.headSeq) return;
   e.headDeleted = true;
-  e.headSeq = Math.max(e.headSeq, entry.seq);
+  e.headSeq = entry.seq;
   if (e.conflictId) return;
   if (!e.materialized || (e.localHash === null && !e.pendingWrite)) {
     delete c.s.durable.index[e.fileId];
@@ -765,6 +792,7 @@ function onWritten(c: Ctx, fileId: string, ok: boolean): void {
   if (ok) {
     adoptWrite(e);
     trashIfClean(c, e);
+    catchUp(c, e); // a newer version may have arrived while writing
   } else e.pendingWrite = null; // the file changed meanwhile: the next scan sees the user's content
 }
 
@@ -778,8 +806,36 @@ function onRenamed(c: Ctx, fileId: string, to: string, ok: boolean): void {
   renameDone(e, to);
 }
 
+/**
+ * Z10: a file moved elsewhere to a name this device can't use goes to the local trash, but only
+ * once its content is on the server; local edits are pushed first. `materialized` is cleared
+ * before trashing, so the missing file is never taken for a deletion to send.
+ */
+function retire(c: Ctx, e: Entry): void {
+  if (!e.unavailable || !e.materialized || e.pendingWrite || e.conflictId || e.localHash === null)
+    return;
+  if (e.localHash !== e.baseHash) return;
+  e.materialized = false;
+  c.fx.push({ type: "trash", fileId: e.fileId, path: local(c.s, e.path), expect: e.localHash });
+}
+
 function onTrashed(c: Ctx, fileId: string, ok: boolean): void {
-  if (ok) delete c.s.durable.index[fileId];
+  const e = c.s.durable.index[fileId];
+  if (!e) return;
+  if (!ok) {
+    if (e.unavailable && e.localHash !== null) e.materialized = true; // changed meanwhile: sync it first
+    return;
+  }
+  if (e.headDeleted) {
+    delete c.s.durable.index[fileId];
+    return;
+  }
+  // Resurrected on the server while being trashed here: download it again.
+  e.localHash = null;
+  e.materialized = false;
+  e.base = null;
+  e.baseHash = null;
+  materialize(c, e);
 }
 
 // ---------- joining (D-07, V-05) ----------

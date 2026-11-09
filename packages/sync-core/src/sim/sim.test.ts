@@ -32,17 +32,27 @@ const actionArb = (clients: number): fc.Arbitrary<Action> => {
         hash: fc.constantFrom(...HASHES),
       }),
     },
-    { weight: 1, arbitrary: fc.record({ t: fc.constant("remove" as const), c, path }) },
     {
-      weight: 2,
+      weight: 3,
+      arbitrary: fc.record({
+        t: fc.constant("edit" as const),
+        c,
+        pick: fc.nat(9),
+        hash: fc.constantFrom(...HASHES),
+      }),
+    },
+    { weight: 2, arbitrary: fc.record({ t: fc.constant("remove" as const), c, pick: fc.nat(9) }) },
+    {
+      weight: 3,
       arbitrary: fc.record({
         t: fc.constant("rename" as const),
         c,
-        from: path,
+        pick: fc.nat(9),
         to: path,
         watched: fc.boolean(),
       }),
     },
+    { weight: 5, arbitrary: fc.record({ t: fc.constant("cycle" as const), c }) },
     { weight: 4, arbitrary: fc.record({ t: fc.constant("sync" as const), c, crashAt }) },
     {
       weight: 6,
@@ -106,7 +116,7 @@ describe("simulator (02 §5)", () => {
       { t: "sync", c: 0, crashAt: null },
       { t: "deliver", k: 0, crashAt: null },
       { t: "deliver", k: 0, crashAt: null },
-      { t: "rename", c: 0, from: "a.md", to: "é.md", watched: true },
+      { t: "rename", c: 0, pick: 0, to: "é.md", watched: true },
       { t: "sync", c: 1, crashAt: null },
       { t: "write", c: 1, path: "é.md", hash: h("0") },
     ] as const)
@@ -154,5 +164,114 @@ describe("simulator (02 §5)", () => {
     expect(
       [...w.store.files.values()].filter((f) => f.headHash === h("3") && !f.deleted),
     ).toHaveLength(1);
+  });
+  // fast-check counterexample: an old remote deletion arrives after this device's own edit
+  // already resurrected the file; the stale deletion must not trash it.
+  it("a stale remote deletion never trashes a file resurrected by a later edit", () => {
+    const h = (c: string) => c.repeat(64);
+    const w = new World([
+      { platform: "windows", files: [] },
+      {
+        platform: "android",
+        files: [
+          ["b.md", h("3")],
+          ["x/y/z.md", h("3")],
+          ["d/c.md", h("0")],
+        ],
+      },
+      { platform: "ios", files: [["d/c.md", h("4")]] },
+    ]);
+    for (const a of [
+      { t: "cycle", c: 2 },
+      { t: "cycle", c: 0 },
+      { t: "write", c: 2, path: "d/c.md", hash: h("0") },
+      { t: "rename", c: 0, pick: 0, to: "a.md", watched: false },
+    ] as const)
+      w.act(a);
+    expect(w.settle()).toBe(true);
+    expect(w.check()).toEqual([]);
+  });
+  // fast-check counterexample: two versions of a new file in one pull; the second arrived
+  // while the first was being written and was never written afterwards.
+  it("a newer version arriving during a write is written afterwards", () => {
+    const h = (c: string) => c.repeat(64);
+    const w = new World([
+      { platform: "windows", files: [["D/c.md", h("2")]] },
+      {
+        platform: "android",
+        files: [
+          ["é.md", h("3")],
+          ["x/y/z.md", h("4")],
+          ["con.md", h("1")],
+        ],
+      },
+      { platform: "windows", files: [] },
+    ]);
+    for (const a of [
+      { t: "sync", c: 2, crashAt: null },
+      { t: "cycle", c: 0 },
+      { t: "edit", c: 0, pick: 0, hash: h("0") },
+    ] as const)
+      w.act(a);
+    expect(w.settle()).toBe(true);
+    expect(w.check()).toEqual([]);
+  });
+  // fast-check counterexample: a deletion and a resurrection of the same file in one pull;
+  // the trash finished after the resurrection and dropped the file from the index.
+  it("a file resurrected while being trashed comes back", () => {
+    const h = (c: string) => c.repeat(64);
+    const w = new World([
+      {
+        platform: "macos",
+        files: [
+          ["a.md", h("2")],
+          ["b.md", h("2")],
+          ["é.md", h("1")],
+        ],
+      },
+      {
+        platform: "macos",
+        files: [
+          ["D/c.md", h("1")],
+          ["b.md", h("2")],
+          ["A.md", h("2")],
+        ],
+      },
+      { platform: "ios", files: [] },
+    ]);
+    for (const a of [
+      { t: "cycle", c: 1 },
+      { t: "cycle", c: 2 },
+      { t: "write", c: 2, path: "a.md", hash: h("0") },
+      { t: "remove", c: 1, pick: 2 },
+    ] as const)
+      w.act(a);
+    expect(w.settle()).toBe(true);
+    expect(w.check()).toEqual([]);
+  });
+  // fast-check counterexample: a file renamed elsewhere to a name Windows can't use stayed under
+  // its old name and blocked a new file with that name (Z10).
+  it("a file moved to a name this device can't use leaves its old name free", () => {
+    const h = (c: string) => c.repeat(64);
+    const w = new World([
+      {
+        platform: "windows",
+        files: [
+          ["a.md", h("2")],
+          ["D/c.md", h("1")],
+        ],
+      },
+      { platform: "macos", files: [["a.md", h("0")]] },
+    ]);
+    for (const a of [
+      { t: "cycle", c: 1 },
+      { t: "rename", c: 1, pick: 0, to: "d/c.md", watched: true },
+      { t: "remove", c: 0, pick: 0 },
+      { t: "write", c: 1, path: "a.md", hash: h("3") },
+      { t: "rename", c: 1, pick: 0, to: "con.md", watched: true },
+    ] as const)
+      w.act(a);
+    expect(w.settle()).toBe(true);
+    expect(w.check()).toEqual([]);
   });
 });

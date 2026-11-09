@@ -1,7 +1,6 @@
 import type { JournalEntry, Op, OpResult, Snapshot } from "@kamino/protocol";
 import {
   initialState,
-  nextOps,
   step,
   type ClientEvent,
   type ClientState,
@@ -35,9 +34,13 @@ export interface ClientSpec {
 
 export type Action =
   | { t: "write"; c: number; path: string; hash: string }
-  | { t: "remove"; c: number; path: string }
-  | { t: "rename"; c: number; from: string; to: string; watched: boolean }
+  /** `pick` chooses among the files on that client's disk. */
+  | { t: "edit"; c: number; pick: number; hash: string }
+  | { t: "remove"; c: number; pick: number }
+  | { t: "rename"; c: number; pick: number; to: string; watched: boolean }
   | { t: "sync"; c: number; crashAt: number | null }
+  /** A full cycle: sync, then deliver every message in order. */
+  | { t: "cycle"; c: number }
   | { t: "deliver"; k: number; crashAt: number | null }
   | { t: "drop"; k: number }
   | { t: "dup"; k: number }
@@ -95,24 +98,35 @@ export class World {
         if (this.canExist(c, a.path)) this.diskSet(c, a.path, a.hash);
         return;
       }
+      case "edit": {
+        const c = this.clients[a.c]!;
+        const f = this.pick(c, a.pick);
+        if (f) this.diskSet(c, f.path, a.hash);
+        return;
+      }
       case "remove": {
         const c = this.clients[a.c]!;
-        c.disk.delete(this.key(c, a.path));
+        const f = this.pick(c, a.pick);
+        if (f) c.disk.delete(this.key(c, f.path));
         return;
       }
       case "rename": {
         const c = this.clients[a.c]!;
-        const from = c.disk.get(this.key(c, a.from));
+        const from = this.pick(c, a.pick);
         if (!from || !this.canExist(c, a.to)) return;
         const toKey = this.key(c, a.to);
-        if (c.disk.has(toKey) && toKey !== this.key(c, a.from)) return;
-        c.disk.delete(this.key(c, a.from));
+        if (c.disk.has(toKey) && toKey !== this.key(c, from.path)) return;
+        c.disk.delete(this.key(c, from.path));
         c.disk.set(toKey, { path: a.to, hash: from.hash });
         if (a.watched) this.feed(a.c, { type: "localRename", from: from.path, to: a.to }, null);
         return;
       }
       case "sync":
         this.feed(a.c, { type: "sync", scan: this.scan(this.clients[a.c]!) }, a.crashAt);
+        return;
+      case "cycle":
+        this.feed(a.c, { type: "sync", scan: this.scan(this.clients[a.c]!) }, null);
+        while (this.net.length > 0) this.deliver(0, null);
         return;
       case "deliver":
         this.deliver(a.k, a.crashAt);
@@ -134,6 +148,11 @@ export class World {
         this.crash(a.c);
         return;
     }
+  }
+
+  private pick(c: SimClient, n: number): { path: string; hash: string } | undefined {
+    const files = [...c.disk.values()];
+    return files.length === 0 ? undefined : files[n % files.length];
   }
 
   private scan(c: SimClient) {

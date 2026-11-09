@@ -116,6 +116,7 @@ Esplicitamente accettato: numero di utenti, email e username; numero di vault, f
 - Sessioni web: token casuale in cookie (`Secure` quando `KAMINO_PUBLIC_URL` è HTTPS; senza `Secure` nello scenario HTTP LAN), hash in DB, scadenza per inattività (default 14 giorni) e assoluta (default 90); elenco e revoca dalle impostazioni account; tutte le sessioni revocate al cambio password.
 - Token dei dispositivi: senza scadenza, revocabili. Se l'utente è **bloccato** i token vengono rifiutati (`user_blocked`) ma non distrutti: allo sblocco i dispositivi riprendono senza ricollegarsi. Alla **cancellazione** vengono revocati definitivamente.
 - Rate limiting: login, device-login, reset, claim di pairing, creazione upload; in memoria (istanza singola).
+- **Implementato in M1b** (spec `superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): Argon2id `m = 19 MiB`, `t = 2`, `p = 1` (`@node-rs/argon2`), verifica in tempo costante anche per utenti inesistenti; lista delle 10.000 password più comuni (SecLists); cookie `HttpOnly`, `SameSite=Lax`; anti-CSRF con `X-Requested-With` su ogni scrittura; sfida TOTP monouso di 5 minuti; codici di recupero con hash Argon2id; rate limit di 10 tentativi ogni 15 minuti per IP su login, TOTP, setup, reset e inviti (5 su `forgot`); i token negli URL (inviti) sono sostituiti nei log. Device-login e token dei dispositivi arrivano con M1c.
 
 ## 9. Audit log
 

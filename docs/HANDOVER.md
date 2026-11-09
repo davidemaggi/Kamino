@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-09 — **Fase UI completa** (PR #7 mergiata). M1 divisa in M1a–M1d; **M1a (`packages/sync-core`) implementata** sul branch `m1a-sync-core`, in revisione/PR. Prossimo: M1b.
+**Ultimo aggiornamento:** 2026-11-09 — M1a mergiata (PR #8). **M1b (crittografia + autenticazione web) implementata** sul branch `m1b-crypto-auth`, in revisione/PR. Prossimo: M1c.
 
 ## Dove siamo
 
@@ -18,10 +18,10 @@
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
-| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | 🔧 M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`, piano `docs/superpowers/plans/2026-11-09-m1a-sync-core.md`): implementata e rivista (2 critici + 3 importanti corretti), PR #8 aperta · M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md` in revisione, branch `m1b-crypto-auth`) 🔧 · M1c, M1d ⏳ |
+| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | 🔧 M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`, piano `docs/superpowers/plans/2026-11-09-m1a-sync-core.md`): implementata e rivista (2 critici + 3 importanti corretti), PR #8 aperta · M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`, piano `docs/superpowers/plans/2026-11-09-m1b-crypto-auth.md`): implementata sul branch `m1b-crypto-auth`, in revisione/PR · M1c, M1d ⏳ |
 | M2…M7 | ⏳ |
 
-**Branch di lavoro:** `m1a-sync-core` (da `main` dopo la PR #7).
+**Branch di lavoro:** `m1b-crypto-auth` (da `main` dopo la PR #8).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -44,9 +44,9 @@
 
 ## Prossimi passi
 
-1. **Chiudere M1a:** merge della PR #8.
-2. **M1b — crypto + auth vera** (brainstorming → spec → piano): DEK per vault, sottochiavi HKDF, cifratura dei campi, AEAD a segmenti, HMAC; setup, login, Argon2id, sessioni, TOTP, `device-login`, token dei dispositivi; rotte `auth`/`account` del contratto, poi MSW spento per quelle rotte. **R16** all'inizio (ordine migrazioni ↔ verifica chiave; `apps/server/test/migrations-guard.test.ts` fallisce apposta alla seconda migrazione).
-3. **M1c — vault/file/blob/commit sul server:** rotte di `sync.ts` sopra `decide()` di `sync-core` dentro la transazione; `MemoryStore` come oracolo nei test (stesse op → stessi esiti).
+1. **Chiudere M1b:** revisione finale, PR, merge.
+2. Prova del committente: `docker compose … up`, link di setup nei log, login con TOTP; oppure la modalità ibrida della web app.
+3. **M1c — vault/file/blob/commit sul server**, con device-login e token dei dispositivi (B1): rotte di `sync.ts` sopra `decide()` di `sync-core` dentro la transazione; `MemoryStore` come oracolo nei test (stesse op → stessi esiti).
 4. **M1d — motore del plugin** (dopo gli spike R-1…R-5, rinviati dal committente insieme alla prova su telefono): guscio di `step()` con file system di Obsidian, `requestUrl`, persistenza; cartelle sul client (Z9).
 
 ## Come riprendere su un altro PC
@@ -92,7 +92,7 @@ Decisioni del tech lead non presenti nel piano originale. Se una si rivela sbagl
 | R10 | Logica dei nomi in codice in `@kamino/brand`; il server riceve il codename da un file generato in build (nessuna lettura di file della root a runtime) | piccolo refactor |
 | R12 | Lock delle migrazioni su una connessione riservata, migrator sul pool | — |
 | R14 | Le etichette crittografiche `kamino-kek-id` / `kamino-key-check` **non** cambiano con il nome pubblico (renderebbero illeggibili i DB esistenti) | — |
-| R16 | **Da fare in M1:** quando arriva la prima migrazione applicativa, applicare prima la migrazione `key_check`, verificare la chiave, poi il resto (TODO in `apps/server/src/main.ts`) | migrazioni eseguite con chiave sbagliata |
+| R16 | **Chiuso in M1b** (B7). Era: quando arriva la prima migrazione applicativa, applicare prima la migrazione `key_check`, verificare la chiave, poi il resto (TODO in `apps/server/src/main.ts`) | migrazioni eseguite con chiave sbagliata |
 | R18 | Fallback SPA solo per percorsi senza estensione: gli URL della web app usano **ID**, mai nomi di file | un percorso con punto dà 404 al reload |
 | R23 | In CI su Windows i test che richiedono Docker vengono saltati (`dockerUnavailable` in `apps/server/test/helpers/postgres.ts`); in locale su Windows con Docker girano | test DB non coperti su Windows in CI |
 | R25 | `pnpm format:check` (prettier) aggiunto alla CI dopo aver trovato 13 file non formattati | — |
@@ -134,6 +134,21 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di M1b (crittografia + autenticazione web)
+
+| # | Decisione |
+|---|---|
+| B1 | Crittografia completa + auth web; device-login e token dei dispositivi in M1c con i vault |
+| B2 | Argon2id con `@node-rs/argon2` (binari precompilati), minimo OWASP 19 MiB / 2 / 1 |
+| B3 | AEAD a segmenti (STREAM su AES-256-GCM) su `node:crypto`, vettori verificati con implementazioni indipendenti (Python, WebCrypto) |
+| B4 | Costanti crittografiche fisse, mai dal nome del prodotto |
+| B5 | Email in M5: intanto link da CLI (`users invite`, `users reset-link`, `users reset-2fa`); `forgot` risponde `smtp: false` |
+| B6 | Web: modalità finta (predefinita) e ibrida (`VITE_KAMINO_API=hybrid`) |
+| B7 | R16: migrazione `key_check`, verifica della chiave, poi il resto; errore originale mai mascherato dall'unlock |
+| B8 | Cookie `HttpOnly`/`SameSite=Lax`/`Secure` con HTTPS; anti-CSRF `X-Requested-With` |
+
+R16 è **chiuso** (test d'ordine al posto del tripwire). Trovato e corretto durante M1b: il token degli inviti finiva nei log tramite l'URL della richiesta (ora sostituito).
 
 ### Decisioni di M1a (sync-core)
 
@@ -204,6 +219,7 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 - **Web:** valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
 - **Web admin:** nella scheda Salute i controlli hanno solo il testo (la spec prevedeva icona + testo).
 - **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal; riconciliazione completa con indice esistente (`cursor_too_old`).
+- **Fino a M1c:** in produzione, dopo il login la home mostra un errore perché `/vaults/summary` (e le altre rotte dell'area utente) non esistono ancora sul server; coperto dal vincolo "nessuna release pubblica prima della fine di M1".
 - **M1a, minori rinviati dalla revisione:** `mkdir` su cartella esistente restituisce `accepted` con l'altro `fileId` (03 dice `duplicate`: allineare il documento in M1c); cancellazione di cartella con discendenti vivi → `modified_since` (da documentare); nessun controllo su `put`/`move` sotto un path che è un file; `stopped` è volatile; MAX_PATH di Windows non modellato; su Linux un disco con forme NFC e NFD dello stesso nome (stesso path canonico): da definire nel contratto del guscio in M1d.
 - **M1d:** cartelle sul client (`mkdir`, spostamento e cancellazione di cartelle; l'arbitro le gestisce già); `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client.
 - **M1+ (server):** implementare anche le rotte `admin` (utenti, configurazione con fonte dei valori, email di prova, salute, audit) e quelle di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.

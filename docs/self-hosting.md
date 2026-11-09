@@ -79,5 +79,14 @@ Custodia:
 - Multi-stage (build su `node:24-alpine`, runtime su `alpine:3.24` con il binario `node` ufficiale ridotto con `strip`); utente non root (`node`), nessun segreto nei layer (la master key è un Docker secret; la password del database arriva da `docker/.env` a runtime).
 - `HEALTHCHECK` su `/health/live` (con `node`, senza curl).
 - Il commit mostrato da `/version` si imposta con `--build-arg KAMINO_BUILD_COMMIT=<sha>` (nei compose: variabile `KAMINO_BUILD_COMMIT`); senza, vale `unknown`.
-- L'entrypoint senza argomenti avvia il server; con argomenti esegue la CLI (`keys generate`, `keys verify`, `migrate`).
+- L'entrypoint senza argomenti avvia il server; con argomenti esegue la CLI (`keys generate`, `keys verify`, `migrate`, `users …`).
+
+## 4. Primo avvio e utenti
+
+- Al primo avvio, senza utenti, il server scrive **una volta** nei log il link di configurazione: `docker compose -f docker/compose.lan.yml logs kamino` e cerca `finish the setup at …/setup?token=…`. Aprilo: il codice è già compilato. Il primo utente è amministratore e deve attivare la verifica in due passaggi.
+- Finché non c'è l'invio di email (arriva più avanti), i link si creano dalla CLI:
+  - `docker compose -f docker/compose.lan.yml run --rm -T kamino users invite <username> <email>` crea l'utente e stampa il link di attivazione (7 giorni);
+  - `… users reset-link <username>` stampa un link per reimpostare la password (1 ora; l'utente vede l'avviso);
+  - `… users reset-2fa <username>` toglie la verifica in due passaggi a chi ha perso il telefono e i codici di recupero (resta nel registro).
+- Le migrazioni del database partono solo dopo la verifica della master key: con una chiave sbagliata il server si ferma senza toccare lo schema.
 - Dimensione dell'immagine: **210 MB** (`docker image ls`, base Alpine 3.24 + binario `node` ridotto con `strip`) (obiettivo < 250 MB).

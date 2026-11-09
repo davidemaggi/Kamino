@@ -46,6 +46,8 @@ COPY --from=build /out/dist ./dist
 COPY --from=build /out/drizzle ./drizzle
 COPY --from=build /out/public ./public
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+# Encrypted blobs and upload staging (KAMINO_STORAGE_DIR, KAMINO_STAGING_DIR): mount a volume here.
+RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 8080
 # No curl in the base image: probe with Node's built-in fetch.

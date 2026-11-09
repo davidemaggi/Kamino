@@ -37,6 +37,8 @@ services:
       - kamino_master_key
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - kamino-data:/data
 
   postgres:
     image: postgres:17-alpine
@@ -70,4 +72,5 @@ secrets:
     file: ./secrets/cloudflared_token
 
 volumes:
+  kamino-data:
   postgres-data:

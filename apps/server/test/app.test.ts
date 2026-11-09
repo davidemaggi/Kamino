@@ -18,6 +18,9 @@ const config: Config = {
   databaseUrl: "unused",
   masterKey: "unused",
   logLevel: "error",
+  storage: { kind: "fs", dir: "/tmp/kamino-test-blobs" },
+  stagingDir: "/tmp/kamino-test-staging",
+  maxFileBytes: 1_000_000,
 };
 const logger = pino({ level: "silent" });
 

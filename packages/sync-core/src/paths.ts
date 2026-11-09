@@ -62,7 +62,7 @@ export type Unrepresentable =
   | "segment_too_long"
   | "path_too_long";
 
-const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i;
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|conin\$|conout\$|com[0-9¹²³]|lpt[0-9¹²³]) *(\..*)?$/i;
 const FORBIDDEN: Record<Platform, string> = {
   windows: '<>:"|?*',
   android: '<>:"|?*',

@@ -86,6 +86,9 @@ describe("isRepresentable", () => {
       reason: "trailing_dot_or_space",
     });
     expect(isRepresentable("con.md", "linux")).toEqual({ ok: true });
+    expect(isRepresentable("CONIN$", "windows")).toEqual({ ok: false, reason: "reserved_name" });
+    expect(isRepresentable("CON .txt", "windows")).toEqual({ ok: false, reason: "reserved_name" });
+    expect(isRepresentable("console.md", "windows")).toEqual({ ok: true });
   });
 
   it("apple, android, linux", () => {

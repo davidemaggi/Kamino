@@ -48,6 +48,10 @@ describe("arbiter: put (03 §5.3)", () => {
     expect(one(s, put("f", "a.md", null))).toEqual({ status: "rejected", code: "blob_missing" });
     s.blobs.add(H1);
     expect(one(s, put("f", "é.md", null))).toEqual({ status: "rejected", code: "path_invalid" });
+    expect(one(s, put("f", "a\u0001.md", null))).toEqual({
+      status: "rejected",
+      code: "path_invalid",
+    });
     expect(one(s, put("f", "{config}/workspace.json", null))).toEqual({
       status: "rejected",
       code: "path_forbidden",

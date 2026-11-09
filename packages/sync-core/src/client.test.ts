@@ -368,8 +368,10 @@ describe("client", () => {
 
   it("retryDelay: exponential with jitter, 1 s to 5 min", () => {
     expect(retryDelay(0, 0)).toBe(1000);
-    expect(retryDelay(3, 0)).toBe(8000);
+    expect(retryDelay(3, 0)).toBe(4000);
+    expect(retryDelay(3, 0.999)).toBeLessThanOrEqual(8000);
     expect(retryDelay(30, 0.999)).toBeLessThanOrEqual(300_000);
+    expect(retryDelay(30, 0)).toBe(150_000);
     expect(retryDelay(2, 0.5)).toBeGreaterThan(retryDelay(2, 0));
   });
   // Review C1: excluding a synced file on one device must never delete it for everyone.

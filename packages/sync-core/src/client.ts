@@ -156,8 +156,9 @@ export function initialState(config: ClientConfig): ClientState {
 
 /** Exponential backoff with jitter, 1 s to 5 min (03 §8). `random` in [0, 1). */
 export function retryDelay(attempt: number, random: number): number {
+  // Jitter in [base/2, base]: it stays even at the 5-minute cap, so clients don't retry in lockstep.
   const base = Math.min(300_000, 1000 * 2 ** Math.min(attempt, 20));
-  return Math.min(300_000, Math.round(base * (1 + random)));
+  return Math.max(1000, Math.round(base * (0.5 + random / 2)));
 }
 
 /**

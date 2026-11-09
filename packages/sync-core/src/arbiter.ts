@@ -123,6 +123,8 @@ const accept = (
 
 function pathError(path: string): ErrorCode | null {
   if (!isCanonical(path)) return "path_invalid";
+  // NUL and control characters can't exist on any device's file system.
+  for (const ch of path) if ((ch.codePointAt(0) ?? 0) < 32) return "path_invalid";
   if (ALWAYS_EXCLUDED.some((p) => globMatch(p, path))) return "path_forbidden";
   return null;
 }

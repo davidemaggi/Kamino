@@ -9,7 +9,7 @@
 | # | Decisione |
 |---|---|
 | C1 | Perimetro: collegamento dei dispositivi con credenziali (il QR resta in M6), token dei dispositivi, vault con DEK e campi cifrati, upload a chunk, download con `Range`, commit tramite l'arbitro di `sync-core`, journal, snapshot, `ack` e `status` via REST (il WebSocket è M2). Più il minimo della web app: `GET /vaults` e `GET /vaults/summary` veri. |
-| C2 | Storage dei blob dietro un'interfaccia `BlobStore` con **due adattatori**, file system e **S3/MinIO**, e un unico test di contratto eseguito su entrambi (MinIO in testcontainers). |
+| C2 | Storage dei blob dietro un'interfaccia `BlobStore` con **due adattatori**, file system e **S3/MinIO**, e un unico test di contratto eseguito su entrambi. Il test S3 usa il gateway S3 di **SeaweedFS** in testcontainers, perché MinIO non pubblica più immagini pubbliche (2026); il server resta compatibile con qualunque S3, MinIO compreso. |
 | C3 | L'arbitro resta sincrono e puro: il server **prepara in anticipo** i dati che leggerà; se `decide` chiede un dato non preparato (es. i path `Nota (1).md` di una resurrezione), l'adattatore lo carica e ripete la decisione. Tutto dentro una transazione con la riga del vault bloccata (`SELECT … FOR UPDATE`). `sync-core` non cambia. |
 | C4 | **`MemoryStore` è l'oracolo** del server: per sequenze casuali di op (fast-check) server e `MemoryStore` danno gli stessi esiti e lo stesso stato. |
 | C5 | Collegamento in tre passi, come il `ConnectionService` del plugin: `POST /devices/login` (password + TOTP opzionale nella stessa richiesta) → token di iscrizione di 10 minuti → elenco/creazione vault → `POST /enroll/vaults/:id/devices` → token del dispositivo (256 bit, solo l'hash nel DB, senza scadenza, revocabile). |

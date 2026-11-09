@@ -133,9 +133,6 @@ importers:
       '@kamino/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
-      '@testcontainers/minio':
-        specifier: ^12.2.1
-        version: 12.2.1(bare-buffer@3.7.1)
       '@testcontainers/postgresql':
         specifier: ^12.2.1
         version: 12.2.1(bare-buffer@3.7.1)
@@ -145,6 +142,9 @@ importers:
       fast-check:
         specifier: ^4.10.2
         version: 4.10.2
+      testcontainers:
+        specifier: ^12.2.1
+        version: 12.2.1(bare-buffer@3.7.1)
 
   apps/web:
     dependencies:
@@ -2371,9 +2371,6 @@ packages:
 
   '@tanstack/store@0.11.2':
     resolution: {integrity: sha512-sJ4mjol8uQsHV0gOJzzjwXfh2Fwm+Sz0+8deqiTm4jGbMdjzNSW+xZCFm0kUa870uhd8yi+DpKnZb5Kc4apa0Q==}
-
-  '@testcontainers/minio@12.2.1':
-    resolution: {integrity: sha512-ulwdPa9mxaMkJDDdl/MeVteSj6+tSJ0clhn+8hyRwVzgGwy9iL6WIegiKgHocteFns+uWbEpdUp3Z9HGooJdrg==}
 
   '@testcontainers/postgresql@12.2.1':
     resolution: {integrity: sha512-MIbI5KjZ9M4SY4+xzxg/w4ZLBeV+Jd6ognXoWn7dh/mhIhBbn7ss0MiZHNg2XbCbu03BW9YQ9+H9xW8PFkJWaA==}
@@ -6402,15 +6399,6 @@ snapshots:
       seroval-plugins: 1.7.8(seroval@1.7.10)
 
   '@tanstack/store@0.11.2': {}
-
-  '@testcontainers/minio@12.2.1(bare-buffer@3.7.1)':
-    dependencies:
-      testcontainers: 12.2.1(bare-buffer@3.7.1)
-    transitivePeerDependencies:
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-      - supports-color
 
   '@testcontainers/postgresql@12.2.1(bare-buffer@3.7.1)':
     dependencies:

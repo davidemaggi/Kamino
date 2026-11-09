@@ -34,9 +34,9 @@
   },
   "devDependencies": {
     "@kamino/tsconfig": "workspace:*",
-    "@testcontainers/minio": "^12.2.1",
     "@testcontainers/postgresql": "^12.2.1",
     "drizzle-kit": "^0.31.11",
-    "fast-check": "^4.10.2"
+    "fast-check": "^4.10.2",
+    "testcontainers": "^12.2.1"
   }
 }

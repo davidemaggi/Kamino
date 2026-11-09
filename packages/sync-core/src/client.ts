@@ -47,6 +47,12 @@ export interface Entry {
   unavailable: string | null;
   /** Last rejection: not retried until the next sync cycle. */
   blocked: ErrorCode | null;
+  /**
+   * Following a server move: `path` is the server path to follow, `target` the local rename
+   * already issued for it (null = not yet, or failed). While set, the difference between `path`
+   * and `remotePath` is not a local move (no `move` op is sent).
+   */
+  renaming: { path: string; target: string | null } | null;
 }
 
 export interface Durable {
@@ -242,6 +248,7 @@ function newLocalEntry(fileId: string, item: ScanItem): Entry {
     conflictId: null,
     unavailable: null,
     blocked: null,
+    renaming: null,
   };
 }
 
@@ -276,6 +283,7 @@ function remoteEntry(
     conflictId: null,
     unavailable: unavailableReason(s, r.path),
     blocked: null,
+    renaming: null,
   };
 }
 
@@ -338,22 +346,47 @@ function trashIfClean(c: Ctx, e: Entry): void {
 function followRemotePath(c: Ctx, e: Entry, path: string): void {
   const previous = e.remotePath;
   e.remotePath = path;
-  if (e.path === path) return;
+  if (e.path === path) {
+    // A rename issued for an older server path may still complete: follow again afterwards.
+    e.renaming = e.renaming?.target ? { path, target: null } : null;
+    return;
+  }
   if (!e.materialized || (e.localHash === null && !e.pendingWrite)) {
     e.path = path;
     e.unavailable = unavailableReason(c.s, path);
     return;
   }
-  if (previous !== null && e.path !== previous) return;
+  // A local move is pending: the server decides (first arrived wins).
+  if (previous !== null && e.path !== previous && !e.renaming) return;
   const reason = unavailableReason(c.s, path);
   if (reason) {
     // Stays where it is on this device; content still syncs (03 §6.4).
     e.unavailable = reason;
+    e.renaming = null;
     return;
   }
   e.unavailable = null;
-  const taken = ownerOf(c.s, path, e);
-  renameLocal(c, e, taken ? freeLocalSibling(c.s, path, e) : path);
+  e.renaming = { path, target: null };
+  follow(c, e);
+}
+
+/** Moves the local file to the server path, or next to it if something else is there on this device. */
+function follow(c: Ctx, e: Entry): void {
+  if (!e.renaming || e.renaming.target !== null) return; // nothing to do, or already issued
+  const want = e.renaming.path;
+  const target = ownerOf(c.s, want, e) ? freeLocalSibling(c.s, want, e) : want;
+  if (target === e.path) {
+    e.renaming = null;
+    return;
+  }
+  e.renaming.target = target;
+  renameLocal(c, e, target);
+}
+
+/** The file now is at `to` on disk. A follow is done only if this was the rename issued for it. */
+function renameDone(e: Entry, to: string): void {
+  e.path = to;
+  if (e.renaming?.target === to) e.renaming = null;
 }
 
 // ---------- local side ----------
@@ -368,6 +401,7 @@ function onSync(c: Ctx, scan: ScanItem[]): void {
     return;
   }
   for (const e of entries(s)) {
+    follow(c, e);
     materialize(c, e);
     trashIfClean(c, e);
   }
@@ -377,11 +411,25 @@ function onSync(c: Ctx, scan: ScanItem[]): void {
 function applyScan(c: Ctx, scan: ScanItem[]): void {
   const { s } = c;
   const owners = new Map<string, Entry>();
-  for (const e of entries(s))
-    if (e.localHash !== null || e.pendingWrite) owners.set(diskKey(s, e.path), e);
+  const byTarget = new Map<string, Entry>();
+  for (const e of entries(s)) {
+    if (e.localHash === null && !e.pendingWrite) continue;
+    owners.set(diskKey(s, e.path), e);
+    // A rename issued before a crash may have happened on disk without its event.
+    if (e.renaming?.target) byTarget.set(diskKey(s, e.renaming.target), e);
+  }
   const seen = new Set<Entry>();
   for (const item of scan) {
     if (classify(item.path, s.config.settings).excluded) continue;
+    const moved = owners.has(diskKey(s, item.path))
+      ? undefined
+      : byTarget.get(diskKey(s, item.path));
+    if (moved && !seen.has(moved)) {
+      seen.add(moved);
+      renameDone(moved, item.path);
+      if (moved.localHash !== item.hash) moved.localHash = item.hash;
+      continue;
+    }
     const e = owners.get(diskKey(s, item.path));
     if (e?.pendingWrite) {
       if (item.hash === e.pendingWrite.hash) {
@@ -412,6 +460,8 @@ function applyScan(c: Ctx, scan: ScanItem[]): void {
     s.durable.index[id] = newLocalEntry(id, item);
   }
   for (const e of owners.values()) {
+    // Seen at its old path: an issued rename did not happen, retry it.
+    if (seen.has(e) && e.renaming?.target && e.path !== e.renaming.target) e.renaming.target = null;
     if (seen.has(e)) continue;
     if (e.pendingWrite) {
       e.pendingWrite = null; // the write never happened
@@ -427,6 +477,7 @@ function applyScan(c: Ctx, scan: ScanItem[]): void {
 function onLocalRename(c: Ctx, from: string, to: string): void {
   const e = ownerOf(c.s, from);
   if (!e) return;
+  e.renaming = null; // the user's move wins over following the server
   if (classify(to, c.s.config.settings).excluded) e.localHash = null;
   else e.path = to;
 }
@@ -466,7 +517,7 @@ export function nextOps(s: ClientState, env: ClientEnv): Op[] {
         });
       continue;
     }
-    if (e.remotePath !== null && e.path !== e.remotePath && !e.unavailable)
+    if (e.remotePath !== null && e.path !== e.remotePath && !e.unavailable && !e.renaming)
       moves.push({
         type: "move",
         opId: env.newId(),
@@ -554,11 +605,8 @@ function onRejected(c: Ctx, e: Entry, op: Op, res: RejectedResult): void {
     case "moved_elsewhere":
       if (res.path !== undefined) {
         e.remotePath = res.path;
-        renameLocal(
-          c,
-          e,
-          ownerOf(c.s, res.path, e) ? freeLocalSibling(c.s, res.path, e) : res.path,
-        );
+        e.renaming = { path: res.path, target: null };
+        follow(c, e);
       }
       return;
     case "path_taken":
@@ -722,7 +770,12 @@ function onWritten(c: Ctx, fileId: string, ok: boolean): void {
 
 function onRenamed(c: Ctx, fileId: string, to: string, ok: boolean): void {
   const e = c.s.durable.index[fileId];
-  if (e && ok) e.path = to;
+  if (!e) return;
+  if (!ok) {
+    if (e.renaming) e.renaming.target = null; // retried at the next cycle
+    return;
+  }
+  renameDone(e, to);
 }
 
 function onTrashed(c: Ctx, fileId: string, ok: boolean): void {
@@ -764,7 +817,10 @@ function onSnapshot(c: Ctx, snap: Snapshot): void {
       unavailable: null,
     });
     s.durable.index[r.fileId] = aligned;
-    if (e.path !== r.path) renameLocal(c, aligned, r.path);
+    if (e.path !== r.path) {
+      aligned.renaming = { path: r.path, target: null };
+      follow(c, aligned);
+    }
   }
   for (const r of remote.values()) {
     if (r.versionId === null || r.contentHash === null) continue;

@@ -226,3 +226,18 @@ Spec: [`2026-11-08-ui-web-user-area-design.md`](../superpowers/specs/2026-11-08-
 - **Centro conflitti:** su desktop elenco raggruppato per vault a sinistra e dettaglio a destra (si apre il primo; dopo una scelta si passa al successivo); su telefono due pagine, con le schede "La tua / Differenze / In arrivo" come nel plugin. Stesse regole del plugin per azioni, "Modifica e unisci", versione più recente arrivata nel frattempo, conflitto già risolto, "Risolvi tutti…". Il diff è `@kamino/ui-diff` tramite l'adattatore React `DiffView`, caricato a richiesta (chunk separato).
 - **Lingua e tema** salvati sul server vengono applicati all'accesso.
 - **Pannello "Dati finti"** (sviluppo): in più "Richiesta di collegamento in arrivo", "Versione più recente in arrivo", "Quota quasi piena".
+
+## 11. Web app: area admin
+
+Spec: [`2026-11-08-ui-web-admin-design.md`](../superpowers/specs/2026-11-08-ui-web-admin-design.md). Dati dal contratto `@kamino/protocol` (`admin.ts`); in sviluppo e nei test li simula MSW. Visibile solo agli amministratori (per gli altri le rotte `/admin/*` non esistono).
+
+- **Privacy (U-03):** l'admin vede degli altri utenti **solo numeri e stato aggregato** (spazio, vault, dispositivi, `LevelBadge`), mai nomi di vault, file o cartelle; la riga fissa "Per privacy non vedi nomi di vault né file degli utenti" lo dichiara in elenco e dettaglio.
+- **Utenti:** tabella con spazio "usato / quota" e barra (ambra quando la quota è raggiunta), stato testuale (Attivo, Invitato, Bloccato, In cancellazione), ultimo accesso.
+- **Crea utente:** invito via email (disattivato con la spiegazione se l'email non è configurata) oppure **link di attivazione** da consegnare a mano. L'admin non sceglie mai la password di un altro (U-10).
+- **Link monouso** (attivazione e reset): mostrati **una sola volta** in un campo di sola lettura con "Copia"; il link di reset passa prima da una conferma che spiega cosa vedrà l'utente (U-09).
+- **Dettaglio utente:** riepilogo; quota (illimitata o in GB, con avviso ambra se sotto lo spazio già usato: non cancella nulla); ruolo (l'ultimo amministratore non si può togliere: errore spiegato); zona pericolosa con Blocca/Sblocca ed Elimina, sempre con conferma; l'eliminazione chiede lo username esatto e offre lo ZIP solo con l'email configurata. Su sé stessi: niente blocco né eliminazione, con la frase che lo spiega.
+- **Sistema** (schede nell'URL `?tab=config|health|audit`):
+  - *Configurazione:* sezioni Registrazione, Quote e limiti, Email, ognuna col suo Salva. Un campo con valore dall'ambiente è **disattivato** e mostra "Impostato dall'ambiente" (E-03); la UI non lo invia e il server lo rifiuta (`config_locked`). La password SMTP è solo in scrittura (segnaposto "Impostata: lascia vuoto per non cambiarla"). "Accetta certificati non validi" mostra un avviso. **Invia email di prova** sta dopo Salva e mostra l'esito o l'errore tecnico dettagliato (E-04).
+  - *Salute:* stato complessivo (pillola con i colori dei livelli), versione e nome in codice, tempo di attività, controlli (database, archivio dei file, disco, attività in coda, email) con testo, totali aggregati e dispositivi per stato.
+  - *Registro:* quando, chi, azione localizzata, su cosa (username o chiave di configurazione, mai contenuti); 20 voci per pagina.
+- **Pannello "Dati finti"** (sviluppo): in più "Email di prova fallisce"; "SMTP attivo/non configurato" vale anche per l'area admin.

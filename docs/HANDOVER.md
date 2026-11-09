@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-08 — Fase UI, sotto-fase 4b mergiata su `main` (PR #6). Sotto-fase 4c (area admin della web app) in corso sul branch `ui-web-admin`.
+**Ultimo aggiornamento:** 2026-11-09 — Fase UI, sotto-fase 4c (area admin) implementata sul branch `ui-web-admin`: con la sua PR la **fase UI è completa**. Prossimo: piano di M1.
 
 ## Dove siamo
 
@@ -17,7 +17,7 @@
 | Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ mergiata su `main` (PR #4, 2026-11-08) |
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
-| Fase UI — sotto-fase 4c: area admin | 🔧 in corso sul branch `ui-web-admin` |
+| Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata sul branch `ui-web-admin`; in revisione / PR |
 | M1…M7 | ⏳ |
 
 **Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
@@ -43,10 +43,9 @@
 
 ## Prossimi passi
 
-1. **Fase UI, sotto-fase 4c** (branch `ui-web-admin`): area admin — utenti (crea/invita, blocca, cancella, quote, link di reset), configurazione di sistema con campi "impostati dall'ambiente" ed email di prova, salute del sistema, audit log; solo metriche aggregate (U-03). Spec → piano → esecuzione; ultima parte della fase UI.
-2. **Spike sui dispositivi** (committente, rinviati di proposito a più avanti): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
-3. **Fase UI, sotto-fasi 2–4** (pannello di stato e conflitti nel plugin, onboarding/QR, schermate web), ognuna con brainstorming → spec → piano; poi piano M1.
-4. All'inizio di M1: applicare **R16** (ordine migrazioni ↔ verifica chiave). Un test (`apps/server/test/migrations-guard.test.ts`) fallisce apposta quando compare la seconda migrazione.
+1. **Chiudere la sotto-fase 4c:** prova del committente nel browser (pannello "Dati finti", accesso come `admin`), merge della PR. Con questo la fase UI è completa.
+2. **Piano di M1** (brainstorming → spec → piano): server vero per `auth`/`account` (vedi "Punti aperti"), con **R16** all'inizio (ordine migrazioni ↔ verifica chiave; `apps/server/test/migrations-guard.test.ts` fallisce apposta alla seconda migrazione). Le rotte `admin` del contratto vanno implementate quando il server ha utenti, quote e SMTP.
+3. **Spike sui dispositivi e prova del plugin su telefono** (committente, rinviati di proposito): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
 
 ## Come riprendere su un altro PC
 
@@ -134,6 +133,16 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
 
+### Decisioni della fase UI (sotto-fase 4c)
+
+| # | Decisione |
+|---|---|
+| Y1 | Due voci: Utenti (`/admin/users`, `/admin/users/$userId`) e Sistema (`/admin/system?tab=…`: configurazione, salute, registro) |
+| Y2 | Solo metriche aggregate degli altri utenti, mai nomi di vault/file (U-03); il contratto non ha campi che potrebbero contenerli |
+| Y3 | L'admin non imposta mai password altrui: invito email o link di attivazione; reset con link monouso; link mostrati una volta |
+| Y4 | Configurazione con la fonte di ogni valore; "impostato dall'ambiente" → campo bloccato in UI e `config_locked` dal server |
+| Y5 | Contratto zod (`admin.ts`) + MSW come in 4a/4b |
+
 ### Decisioni della fase UI (sotto-fase 4b)
 
 | # | Decisione |
@@ -171,7 +180,8 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 
 - **Accessibilità delle schede (web e plugin):** navigazione con le frecce e `tabindex` mobile per le schede del vault e della vista conflitto su telefono; `aria-controls` sulle schede del conflitto su telefono nella web app.
 - **Web:** valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
-- **M1+ (server):** implementare anche le rotte di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.
+- **Web admin:** nella scheda Salute i controlli hanno solo il testo (la spec prevedeva icona + testo).
+- **M1+ (server):** implementare anche le rotte `admin` (utenti, configurazione con fonte dei valori, email di prova, salute, audit) e quelle di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.
 - **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.
 
 - **Vincolo di rilascio:** **nessuna release pubblica del plugin prima di M1.** Fino ad allora il plugin contiene il `FakeServer` (credenziali `demo`/`demo`) e il trasferimento finto segna come "sync confermato" dati mai caricati: in una build pubblica romperebbe la promessa "sai sempre se sei al sicuro".

@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-09 — Fase UI, sotto-fase 4c (area admin) implementata sul branch `ui-web-admin`: con la sua PR la **fase UI è completa**. Prossimo: piano di M1.
+**Ultimo aggiornamento:** 2026-11-09 — **Fase UI completa** (PR #7 mergiata). M1 divisa in M1a–M1d; **M1a (`packages/sync-core`) implementata** sul branch `m1a-sync-core`, in revisione/PR. Prossimo: M1b.
 
 ## Dove siamo
 
@@ -17,10 +17,11 @@
 | Fase UI — sotto-fase 3: onboarding, collegamento e impostazioni (plugin) (spec `docs/superpowers/specs/2026-11-08-ui-onboarding-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-onboarding.md`) | ✅ mergiata su `main` (PR #4, 2026-11-08) |
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
-| Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); PR #7 aperta, in attesa di prova e merge |
-| M1…M7 | ⏳ |
+| Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
+| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | 🔧 M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`, piano `docs/superpowers/plans/2026-11-09-m1a-sync-core.md`): implementata e rivista (2 critici + 3 importanti corretti), PR #8 aperta · M1b, M1c, M1d ⏳ |
+| M2…M7 | ⏳ |
 
-**Branch di lavoro:** `m0-fondamenta` (pushato su `origin`, CI verde). `main` contiene solo il commit iniziale.
+**Branch di lavoro:** `m1a-sync-core` (da `main` dopo la PR #7).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -43,9 +44,10 @@
 
 ## Prossimi passi
 
-1. **Chiudere la sotto-fase 4c (PR #7):** prova del committente nel browser (pannello "Dati finti", accesso come `admin`), merge della PR. Con questo la fase UI è completa.
-2. **Piano di M1** (brainstorming → spec → piano): server vero per `auth`/`account` (vedi "Punti aperti"), con **R16** all'inizio (ordine migrazioni ↔ verifica chiave; `apps/server/test/migrations-guard.test.ts` fallisce apposta alla seconda migrazione). Le rotte `admin` del contratto vanno implementate quando il server ha utenti, quote e SMTP.
-3. **Spike sui dispositivi e prova del plugin su telefono** (committente, rinviati di proposito): `docs/spikes/README.md`, poi `R-1.md`…`R-5.md`. Con i risultati: aggiornare `docs/02-architecture.md` §10, eventuali nuove ADR, decidere `minAppVersion` del plugin, cancellare `spikes/`.
+1. **Chiudere M1a:** merge della PR #8.
+2. **M1b — crypto + auth vera** (brainstorming → spec → piano): DEK per vault, sottochiavi HKDF, cifratura dei campi, AEAD a segmenti, HMAC; setup, login, Argon2id, sessioni, TOTP, `device-login`, token dei dispositivi; rotte `auth`/`account` del contratto, poi MSW spento per quelle rotte. **R16** all'inizio (ordine migrazioni ↔ verifica chiave; `apps/server/test/migrations-guard.test.ts` fallisce apposta alla seconda migrazione).
+3. **M1c — vault/file/blob/commit sul server:** rotte di `sync.ts` sopra `decide()` di `sync-core` dentro la transazione; `MemoryStore` come oracolo nei test (stesse op → stessi esiti).
+4. **M1d — motore del plugin** (dopo gli spike R-1…R-5, rinviati dal committente insieme alla prova su telefono): guscio di `step()` con file system di Obsidian, `requestUrl`, persistenza; cartelle sul client (Z9).
 
 ## Come riprendere su un altro PC
 
@@ -133,6 +135,26 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
 
+### Decisioni di M1a (sync-core)
+
+| # | Decisione |
+|---|---|
+| Z1 | M1 divisa in M1a (sync-core), M1b (crypto + auth), M1c (server: vault/file/blob/commit), M1d (motore del plugin, dopo gli spike) |
+| Z2 | M1a comprende arbitro puro e simulatore multi-client |
+| Z3 | Core funzionale, guscio imperativo: niente orologio, casualità o I/O in `sync-core` |
+| Z4 | Schemi di sync in `@kamino/protocol` (`sync.ts`) |
+| Z5 | `collisionKey` conservativa (folding largo, "ß" = "ss") |
+| Z6 | Glob scritti in casa (niente `path` di Node nel plugin) |
+| Z7 | Fuori: risoluzione conflitti (M3), WebSocket e compattazione (M2), cifratura (M1b) |
+| Z8 | Outbox ricavata dall'indice; op con esito ignoto ripetute identiche |
+| Z9 | Client M1a solo file (cartelle in M1d); riconciliazione con indice esistente in M2 |
+| Z11 | Contratto del guscio: effetti sui file in ordine con il loro evento (`written` porta l'hash); una scansione solo a effetti completati |
+| Z12 | Esclusioni insensibili alle maiuscole sui file system che lo sono |
+| Z13 | Un file escluso su un dispositivo non genera mai una cancellazione; togliendo l'esclusione si riprende (revisione C1) |
+| Z10 | File spostato altrove verso un nome non rappresentabile qui: la copia locale va nel cestino solo quando il server ne ha il contenuto, il nome si libera (trovato dal simulatore; precisa 03 §6.4) |
+
+La revisione finale (2 critici, 3 importanti) ha trovato due cancellazioni spurie (esclusioni, `moved_elsewhere` verso aree escluse), una corsa del cestino e op senza esito scartate, più i limiti del simulatore (effetti istantanei, 5 contenuti, esclusioni mai usate, nessuna verifica delle cancellazioni non volute): tutto corretto. Il simulatore ora ha contenuti unici, effetti asincroni, esclusioni per dispositivo e cambi di impostazioni, timeout con consegna tardiva, risposte troncate, quota piena, e verifica che nessun contenuto esca dai file vivi senza un'azione dell'utente e che non nascano duplicati. Prima ancora il simulatore aveva trovato una decina di difetti del client (nessuna perdita di contenuti, ma mancata convergenza o azioni altrui annullate), tutti corretti con regressione esatta in `packages/sync-core/src/sim/regressions.ts`. Strumenti di indagine usati: rigiocare il JSON del controesempio con `World` e tracciare eventi/effetti di un client.
+
 ### Decisioni della fase UI (sotto-fase 4c)
 
 | # | Decisione |
@@ -181,6 +203,9 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 - **Accessibilità delle schede (web e plugin):** navigazione con le frecce e `tabindex` mobile per le schede del vault, del Sistema admin e della vista conflitto su telefono; `aria-controls` sulle schede del conflitto su telefono nella web app.
 - **Web:** valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
 - **Web admin:** nella scheda Salute i controlli hanno solo il testo (la spec prevedeva icona + testo).
+- **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal; riconciliazione completa con indice esistente (`cursor_too_old`).
+- **M1a, minori rinviati dalla revisione:** `mkdir` su cartella esistente restituisce `accepted` con l'altro `fileId` (03 dice `duplicate`: allineare il documento in M1c); cancellazione di cartella con discendenti vivi → `modified_since` (da documentare); nessun controllo su `put`/`move` sotto un path che è un file; `stopped` è volatile; MAX_PATH di Windows non modellato; su Linux un disco con forme NFC e NFD dello stesso nome (stesso path canonico): da definire nel contratto del guscio in M1d.
+- **M1d:** cartelle sul client (`mkdir`, spostamento e cancellazione di cartelle; l'arbitro le gestisce già); `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client.
 - **M1+ (server):** implementare anche le rotte `admin` (utenti, configurazione con fonte dei valori, email di prova, salute, audit) e quelle di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.
 - **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.
 

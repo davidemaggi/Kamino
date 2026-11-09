@@ -115,15 +115,15 @@ In un contesto non sicuro (HTTP fuori da `localhost`) i browser disabilitano `cr
 
 ## 5. Logica condivisa (`packages/sync-core`)
 
-Codice puro, senza I/O, usato da plugin e server (e dai simulatori di test):
+Codice puro, senza I/O, orologio né casualità (ID e tempi arrivano come input), usato da plugin e server (e dal simulatore di test). Implementato in M1a (spec [`2026-11-09-m1a-sync-core-design.md`](superpowers/specs/2026-11-09-m1a-sync-core-design.md)):
 
-- normalizzazione dei path (NFC, separatori, chiave di collisione case-insensitive);
-- matching delle esclusioni (glob, categorie della configDir, esclusioni obbligatorie);
-- **planner di riconciliazione**: dato l'indice locale, la scansione locale e le modifiche remote, produce le azioni (upload, download, rinomina locale, apertura conflitto, ecc.);
-- macchina a stati della coda locale (outbox);
-- classificazione dei conflitti e regole automatiche (C-06).
+- `paths`: normalizzazione dei path (NFC, separatori, `{config}`), chiave di collisione case-insensitive e "larga", rappresentabilità per piattaforma, suffissi `(1)`;
+- `exclusions`: glob, categorie della configDir, esclusioni obbligatorie e predefinite;
+- `arbiter` + `store`: le regole di commit del server (03 §5.3) come funzione pura `decide(vista, op)`; il server la chiama dentro la transazione, `MemoryStore` la usa in memoria (simulatore e oracolo dei test del server);
+- `client`: il dispositivo come riduttore puro `step(stato, evento) → stato + effetti`, con `persist` sempre come primo effetto. L'**outbox è ricavata dall'indice** durevole (una op per file per invio); si salvano a parte solo le op inviate con esito ignoto, ripetute identiche. Comprende applicazione delle voci remote, regole automatiche (C-06) e collegamento con contenuto locale (D-07, V-05);
+- `sim` (solo test): N client, rete che perde/duplica/riordina, crash anche a metà degli effetti.
 
-Proprietà verificate con fast-check, tra cui: **convergenza** (N client simulati con operazioni casuali, rete che perde/duplica/riordina messaggi, crash casuali → alla fine tutti convergono allo stato del server e nessuna versione accettata va persa) e **idempotenza** (riapplicare qualunque sequenza di messaggi non cambia lo stato).
+Proprietà verificate con fast-check: **convergenza** (a fine scenario ogni client ha lo stato vivo del server, salvo file non rappresentabili o in conflitto dove è perdente) e **nessuna perdita** (nessun contenuto locale viene sovrascritto o cestinato se il server non lo ha; ogni contenuto sincronizzato è sul server come versione o candidata), più idempotenza delle op registrate e invarianti dell'arbitro. I controesempi trovati restano come test di regressione esatti.
 
 ## 6. Plugin (`apps/plugin`)
 

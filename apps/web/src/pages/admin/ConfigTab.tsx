@@ -17,11 +17,14 @@ function Section({
   children,
   onSave,
   busy,
+  footer,
 }: {
   title: string;
   children: ReactNode;
   onSave?: () => void;
   busy?: boolean;
+  /** Rendered after the save button (e.g. the test email, which uses the saved values). */
+  footer?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -33,6 +36,7 @@ function Section({
           {t("admin.system.save")}
         </Button>
       )}
+      {footer}
     </section>
   );
 }
@@ -62,7 +66,7 @@ function Field({
 }) {
   const id = useId();
   return (
-    <div className="space-y-1">
+    <div className="max-w-md space-y-1">
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
@@ -206,6 +210,24 @@ export function ConfigTab() {
       </Section>
 
       <Section
+        footer={
+          <div className="space-y-2 border-t pt-3">
+            <Button variant="outline" disabled={test.isPending} onClick={() => test.mutate()}>
+              {t("admin.system.smtpTest")}
+            </Button>
+            {test.data?.ok === true && (
+              <p role="status" className="text-status-safe text-sm">
+                {t("admin.system.smtpTestOk")}
+              </p>
+            )}
+            {test.data?.ok === false && (
+              <p role="alert" className="text-sm">
+                {t("admin.system.smtpTestFail")}{" "}
+                <code className="bg-muted rounded px-1">{test.data.error}</code>
+              </p>
+            )}
+          </div>
+        }
         title={t("admin.system.email")}
         busy={save.isPending}
         onSave={() =>
@@ -291,22 +313,6 @@ export function ConfigTab() {
             )}
           </span>
         </label>
-        <div className="space-y-2 border-t pt-3">
-          <Button variant="outline" disabled={test.isPending} onClick={() => test.mutate()}>
-            {t("admin.system.smtpTest")}
-          </Button>
-          {test.data?.ok === true && (
-            <p role="status" className="text-status-safe text-sm">
-              {t("admin.system.smtpTestOk")}
-            </p>
-          )}
-          {test.data?.ok === false && (
-            <p role="alert" className="text-sm">
-              {t("admin.system.smtpTestFail")}{" "}
-              <code className="bg-muted rounded px-1">{test.data.error}</code>
-            </p>
-          )}
-        </div>
       </Section>
     </div>
   );

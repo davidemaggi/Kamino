@@ -8,6 +8,7 @@ import { useDocumentTitle } from "../../app/useDocumentTitle.js";
 import { LevelBadge } from "../../components/status/LevelBadge.js";
 import { Button } from "../../components/ui/button.js";
 import { formatAgo, formatBytes } from "../../lib/format.js";
+import { cn } from "../../lib/utils.js";
 import { CreateUserDialog } from "./CreateUserDialog.js";
 
 export function UsersPage() {
@@ -64,6 +65,17 @@ export function UsersPage() {
                   {u.quotaBytes === null
                     ? t("admin.users.unlimited")
                     : formatBytes(u.quotaBytes, lang)}
+                  {u.quotaBytes !== null && u.quotaBytes > 0 && (
+                    <div aria-hidden className="bg-muted mt-1 h-1 w-full rounded-full">
+                      <div
+                        className={cn(
+                          "h-1 rounded-full",
+                          u.usedBytes >= u.quotaBytes ? "bg-status-attention" : "bg-link",
+                        )}
+                        style={{ width: `${Math.min(100, (u.usedBytes / u.quotaBytes) * 100)}%` }}
+                      />
+                    </div>
+                  )}
                 </td>
                 <td className="p-3">{u.vaultCount}</td>
                 <td className="p-3">{u.deviceCount}</td>

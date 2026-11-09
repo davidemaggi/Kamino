@@ -168,7 +168,10 @@
     "quota_exceeded": "Storage full",
     "smtp_not_configured": "Email is not configured.",
     "last_admin": "At least one administrator is required.",
-    "config_locked": "This value is set by the environment and can't be changed here."
+    "config_locked": "This value is set by the environment and can't be changed here.",
+    "username_taken": "This username is already taken.",
+    "email_taken": "This email is already in use.",
+    "invalid_request": "Invalid data: check the fields."
   },
   "account": {
     "title": "Account",
@@ -427,7 +430,8 @@
       "copy": "Copy",
       "copied": "Copied.",
       "done": "Done",
-      "link": "Link"
+      "link": "Link",
+      "copyFailed": "Copy failed: the link is selected, copy it by hand."
     },
     "user": {
       "notFound": "User not found.",
@@ -466,7 +470,11 @@
       "deleteConfirm": "Delete",
       "deleted": "User being deleted.",
       "self": "This is you: you can't block or delete yourself.",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "quotaInvalid": "Enter a number greater than zero.",
+      "demoteSelfTitle": "Remove your administrator role?",
+      "demoteSelfText": "You'll lose access to the admin area right away. Only another administrator can give it back.",
+      "demoteSelfConfirm": "Remove role"
     },
     "system": {
       "title": "System",
@@ -482,7 +490,7 @@
       "registrationClosed": "Closed: you create the users",
       "registrationOpen": "Open to everyone",
       "limits": "Quotas and limits",
-      "defaultQuota": "Default quota (GB, empty = unlimited)",
+      "defaultQuota": "Default quota (GB)",
       "maxRetention": "Maximum history (days, 0–90)",
       "maxFile": "Maximum file size (MB)",
       "email": "Email",
@@ -549,7 +557,9 @@
         "reset_link_created": "Reset link generated",
         "config_changed": "Configuration changed",
         "smtp_test": "Test email"
-      }
+      },
+      "invalidNumber": "Enter a valid number.",
+      "defaultQuotaUnlimited": "Unlimited default quota"
     }
   }
 }

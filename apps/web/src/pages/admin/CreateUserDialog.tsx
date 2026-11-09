@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/endpoints.js";
 import { errorMessage } from "../../api/errors.js";
@@ -27,9 +27,12 @@ export function CreateUserDialog({
   const [delivery, setDelivery] = useState<"email" | "link">("link");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const noSmtpId = useId();
   const [done, setDone] = useState<{ link: string | null; email: string } | null>(null);
 
   const close = (o: boolean) => {
+    // Not while creating: a late response would show its link after closing.
+    if (!o && busy) return;
     if (!o) {
       setUsername("");
       setEmail("");
@@ -106,12 +109,17 @@ export function CreateUserDialog({
                   type="radio"
                   name="delivery"
                   disabled={!smtp}
+                  aria-describedby={smtp ? undefined : noSmtpId}
                   checked={delivery === "email"}
                   onChange={() => setDelivery("email")}
                 />
                 {t("admin.create.byEmail")}
               </label>
-              {!smtp && <p className="text-muted-foreground text-sm">{t("admin.create.noSmtp")}</p>}
+              {!smtp && (
+                <p id={noSmtpId} className="text-muted-foreground text-sm">
+                  {t("admin.create.noSmtp")}
+                </p>
+              )}
               <label className="flex items-center gap-2">
                 <input
                   type="radio"

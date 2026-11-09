@@ -81,7 +81,12 @@ export const adminHandlers = [
     const a = admin();
     if (a instanceof Response) return a;
     const b = CreateUserRequest.safeParse(await json(request));
-    if (!b.success) return fail(400, "internal");
+    if (!b.success) return fail(400, "invalid_request");
+    const lower = (x: string) => x.toLowerCase();
+    if (db.users.some((x) => lower(x.username) === lower(b.data.username)))
+      return fail(409, "username_taken");
+    if (db.users.some((x) => lower(x.email) === lower(b.data.email)))
+      return fail(409, "email_taken");
     if (b.data.delivery === "email" && !db.smtp) return fail(409, "smtp_not_configured");
     const u: FakeUser = {
       id: nextId("u"),
@@ -113,12 +118,12 @@ export const adminHandlers = [
     const u = findUser(params["id"]);
     if (!u) return fail(404, "not_found");
     const b = UpdateUserRequest.safeParse(await json(request));
-    if (!b.success) return fail(400, "internal");
-    if (
-      b.data.role === "user" &&
-      u.role === "admin" &&
-      db.users.filter((x) => x.role === "admin").length <= 1
-    )
+    if (!b.success) return fail(400, "invalid_request");
+    // Only active admins count: a blocked or deleting admin can't sign in to administer.
+    const activeAdmins = db.users.filter(
+      (x) => x.role === "admin" && toAdminUser(x).status === "active",
+    );
+    if (b.data.role === "user" && u.role === "admin" && activeAdmins.every((x) => x.id === u.id))
       return fail(409, "last_admin");
     if (b.data.role !== undefined && b.data.role !== u.role) {
       u.role = b.data.role;
@@ -138,7 +143,8 @@ export const adminHandlers = [
       if (a instanceof Response) return a;
       const u = findUser(params["id"]);
       if (!u) return fail(404, "not_found");
-      if (u.id === a.id) return fail(409, "forbidden");
+      if (u.id === a.id) return fail(403, "forbidden");
+      if (toAdminUser(u).status === "deleting") return fail(409, "forbidden");
       u.locked = action === "block";
       addAudit(a.username, action === "block" ? "user_blocked" : "user_unblocked", u.username);
       return HttpResponse.json(toAdminUser(u));
@@ -149,6 +155,7 @@ export const adminHandlers = [
     if (a instanceof Response) return a;
     const u = findUser(params["id"]);
     if (!u) return fail(404, "not_found");
+    if (toAdminUser(u).status === "deleting") return fail(409, "forbidden");
     const token = `${u.id}-reset-${++ad.seq}`;
     db.resets.set(token, u.id);
     u.adminResetAt = new Date().toISOString(); // U-09: always visible to the user
@@ -160,7 +167,7 @@ export const adminHandlers = [
     if (a instanceof Response) return a;
     const u = findUser(params["id"]);
     if (!u) return fail(404, "not_found");
-    if (u.id === a.id) return fail(409, "forbidden");
+    if (u.id === a.id) return fail(403, "forbidden");
     const b = DeleteUserRequest.safeParse(await json(request));
     if (!b.success || b.data.confirmUsername !== u.username) return fail(400, "confirm_mismatch");
     if (b.data.sendZip && !db.smtp) return fail(409, "smtp_not_configured");
@@ -179,7 +186,7 @@ export const adminHandlers = [
     const a = admin();
     if (a instanceof Response) return a;
     const b = ConfigPatch.safeParse(await json(request));
-    if (!b.success) return fail(400, "internal");
+    if (!b.success) return fail(400, "invalid_request");
     const c = ad.config;
     const top = ["registration", "defaultQuotaBytes", "maxRetentionDays", "maxFileBytes"] as const;
     const smtpKeys = ["host", "port", "security", "username", "from", "allowInvalidCerts"] as const;

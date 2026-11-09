@@ -98,7 +98,14 @@ describe("admin contract", () => {
   });
 
   it("new error codes", () => {
-    for (const c of ["smtp_not_configured", "last_admin", "config_locked"])
+    for (const c of [
+      "smtp_not_configured",
+      "last_admin",
+      "config_locked",
+      "username_taken",
+      "email_taken",
+      "invalid_request",
+    ])
       expect(ErrorCode.options).toContain(c);
   });
 });

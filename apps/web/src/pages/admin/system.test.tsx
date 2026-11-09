@@ -61,4 +61,35 @@ describe("Admin system", () => {
     fireEvent.click(screen.getByRole("button", { name: "Meno recenti" }));
     expect(await screen.findByText(/Pagina 2 di 2/)).toBeDefined();
   });
+  it("limits: env fields are not sent; saving one section keeps edits in another", async () => {
+    signInAs("admin");
+    await renderRoute("/admin/system");
+    fireEvent.change(await screen.findByLabelText("Porta"), { target: { value: "2525" } });
+    fireEvent.change(screen.getByLabelText("Storico massimo (giorni, 0–90)"), {
+      target: { value: "60" },
+    });
+    const limits = screen.getByRole("region", { name: "Quote e limiti" });
+    fireEvent.click(within(limits).getByRole("button", { name: "Salva" }));
+    // maxFileBytes is from the environment: had it been sent, nothing would be saved (config_locked).
+    await waitFor(() => expect(ad.config.maxRetentionDays.value).toBe(60));
+    expect((screen.getByLabelText("Porta") as HTMLInputElement).value).toBe("2525");
+  });
+
+  it("limits: empty or out-of-range numbers can't be saved", async () => {
+    signInAs("admin");
+    await renderRoute("/admin/system");
+    fireEvent.change(await screen.findByLabelText("Storico massimo (giorni, 0–90)"), {
+      target: { value: "" },
+    });
+    const limits = screen.getByRole("region", { name: "Quote e limiti" });
+    expect(within(limits).getByText("Inserisci un numero valido.")).toBeDefined();
+    expect(
+      (within(limits).getByRole("button", { name: "Salva" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.change(screen.getByLabelText("Porta"), { target: { value: "70000" } });
+    const email = screen.getByRole("region", { name: "Email" });
+    expect(
+      (within(email).getByRole("button", { name: "Salva" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
 });

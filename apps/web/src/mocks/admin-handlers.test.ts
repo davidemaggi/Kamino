@@ -89,4 +89,41 @@ describe("admin fake API", () => {
     expect(page.items).toHaveLength(20);
     expect(page.items[0]!.action).toBe("quota_changed");
   });
+  it("create refuses duplicates and invalid bodies", async () => {
+    signInAs("admin");
+    expect(
+      await code(
+        api.createUser({
+          username: "Demo",
+          email: "x@example.com",
+          role: "user",
+          delivery: "link",
+        }),
+      ),
+    ).toBe("username_taken");
+    expect(
+      await code(
+        api.createUser({
+          username: "x",
+          email: "DEMO@example.com",
+          role: "user",
+          delivery: "link",
+        }),
+      ),
+    ).toBe("email_taken");
+    expect(await code(api.updateUser(id("demo"), { quotaBytes: -1 }))).toBe("invalid_request");
+  });
+
+  it("last admin counts only active admins", async () => {
+    signInAs("admin");
+    db.users.find((u) => u.username === "newadmin")!.locked = true;
+    expect(await code(api.updateUser(id("admin"), { role: "user" }))).toBe("last_admin");
+  });
+
+  it("a user being deleted can't be unblocked or get a reset link", async () => {
+    signInAs("admin");
+    await api.deleteUser(id("demo"), "demo", false);
+    expect(await code(api.unblockUser(id("demo")))).toBe("forbidden");
+    expect(await code(api.resetLink(id("demo")))).toBe("forbidden");
+  });
 });

@@ -168,7 +168,10 @@
     "quota_exceeded": "Spazio esaurito",
     "smtp_not_configured": "L'invio di email non è configurato.",
     "last_admin": "Serve almeno un amministratore.",
-    "config_locked": "Questo valore è impostato dall'ambiente e non si può cambiare qui."
+    "config_locked": "Questo valore è impostato dall'ambiente e non si può cambiare qui.",
+    "username_taken": "Questo nome utente è già in uso.",
+    "email_taken": "Questa email è già in uso.",
+    "invalid_request": "Dati non validi: controlla i campi."
   },
   "account": {
     "title": "Account",
@@ -427,7 +430,8 @@
       "copy": "Copia",
       "copied": "Copiato.",
       "done": "Fatto",
-      "link": "Link"
+      "link": "Link",
+      "copyFailed": "Copia non riuscita: il link è selezionato, copialo a mano."
     },
     "user": {
       "notFound": "Utente non trovato.",
@@ -466,7 +470,11 @@
       "deleteConfirm": "Elimina",
       "deleted": "Utente in cancellazione.",
       "self": "Questo sei tu: non puoi bloccarti né eliminarti.",
-      "cancel": "Annulla"
+      "cancel": "Annulla",
+      "quotaInvalid": "Inserisci un numero maggiore di zero.",
+      "demoteSelfTitle": "Toglierti il ruolo di amministratore?",
+      "demoteSelfText": "Perderai subito l'accesso all'area di amministrazione. Potrà ridartelo solo un altro amministratore.",
+      "demoteSelfConfirm": "Togli il ruolo"
     },
     "system": {
       "title": "Sistema",
@@ -482,7 +490,7 @@
       "registrationClosed": "Chiusa: gli utenti li crei tu",
       "registrationOpen": "Aperta a tutti",
       "limits": "Quote e limiti",
-      "defaultQuota": "Quota predefinita (GB, vuoto = illimitata)",
+      "defaultQuota": "Quota predefinita (GB)",
       "maxRetention": "Storico massimo (giorni, 0–90)",
       "maxFile": "Dimensione massima di un file (MB)",
       "email": "Email",
@@ -549,7 +557,9 @@
         "reset_link_created": "Link di reset generato",
         "config_changed": "Configurazione cambiata",
         "smtp_test": "Email di prova"
-      }
+      },
+      "invalidNumber": "Inserisci un numero valido.",
+      "defaultQuotaUnlimited": "Quota predefinita illimitata"
     }
   }
 }

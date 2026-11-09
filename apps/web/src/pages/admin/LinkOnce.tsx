@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button.js";
@@ -9,18 +9,31 @@ import { Label } from "../../components/ui/label.js";
 export function LinkOnce({ link, hint }: { link: string; hint: string }) {
   const { t } = useTranslation();
   const id = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const copy = async () => {
+    try {
+      // navigator.clipboard is missing on plain HTTP (e.g. a LAN install).
+      if (!navigator.clipboard) throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(link);
+      toast(t("admin.create.copied"));
+    } catch {
+      input.current?.select();
+      toast.error(t("admin.create.copyFailed"));
+    }
+  };
   return (
     <div className="space-y-2">
       <p className="text-sm">{hint}</p>
       <Label htmlFor={id}>{t("admin.create.link")}</Label>
-      <Input id={id} readOnly value={link} className="font-mono text-xs" />
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() =>
-          void navigator.clipboard?.writeText(link).then(() => toast(t("admin.create.copied")))
-        }
-      >
+      <Input
+        ref={input}
+        id={id}
+        readOnly
+        value={link}
+        onFocus={(e) => e.currentTarget.select()}
+        className="font-mono text-xs"
+      />
+      <Button size="sm" variant="outline" onClick={() => void copy()}>
         {t("admin.create.copy")}
       </Button>
     </div>

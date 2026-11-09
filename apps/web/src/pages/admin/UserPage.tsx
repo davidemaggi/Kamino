@@ -16,11 +16,11 @@ import { ErrorText } from "../auth/AuthCard.js";
 import { LinkOnce } from "./LinkOnce.js";
 
 const GB = 1024 ** 3;
-type Dialog = "block" | "unblock" | "reset" | "delete" | null;
+type Dialog = "block" | "unblock" | "reset" | "delete" | "demoteSelf" | null;
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="bg-card space-y-3 rounded-xl border p-4">
+    <section aria-label={title} className="bg-card space-y-3 rounded-xl border p-4">
       <h2 className="font-serif text-lg font-semibold">{title}</h2>
       {children}
     </section>
@@ -28,8 +28,13 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function UserPage() {
-  const { t, i18n } = useTranslation();
   const { userId } = adminUserRoute.useParams();
+  // Keyed by user: links, dialogs and form state never carry over to another user.
+  return <UserDetail key={userId} userId={userId} />;
+}
+
+function UserDetail({ userId }: { userId: string }) {
+  const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const lang = i18n.language;
@@ -59,7 +64,30 @@ export function UserPage() {
   if (user.isError) return <p>{t("admin.user.notFound")}</p>;
   if (!u) return null;
   const self = me?.id === u.id;
-  const quotaBytes = unlimited ? null : Math.max(0, Number(gb) * GB);
+  const gbNum = Number(gb);
+  // Never send 0, negative or non-numeric quotas (0 would block all uploads; NaN becomes null in JSON).
+  const quotaValid = unlimited || (gb.trim() !== "" && Number.isFinite(gbNum) && gbNum > 0);
+  const quotaBytes = unlimited || !quotaValid ? null : Math.round(gbNum * GB);
+  const saveRole = () => {
+    setRoleError(null);
+    setDialog(null);
+    const demotingSelf = self && role === "user";
+    void act(
+      async () => {
+        await api.updateUser(u.id, { role });
+        if (demotingSelf) {
+          // The admin area is gone for this user: refresh "me" and leave.
+          await qc.invalidateQueries({ queryKey: ["me"] });
+          await navigate({ to: "/" });
+        }
+      },
+      "admin.user.saved",
+      (msg) => {
+        setRoleError(msg);
+        setRole(u.role);
+      },
+    );
+  };
   const refresh = () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: ["admin-user", userId] }),
@@ -136,13 +164,14 @@ export function UserPage() {
             step={0.1}
           />
         )}
+        {!quotaValid && gb.trim() !== "" && <ErrorText>{t("admin.user.quotaInvalid")}</ErrorText>}
         {quotaBytes !== null && quotaBytes < u.usedBytes && (
           <p className="bg-status-attention-surface text-status-attention rounded-md p-2 text-sm">
             {t("admin.user.quotaBelow")}
           </p>
         )}
         <Button
-          disabled={busy || (!unlimited && gb === "")}
+          disabled={busy || !quotaValid}
           onClick={() => void act(() => api.updateUser(u.id, { quotaBytes }), "admin.user.saved")}
         >
           {t("admin.user.save")}
@@ -163,25 +192,24 @@ export function UserPage() {
         </label>
         <ErrorText>{roleError}</ErrorText>
         <Button
-          disabled={busy}
-          onClick={() => {
-            setRoleError(null);
-            void act(() => api.updateUser(u.id, { role }), "admin.user.saved", setRoleError);
-          }}
+          disabled={busy || role === u.role}
+          onClick={() => (self && role === "user" ? setDialog("demoteSelf") : saveRole())}
         >
           {t("admin.user.save")}
         </Button>
       </Section>
 
-      <Section title={t("admin.user.reset")}>
-        {resetLink ? (
-          <LinkOnce link={resetLink} hint={t("admin.user.resetHint")} />
-        ) : (
-          <Button variant="outline" onClick={() => setDialog("reset")}>
-            {t("admin.user.reset")}
-          </Button>
-        )}
-      </Section>
+      {u.status !== "deleting" && (
+        <Section title={t("admin.user.reset")}>
+          {resetLink ? (
+            <LinkOnce link={resetLink} hint={t("admin.user.resetHint")} />
+          ) : (
+            <Button variant="outline" onClick={() => setDialog("reset")}>
+              {t("admin.user.reset")}
+            </Button>
+          )}
+        </Section>
+      )}
 
       <Section title={t("admin.user.danger")}>
         {self ? (
@@ -215,6 +243,17 @@ export function UserPage() {
         )}
       </Section>
 
+      <ConfirmDialog
+        open={dialog === "demoteSelf"}
+        onOpenChange={(o) => !o && setDialog(null)}
+        title={t("admin.user.demoteSelfTitle")}
+        text={t("admin.user.demoteSelfText")}
+        confirmText={t("admin.user.demoteSelfConfirm")}
+        cancelText={t("admin.user.cancel")}
+        destructive
+        busy={busy}
+        onConfirm={saveRole}
+      />
       <ConfirmDialog
         open={dialog === "block"}
         onOpenChange={(o) => !o && setDialog(null)}

@@ -32,6 +32,10 @@ export const CreateUserRequest = z.object({
 });
 export type CreateUserRequest = z.infer<typeof CreateUserRequest>;
 export const CreateUserResponse = z.object({ user: AdminUser, link: z.string().nullable() });
+/**
+ * `last_admin`: the server refuses to demote the last *active* admin (not blocked, not being deleted).
+ * Creating a user with a username or email already in use → `username_taken` / `email_taken`.
+ */
 export const UpdateUserRequest = z.object({
   role: Role.optional(),
   quotaBytes: z.number().min(0).nullable().optional(),

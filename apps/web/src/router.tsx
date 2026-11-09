@@ -30,6 +30,8 @@ import { VaultsPage } from "./pages/vaults/VaultsPage.js";
 import { NotFoundPage } from "./pages/NotFoundPage.js";
 import { TotpSetupPage } from "./pages/TotpSetupPage.js";
 import { PlaceholderPage } from "./pages/PlaceholderPage.js";
+import { UserPage } from "./pages/admin/UserPage.js";
+import { UsersPage } from "./pages/admin/UsersPage.js";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -203,7 +205,12 @@ const adminIndexRoute = createRoute({
 export const adminUsersRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/users",
-  component: () => <PlaceholderPage titleKey="nav.users" />,
+  component: UsersPage,
+});
+export const adminUserRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/users/$userId",
+  component: UserPage,
 });
 export const adminSystemRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -224,7 +231,7 @@ export const routeTree = rootRoute.addChildren([
     accountRoute,
     totpSetupRoute,
     aboutRoute,
-    adminRoute.addChildren([adminIndexRoute, adminUsersRoute, adminSystemRoute]),
+    adminRoute.addChildren([adminIndexRoute, adminUsersRoute, adminUserRoute, adminSystemRoute]),
   ]),
 ]);
 

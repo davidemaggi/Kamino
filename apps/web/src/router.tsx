@@ -81,6 +81,9 @@ export const loginRoute = createRoute({
 export const setupRoute = createRoute({
   getParentRoute: () => publicRoute,
   path: "/setup",
+  // The setup link printed in the server logs carries the token: prefill it.
+  validateSearch: (s: Record<string, unknown>): { token?: string } =>
+    typeof s["token"] === "string" ? { token: s["token"] } : {},
   component: SetupPage,
 });
 export const forgotRoute = createRoute({

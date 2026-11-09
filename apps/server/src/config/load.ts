@@ -74,6 +74,11 @@ function readSecret(
   return undefined;
 }
 
+/** An IPv4/IPv6 address with an optional /prefix (a shape check; the proxy library parses it). */
+function isIpOrCidr(s: string): boolean {
+  return /^[0-9a-fA-F:.]+(\/\d{1,3})?$/.test(s) && /[.:]/.test(s);
+}
+
 export function loadConfig(
   env: Env,
   readFile: (p: string) => Buffer | string = (p) => readFileSync(p),
@@ -109,6 +114,19 @@ export function loadConfig(
     else issues.push(`${envName("LOG_LEVEL")} must be one of: ${LOG_LEVELS.join(", ")}`);
   }
 
+  const proxyRaw = read(env, envName("TRUST_PROXY"));
+  let trustProxy: number | string[] | undefined;
+  if (proxyRaw !== undefined) {
+    if (/^\d+$/.test(proxyRaw) && Number(proxyRaw) >= 1 && Number(proxyRaw) <= 10)
+      trustProxy = Number(proxyRaw);
+    else if (proxyRaw.replace(/\s/g, "").split(",").every(isIpOrCidr))
+      trustProxy = proxyRaw.replace(/\s/g, "").split(",");
+    else
+      issues.push(
+        `${envName("TRUST_PROXY")} must be a hop count (1-10) or a comma-separated list of IPs/CIDRs`,
+      );
+  }
+
   const databaseUrl = readSecret(env, "DATABASE_URL", readFile, issues);
   const masterKey = readSecret(env, "MASTER_KEY", readFile, issues);
 
@@ -121,6 +139,7 @@ export function loadConfig(
       databaseUrl: databaseUrl.value,
       masterKey: masterKey.value,
       logLevel,
+      ...(trustProxy !== undefined ? { trustProxy } : {}),
     },
     sources: {
       publicUrl: "env",
@@ -128,6 +147,7 @@ export function loadConfig(
       databaseUrl: databaseUrl.source,
       masterKey: masterKey.source,
       logLevel: levelRaw === undefined ? "default" : "env",
+      trustProxy: proxyRaw === undefined ? "default" : "env",
     },
   };
 }

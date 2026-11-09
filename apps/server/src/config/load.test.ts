@@ -18,6 +18,17 @@ function issuesOf(fn: () => unknown): string[] {
 }
 
 describe("loadConfig", () => {
+  it("KAMINO_TRUST_PROXY: absent by default, hop count or IP/CIDR list, nothing else", () => {
+    expect(loadConfig(minimal).config.trustProxy).toBeUndefined();
+    expect(loadConfig({ ...minimal, KAMINO_TRUST_PROXY: "" }).config.trustProxy).toBeUndefined();
+    expect(loadConfig({ ...minimal, KAMINO_TRUST_PROXY: "1" }).config.trustProxy).toBe(1);
+    expect(
+      loadConfig({ ...minimal, KAMINO_TRUST_PROXY: "10.0.0.0/8, 172.16.0.1" }).config.trustProxy,
+    ).toEqual(["10.0.0.0/8", "172.16.0.1"]);
+    expect(() => loadConfig({ ...minimal, KAMINO_TRUST_PROXY: "true" })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...minimal, KAMINO_TRUST_PROXY: "0" })).toThrow(ConfigError);
+  });
+
   it("applies defaults for a minimal valid environment", () => {
     const { config, sources } = loadConfig(minimal);
     expect(config.port).toBe(8080);

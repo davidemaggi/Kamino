@@ -39,6 +39,8 @@ Tutti i comandi si eseguono dalla radice del repository.
 
 Nello scenario LAN `KAMINO_PUBLIC_URL` deve essere l'indirizzo IP o il nome host del server visibile agli altri computer della rete (ad esempio `http://192.168.1.10:8080`); il default `http://localhost:8080` va bene solo per provare il server sulla stessa macchina. Nello scenario Caddy impostare anche `KAMINO_DOMAIN` in `docker/.env`. Nello scenario tunnel impostare `KAMINO_PUBLIC_URL` con l'URL HTTPS pubblico; per Cloudflare salvare il token del tunnel in `docker/secrets/cloudflared_token` e aggiungere `--profile cloudflare`. I dettagli per Tailscale (`tailscale serve --bg 8080`) e Cloudflare sono nei commenti di `compose.tunnel.yml`.
 
+`KAMINO_TRUST_PROXY` dice al server di quali proxy fidarsi per l'indirizzo del client (`X-Forwarded-For`): un numero di salti (es. `1`) o un elenco di IP/CIDR. Nei compose Caddy e tunnel vale `1`, perché il server è raggiungibile solo dal proxy; nello scenario LAN non va impostato. Se il server è esposto direttamente e la variabile è impostata, un client potrebbe falsificare il proprio indirizzo ed eludere i limiti sui tentativi di accesso.
+
 ## 2. La master key
 
 La master key è una chiave di 32 byte codificata in base64. Protegge le chiavi di cifratura dei dati: **se la perdi, i dati nel database non sono più leggibili**; se la cambi, il server rifiuta di partire con l'errore `master key does not match this database`.
@@ -79,5 +81,14 @@ Custodia:
 - Multi-stage (build su `node:24-alpine`, runtime su `alpine:3.24` con il binario `node` ufficiale ridotto con `strip`); utente non root (`node`), nessun segreto nei layer (la master key è un Docker secret; la password del database arriva da `docker/.env` a runtime).
 - `HEALTHCHECK` su `/health/live` (con `node`, senza curl).
 - Il commit mostrato da `/version` si imposta con `--build-arg KAMINO_BUILD_COMMIT=<sha>` (nei compose: variabile `KAMINO_BUILD_COMMIT`); senza, vale `unknown`.
-- L'entrypoint senza argomenti avvia il server; con argomenti esegue la CLI (`keys generate`, `keys verify`, `migrate`).
+- L'entrypoint senza argomenti avvia il server; con argomenti esegue la CLI (`keys generate`, `keys verify`, `migrate`, `users …`).
+
+## 4. Primo avvio e utenti
+
+- Al primo avvio, senza utenti, il server scrive **una volta** nei log il link di configurazione: `docker compose -f docker/compose.lan.yml logs kamino` e cerca `finish the setup at …/setup?token=…`. Aprilo: il codice è già compilato. Il primo utente è amministratore e deve attivare la verifica in due passaggi.
+- Finché non c'è l'invio di email (arriva più avanti), i link si creano dalla CLI:
+  - `docker compose -f docker/compose.lan.yml run --rm -T kamino users invite <username> <email>` crea l'utente e stampa il link di attivazione (7 giorni);
+  - `… users reset-link <username>` stampa un link per reimpostare la password (1 ora; l'utente vede l'avviso);
+  - `… users reset-2fa <username>` toglie la verifica in due passaggi a chi ha perso il telefono e i codici di recupero (resta nel registro).
+- Le migrazioni del database partono solo dopo la verifica della master key: con una chiave sbagliata il server si ferma senza toccare lo schema.
 - Dimensione dell'immagine: **210 MB** (`docker image ls`, base Alpine 3.24 + binario `node` ridotto con `strip`) (obiettivo < 250 MB).

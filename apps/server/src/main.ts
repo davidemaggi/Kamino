@@ -1,4 +1,6 @@
+import { PRODUCT_NAME } from "@kamino/brand";
 import { buildApp } from "./app.js";
+import { AuthService } from "./auth/service.js";
 import { buildInfo } from "./build-info.js";
 import { ConfigError, loadConfig } from "./config/load.js";
 import { ensureKeyCheck } from "./crypto/key-check.js";
@@ -35,14 +37,13 @@ async function main(): Promise<void> {
 
   const db = createDb(config.databaseUrl);
 
-  // key_check is created by the migrations, so they run first; the port stays closed
-  // until the master key has been verified against this database.
-  // TODO: when the first application migration lands, run the key_check migration and verify
-  // the key BEFORE applying the rest (ruling R16).
-  await runMigrations(db);
+  // R16: key_check migration, then the master key check, then every other migration;
+  // the port stays closed until the key has been verified against this database.
   try {
-    const result = await ensureKeyCheck(db, kek);
-    logger.info({ kekId: kek.id, result }, "master key verified");
+    await runMigrations(db, async () => {
+      const result = await ensureKeyCheck(db, kek);
+      logger.info({ kekId: kek.id, result }, "master key verified");
+    });
   } catch (e) {
     if (e instanceof MasterKeyError) {
       logger.error(e.message);
@@ -52,7 +53,20 @@ async function main(): Promise<void> {
     throw e;
   }
 
-  const app = buildApp({ config, db, logger, buildInfo, webRoot: resolveWebRoot() });
+  const auth = new AuthService(db, kek, PRODUCT_NAME);
+  const setupToken = await auth.ensureSetupToken();
+  // 04 §8: the only token ever logged, once, while the server has no users.
+  if (setupToken)
+    logger.warn(`no users yet: finish the setup at ${config.publicUrl}/setup?token=${setupToken}`);
+  const app = await buildApp({
+    config,
+    db,
+    logger,
+    buildInfo,
+    kek,
+    auth,
+    webRoot: resolveWebRoot(),
+  });
 
   const shutdown = async (): Promise<void> => {
     try {

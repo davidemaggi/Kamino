@@ -31,6 +31,8 @@ services:
       KAMINO_DATABASE_URL: postgres://kamino:${KAMINO_DB_PASSWORD:?set KAMINO_DB_PASSWORD in docker/.env}@postgres:5432/kamino
       KAMINO_MASTER_KEY_FILE: /run/secrets/kamino_master_key
       KAMINO_LOG_LEVEL: ${KAMINO_LOG_LEVEL:-info}
+      # Only the proxy in front can reach the server: trust its X-Forwarded-For (one hop).
+      KAMINO_TRUST_PROXY: ${KAMINO_TRUST_PROXY:-1}
     secrets:
       - kamino_master_key
     ports:

@@ -1,6 +1,6 @@
 import { Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { createLogger } from "./logger.js";
+import { createLogger, redactUrl } from "./logger.js";
 
 function capture(): { stream: Writable; output: () => string } {
   const chunks: string[] = [];
@@ -36,5 +36,16 @@ describe("createLogger", () => {
     const { stream, output } = capture();
     createLogger("warn", stream).info("hidden");
     expect(output()).toBe("");
+  });
+});
+
+describe("redactUrl", () => {
+  it("removes tokens from invitation paths and token query parameters", () => {
+    expect(redactUrl("/api/v1/invites/abc123")).toBe("/api/v1/invites/[token]");
+    expect(redactUrl("/api/v1/invites/abc123/accept")).toBe("/api/v1/invites/[token]/accept");
+    expect(redactUrl("/setup?token=xyz&x=1")).toBe("/setup?token=[token]&x=1");
+    expect(redactUrl("/reset/abc123")).toBe("/reset/[token]");
+    expect(redactUrl("/invite/abc123")).toBe("/invite/[token]");
+    expect(redactUrl("/api/v1/me")).toBe("/api/v1/me");
   });
 });

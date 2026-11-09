@@ -19,6 +19,22 @@ export const REDACT_PATHS = [
   "req.headers.cookie",
 ];
 
+/** One-time tokens travel in some URLs (invitations): never let them reach the logs. */
+export function redactUrl(url: string): string {
+  return url
+    .replace(/(\/(?:invites|invite|reset)\/)[^/?#]+/g, "$1[token]")
+    .replace(/([?&]token=)[^&#]*/g, "$1[token]");
+}
+
+const serializers = {
+  req: (req: { method?: string; url?: string; hostname?: string; ip?: string }) => ({
+    method: req.method,
+    url: req.url === undefined ? undefined : redactUrl(req.url),
+    hostname: req.hostname,
+    remoteAddress: req.ip,
+  }),
+};
+
 export function createLogger(level: LogLevel, destination?: DestinationStream): Logger {
-  return pino({ level, redact: { paths: REDACT_PATHS } }, destination);
+  return pino({ level, redact: { paths: REDACT_PATHS }, serializers }, destination);
 }

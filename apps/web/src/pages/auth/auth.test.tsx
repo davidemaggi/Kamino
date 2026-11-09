@@ -82,6 +82,14 @@ describe("LoginPage", () => {
 });
 
 describe("SetupPage", () => {
+  it("the setup link from the server logs prefills the code", async () => {
+    resetDb("empty");
+    await renderRoute("/setup?token=from-the-logs");
+    expect(
+      ((await screen.findByLabelText("Codice di configurazione")) as HTMLInputElement).value,
+    ).toBe("from-the-logs");
+  });
+
   it("wrong token, weak password, then success → TOTP setup", async () => {
     resetDb("empty");
     const { router } = await renderRoute("/setup");

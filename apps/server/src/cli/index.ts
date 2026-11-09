@@ -5,12 +5,16 @@ import { PRODUCT_SLUG } from "@kamino/brand";
 import { keysGenerate } from "./commands/keys-generate.js";
 import { keysVerify } from "./commands/keys-verify.js";
 import { migrate } from "./commands/migrate.js";
+import { usersInvite, usersReset2fa, usersResetLink } from "./commands/users.js";
 import type { Command, Env, Io } from "./io.js";
 
 const commands: Record<string, Command> = {
   migrate,
   "keys generate": keysGenerate,
   "keys verify": keysVerify,
+  "users reset-link": usersResetLink,
+  "users invite": usersInvite,
+  "users reset-2fa": usersReset2fa,
 };
 
 const USAGE = `Usage: ${PRODUCT_SLUG} <command>\n\nCommands:\n${Object.keys(commands)

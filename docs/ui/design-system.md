@@ -211,7 +211,7 @@ Le pagine chiamano le API vere descritte in `@kamino/protocol` (`auth.ts`, `acco
 | `reset` | `reset-password-1` | mostra il banner del reset avviato dall'admin |
 | `locked` | qualsiasi | account bloccato |
 
-Link di prova: `/reset/reset-token`, `/invite/invite-token`, `/reset/expired-token`; codice di setup `setup-token`. Il pulsante **"Dati finti"** in basso a destra ripristina i dati, simula "nessun utente" (per vedere il setup), attiva/disattiva l'SMTP e permette di entrare come uno degli utenti di prova.
+Link di prova: `/reset/reset-token`, `/invite/invite-token`, `/reset/expired-token`; codice di setup `setup-token`. Con `VITE_KAMINO_API=hybrid` setup, login e account usano il server vero (il pannello lo dice) e il resto resta finto: le aree finte vedono sempre l'utente finto `admin`, qualunque sia il ruolo dell'utente vero. Il pulsante **"Dati finti"** in basso a destra ripristina i dati, simula "nessun utente" (per vedere il setup), attiva/disattiva l'SMTP e permette di entrare come uno degli utenti di prova.
 
 ## 10. Web app: area utente
 

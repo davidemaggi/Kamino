@@ -4,11 +4,20 @@ import type { ErrorCode } from "@kamino/protocol";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   AuthError,
+  needsTotpSetup,
   SESSION_ABSOLUTE_MS,
   type AuthService,
   type Ctx,
   type User,
 } from "./service.js";
+
+/** What an admin without TOTP may still do (U-07): see who they are, enable TOTP, sign out. */
+const TOTP_SETUP_ROUTES = new Set([
+  "GET /api/v1/me",
+  "POST /api/v1/auth/logout",
+  "POST /api/v1/account/totp/setup",
+  "POST /api/v1/account/totp/confirm",
+]);
 
 export const SESSION_COOKIE = `${PRODUCT_SLUG}_session`;
 export const CSRF_VALUE = `${PRODUCT_SLUG}-web`;
@@ -61,13 +70,16 @@ export async function registerAuthHttp(app: FastifyInstance, service: AuthServic
       return fail(reply, 403, "forbidden");
     const token = req.cookies[SESSION_COOKIE];
     req.auth = token ? await service.resolveSession(token) : null;
+    const route = `${req.method} ${req.url.split("?")[0]}`;
+    if (req.auth && needsTotpSetup(req.auth.user) && !TOTP_SETUP_ROUTES.has(route))
+      return fail(reply, 403, "totp_mandatory");
   });
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof AuthError) return fail(reply, err.status, err.code);
     // Fastify parse errors keep their 4xx status; never log request contents.
     const e = err as { name?: string; code?: unknown; statusCode?: number };
     if (e.statusCode !== undefined && e.statusCode < 500)
-      return fail(reply, e.statusCode, "internal");
+      return fail(reply, e.statusCode, "invalid_request");
     app.log.error({ err: { name: e.name, code: e.code } }, "request failed");
     return fail(reply, 500, "internal");
   });

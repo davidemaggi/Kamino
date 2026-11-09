@@ -21,6 +21,7 @@ export const migrate: Command = async (_args, env, io) => {
       io.stderr(`${e.message}\n`);
       return 1;
     }
+    // Deliberately generic (M0 review): no host, credentials or driver codes on stderr.
     io.stderr("migration failed: could not reach the database or apply migrations\n");
     return 1;
   } finally {

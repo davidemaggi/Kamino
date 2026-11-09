@@ -139,7 +139,13 @@ export function decryptRange(
   length: number,
 ): Buffer {
   const l = layout(blob, contentKey);
-  if (offset < 0 || length < 0 || offset + length > l.size)
+  if (
+    !Number.isSafeInteger(offset) ||
+    !Number.isSafeInteger(length) ||
+    offset < 0 ||
+    length < 0 ||
+    offset + length > l.size
+  )
     throw new CryptoError("range out of bounds");
   if (length === 0) return Buffer.alloc(0);
   const first = Math.floor(offset / l.segmentSize);

@@ -16,6 +16,9 @@ export class RateLimiter<B extends string> {
     const { max, windowMs } = this.limits[bucket];
     const id = `${bucket}\u0000${key}`;
     const t = this.now();
+    // Expired windows are dropped once the map grows: memory stays bounded.
+    if (this.hits.size > 10_000)
+      for (const [k, v] of this.hits) if (t - v.start >= windowMs) this.hits.delete(k);
     const cur = this.hits.get(id);
     if (!cur || t - cur.start >= windowMs) {
       this.hits.set(id, { start: t, count: 1 });

@@ -44,6 +44,8 @@ describe("redactUrl", () => {
     expect(redactUrl("/api/v1/invites/abc123")).toBe("/api/v1/invites/[token]");
     expect(redactUrl("/api/v1/invites/abc123/accept")).toBe("/api/v1/invites/[token]/accept");
     expect(redactUrl("/setup?token=xyz&x=1")).toBe("/setup?token=[token]&x=1");
+    expect(redactUrl("/reset/abc123")).toBe("/reset/[token]");
+    expect(redactUrl("/invite/abc123")).toBe("/invite/[token]");
     expect(redactUrl("/api/v1/me")).toBe("/api/v1/me");
   });
 });

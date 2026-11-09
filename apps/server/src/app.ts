@@ -28,7 +28,18 @@ export type AppDeps = {
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // Widen pino's Logger so the instance type stays the default FastifyInstance.
   const loggerInstance: FastifyBaseLogger = deps.logger;
-  const app = Fastify({ loggerInstance, trustProxy: true });
+  // trustProxy only when configured: otherwise X-Forwarded-For is ignored (rate limits key on the peer).
+  const tp = deps.config.trustProxy;
+  const app = Fastify({
+    loggerInstance,
+    // Only configured proxies are trusted: otherwise X-Forwarded-For is ignored (rate limits key on the peer).
+    trustProxy:
+      tp === undefined
+        ? false
+        : typeof tp === "number"
+          ? (_addr: string, hop: number) => hop < tp
+          : tp,
+  });
   const auth = deps.auth ?? new AuthService(deps.db, deps.kek, PRODUCT_NAME);
   await registerAuthHttp(app, auth);
   const secure = deps.config.publicUrl.startsWith("https:");

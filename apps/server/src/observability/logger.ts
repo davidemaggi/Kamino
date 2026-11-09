@@ -22,7 +22,7 @@ export const REDACT_PATHS = [
 /** One-time tokens travel in some URLs (invitations): never let them reach the logs. */
 export function redactUrl(url: string): string {
   return url
-    .replace(/(\/invites\/)[^/?#]+/g, "$1[token]")
+    .replace(/(\/(?:invites|invite|reset)\/)[^/?#]+/g, "$1[token]")
     .replace(/([?&]token=)[^&#]*/g, "$1[token]");
 }
 

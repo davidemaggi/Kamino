@@ -147,8 +147,9 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | B6 | Web: modalità finta (predefinita) e ibrida (`VITE_KAMINO_API=hybrid`) |
 | B7 | R16: migrazione `key_check`, verifica della chiave, poi il resto; errore originale mai mascherato dall'unlock |
 | B8 | Cookie `HttpOnly`/`SameSite=Lax`/`Secure` con HTTPS; anti-CSRF `X-Requested-With` |
+| B9 | `KAMINO_TRUST_PROXY` (numero di salti o IP/CIDR) decide di quali proxy fidarsi per l'IP del client; assente = nessuno (revisione C1) |
 
-R16 è **chiuso** (test d'ordine al posto del tripwire). Trovato e corretto durante M1b: il token degli inviti finiva nei log tramite l'URL della richiesta (ora sostituito).
+R16 è **chiuso** (test d'ordine al posto del tripwire). Trovato e corretto durante M1b: il token degli inviti finiva nei log tramite l'URL della richiesta (ora sostituito). La revisione finale (2 critici, 8 importanti) ha trovato e fatto correggere, con test in `apps/server/test/auth-security.test.ts`: rate limit eludibile con `X-Forwarded-For` falsificato (ora `KAMINO_TRUST_PROXY`, assente per default, `1` nei compose Caddy e tunnel) e sfida TOTP senza limite di tentativi (ora 5, più un limite per account); token di reset/invito nei log tramite gli URL web e il 404 di Fastify; usi concorrenti di codici TOTP, codici di recupero, setup e token di reset (ora aggiornamenti condizionali e transazioni); admin senza TOTP bloccato anche lato server; `email_taken`/`username_taken` invece di 500; orari presi dall'orologio dell'applicazione; memoria limitata per limiter e sfide; `invalid_request` per i corpi malformati.
 
 ### Decisioni di M1a (sync-core)
 

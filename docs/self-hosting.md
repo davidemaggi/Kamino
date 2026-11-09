@@ -39,6 +39,8 @@ Tutti i comandi si eseguono dalla radice del repository.
 
 Nello scenario LAN `KAMINO_PUBLIC_URL` deve essere l'indirizzo IP o il nome host del server visibile agli altri computer della rete (ad esempio `http://192.168.1.10:8080`); il default `http://localhost:8080` va bene solo per provare il server sulla stessa macchina. Nello scenario Caddy impostare anche `KAMINO_DOMAIN` in `docker/.env`. Nello scenario tunnel impostare `KAMINO_PUBLIC_URL` con l'URL HTTPS pubblico; per Cloudflare salvare il token del tunnel in `docker/secrets/cloudflared_token` e aggiungere `--profile cloudflare`. I dettagli per Tailscale (`tailscale serve --bg 8080`) e Cloudflare sono nei commenti di `compose.tunnel.yml`.
 
+`KAMINO_TRUST_PROXY` dice al server di quali proxy fidarsi per l'indirizzo del client (`X-Forwarded-For`): un numero di salti (es. `1`) o un elenco di IP/CIDR. Nei compose Caddy e tunnel vale `1`, perché il server è raggiungibile solo dal proxy; nello scenario LAN non va impostato. Se il server è esposto direttamente e la variabile è impostata, un client potrebbe falsificare il proprio indirizzo ed eludere i limiti sui tentativi di accesso.
+
 ## 2. La master key
 
 La master key è una chiave di 32 byte codificata in base64. Protegge le chiavi di cifratura dei dati: **se la perdi, i dati nel database non sono più leggibili**; se la cambi, il server rifiuta di partire con l'errore `master key does not match this database`.

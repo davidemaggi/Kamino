@@ -10,17 +10,20 @@
 | Colonna | Tipo | Note |
 |---|---|---|
 | `id` | uuid PK | UUIDv7 |
-| `username` | citext unique | |
-| `email` | citext unique | |
+| `username` | text | come scritto dall'utente |
+| `username_key` | text unique | NFC + minuscolo: unicità senza l'estensione citext (M1b) |
+| `email` | text | |
+| `email_key` | text unique | come sopra |
 | `email_verified_at` | timestamptz null | |
-| `password_hash` | text #️⃣ | Argon2id |
+| `password_hash` | text #️⃣ null | Argon2id; null per un utente invitato che non ha ancora scelto la password |
 | `role` | enum `user`, `admin` | |
-| `status` | enum `active`, `blocked`, `pending_deletion`, `deleted` | |
+| `status` | enum `invited`, `active`, `blocked`, `pending_deletion`, `deleted` | `invited`: creato da un invito, senza password |
 | `locale` | text | `it`, `en` |
 | `theme` | enum `light`, `dark`, `system` | |
 | `totp_secret` | bytea 🔑 null | |
 | `totp_enabled_at` | timestamptz null | |
 | `totp_last_step` | bigint null | anti-replay |
+| `admin_reset_at` | timestamptz null | reset avviato da admin o CLI, mostrato all'utente finché non cambia la password (U-09) |
 | `deletion_scheduled_at` | timestamptz null | fine dei 7 giorni |
 | `created_at`, `updated_at` | timestamptz | |
 

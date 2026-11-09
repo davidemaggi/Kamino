@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { Platform } from "../paths.js";
+import { REGRESSIONS } from "./regressions.js";
 import { World, type Action, type ClientSpec } from "./world.js";
 
 const env =
@@ -65,9 +66,12 @@ const actionArb = (clients: number): fc.Arbitrary<Action> => {
 };
 
 const scenarioArb = fc
-  .array(specArb, { minLength: 2, maxLength: 3 })
+  .array(specArb, { minLength: 2, maxLength: 4 })
   .chain((specs) =>
-    fc.tuple(fc.constant(specs), fc.array(actionArb(specs.length), { maxLength: 60 })),
+    fc.tuple(
+      fc.constant(specs),
+      fc.array(actionArb(specs.length), { minLength: 20, maxLength: 150, size: "max" }),
+    ),
   );
 
 describe("simulator (02 §5)", () => {
@@ -271,6 +275,14 @@ describe("simulator (02 §5)", () => {
       { t: "rename", c: 1, pick: 0, to: "con.md", watched: true },
     ] as const)
       w.act(a);
+    expect(w.settle()).toBe(true);
+    expect(w.check()).toEqual([]);
+  });
+  // Exact counterexamples found once scenarios got long (size "max"), replayed as they were.
+  it.each(REGRESSIONS.map((json, i) => [i, json] as const))("regression %i", (_, json) => {
+    const [[specs, actions]] = JSON.parse(json) as [[ClientSpec[], Action[]]];
+    const w = new World(specs);
+    for (const a of actions) w.act(a);
     expect(w.settle()).toBe(true);
     expect(w.check()).toEqual([]);
   });

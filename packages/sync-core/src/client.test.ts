@@ -121,7 +121,11 @@ describe("client", () => {
 
     ({ state: s, ops } = push(s, store, []));
     expect(ops).toMatchObject([{ type: "delete" }]);
-    expect(s.durable.index[fileId]).toBeUndefined();
+    expect(s.durable.index[fileId]).toMatchObject({
+      headDeleted: true,
+      localHash: null,
+      materialized: false,
+    });
     expect(store.files.get(fileId)!.deleted).toBe(true);
   });
 
@@ -267,7 +271,11 @@ describe("client", () => {
     });
     expect(ofType(out.effects, "trash")).toMatchObject([{ path: "a.md", expect: H1 }]);
     const done = run(out.state, { type: "trashed", fileId: e.fileId, ok: true }).state;
-    expect(done.durable.index[e.fileId]).toBeUndefined();
+    expect(done.durable.index[e.fileId]).toMatchObject({
+      headDeleted: true,
+      localHash: null,
+      materialized: false,
+    });
   });
 
   it("remote file on a path not representable here is never written", () => {

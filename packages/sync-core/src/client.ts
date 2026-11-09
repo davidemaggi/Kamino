@@ -334,6 +334,8 @@ function freeLocalSibling(s: ClientState, path: string, self: Entry): string {
 /** Download what the server has and this device doesn't (and is allowed to have). */
 function materialize(c: Ctx, e: Entry): void {
   if (!e.confirmed || e.materialized || e.pendingWrite || e.headDeleted || e.conflictId) return;
+  // Not on disk here: it lives at its server path (a local rename of a lost write doesn't count).
+  if (e.remotePath !== null) e.path = e.remotePath;
   e.unavailable = unavailableReason(c.s, e.path);
   if (e.unavailable || ownerOf(c.s, e.path, e)) return;
   write(c, e);
@@ -383,6 +385,12 @@ function followRemotePath(c: Ctx, e: Entry, path: string, seq: number | null): v
 /** Moves the local file to the server path, or next to it if something else is there on this device. */
 function follow(c: Ctx, e: Entry): void {
   if (!e.renaming || e.renaming.target !== null) return; // nothing to do, or already issued
+  if (e.localHash === null && !e.pendingWrite) {
+    // Nothing on disk to move: it simply lives at the server path.
+    e.path = e.renaming.path;
+    e.renaming = null;
+    return;
+  }
   const want = e.renaming.path;
   const target = ownerOf(c.s, want, e) ? freeLocalSibling(c.s, want, e) : want;
   if (target === e.path) {
@@ -424,8 +432,10 @@ function applyScan(c: Ctx, scan: ScanItem[]): void {
   const { s } = c;
   const owners = new Map<string, Entry>();
   const byTarget = new Map<string, Entry>();
+  const holders: Entry[] = [];
   for (const e of entries(s)) {
     if (e.localHash === null && !e.pendingWrite) continue;
+    holders.push(e);
     owners.set(diskKey(s, e.path), e);
     // A rename issued before a crash may have happened on disk without its event.
     if (e.renaming?.target) byTarget.set(diskKey(s, e.renaming.target), e);
@@ -471,7 +481,8 @@ function applyScan(c: Ctx, scan: ScanItem[]): void {
     const id = c.env.newId();
     s.durable.index[id] = newLocalEntry(id, item);
   }
-  for (const e of owners.values()) {
+  // Every entry that thought it had a file, not only the map's winners: two entries can't share a path.
+  for (const e of holders) {
     // Seen at its old path: an issued rename did not happen, retry it.
     if (seen.has(e) && e.renaming?.target && e.path !== e.renaming.target) e.renaming.target = null;
     if (seen.has(e)) continue;
@@ -490,6 +501,13 @@ function onLocalRename(c: Ctx, from: string, to: string): void {
   const e = ownerOf(c.s, from);
   if (!e) return;
   e.renaming = null; // the user's move wins over following the server
+  // The rename succeeded, so whatever the index thought was at `to` is no longer on disk.
+  const previous = ownerOf(c.s, to, e);
+  if (previous) {
+    previous.localHash = null;
+    if (!previous.confirmed && !c.s.durable.sent.some((op) => op.fileId === previous.fileId))
+      delete c.s.durable.index[previous.fileId];
+  }
   if (classify(to, c.s.config.settings).excluded) e.localHash = null;
   else e.path = to;
 }
@@ -529,7 +547,15 @@ export function nextOps(s: ClientState, env: ClientEnv): Op[] {
         });
       continue;
     }
-    if (e.remotePath !== null && e.path !== e.remotePath && !e.unavailable && !e.renaming)
+    // Deleted on the server: only an edit counts (it resurrects the file, C-06); a move would be refused.
+    const movable = !e.headDeleted;
+    if (
+      movable &&
+      e.remotePath !== null &&
+      e.path !== e.remotePath &&
+      !e.unavailable &&
+      !e.renaming
+    )
       moves.push({
         type: "move",
         opId: env.newId(),
@@ -610,9 +636,26 @@ function onAccepted(c: Ctx, e: Entry, op: Op, res: Pick<AcceptedResult, "seq" | 
       e.pathSeq = res.seq;
     }
   } else if (op.type === "delete") {
-    e.headDeleted = true;
-    if (e.localHash === null) delete c.s.durable.index[e.fileId];
+    if (res.seq >= e.headSeq) {
+      e.headDeleted = true;
+      e.headSeq = res.seq;
+    }
+    if (e.localHash === null) bury(e);
   }
+}
+
+/**
+ * A deleted file stays in the index as an inert tombstone: it keeps the journal positions, so
+ * older entries about it are recognised as stale (pruned with journal compaction, M2).
+ */
+function bury(e: Entry): void {
+  e.renaming = null;
+  if (e.remotePath !== null) e.path = e.remotePath;
+  e.localHash = null;
+  e.materialized = false;
+  e.pendingWrite = null;
+  e.base = null;
+  e.baseHash = null;
 }
 
 function onRejected(c: Ctx, e: Entry, op: Op, res: RejectedResult): void {
@@ -641,6 +684,8 @@ function onRejected(c: Ctx, e: Entry, op: Op, res: RejectedResult): void {
       materialize(c, e);
       return;
     case "not_found":
+      // move/delete of a file deleted on the server: the journal tells what happened, nothing to undo.
+      if (op.type !== "put") return;
       e.confirmed = false;
       e.remotePath = null;
       e.base = null;
@@ -697,7 +742,8 @@ function applyEntry(c: Ctx, entry: JournalEntry): boolean {
     else if (e) onAccepted(c, e, own, { seq: entry.seq, path: entry.path });
     return true;
   }
-  if (entry.deviceId === s.config.deviceId) return true;
+  // This device's own entries go through the same rules: the journal positions make them no-ops
+  // when the index already reflects them, and restore them when it doesn't.
   if (entry.kind === "folder") return true; // folders: M1d (Z9)
   switch (entry.type) {
     case "file_put":
@@ -744,6 +790,7 @@ function onRemotePut(c: Ctx, entry: JournalEntry): void {
     materialize(c, e);
     return;
   }
+  e.confirmed = true; // the server knows it, whatever this device thought
   if (entry.seq > e.headSeq) {
     e.head = entry.versionId;
     e.headHash = entry.contentHash;
@@ -778,7 +825,7 @@ function onRemoteDelete(c: Ctx, entry: JournalEntry): void {
   e.headSeq = entry.seq;
   if (e.conflictId) return;
   if (!e.materialized || (e.localHash === null && !e.pendingWrite)) {
-    delete c.s.durable.index[e.fileId];
+    bury(e);
     return;
   }
   trashIfClean(c, e);
@@ -827,7 +874,7 @@ function onTrashed(c: Ctx, fileId: string, ok: boolean): void {
     return;
   }
   if (e.headDeleted) {
-    delete c.s.durable.index[fileId];
+    bury(e);
     return;
   }
   // Resurrected on the server while being trashed here: download it again.

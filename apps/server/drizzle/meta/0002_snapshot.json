@@ -40,12 +40,8 @@
           "name": "applied_ops_vault_id_vaults_id_fk",
           "tableFrom": "applied_ops",
           "tableTo": "vaults",
-          "columnsFrom": [
-            "vault_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vault_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -53,10 +49,7 @@
       "compositePrimaryKeys": {
         "applied_ops_vault_id_op_id_pk": {
           "name": "applied_ops_vault_id_op_id_pk",
-          "columns": [
-            "vault_id",
-            "op_id"
-          ]
+          "columns": ["vault_id", "op_id"]
         }
       },
       "uniqueConstraints": {},
@@ -150,12 +143,8 @@
           "name": "blobs_vault_id_vaults_id_fk",
           "tableFrom": "blobs",
           "tableTo": "vaults",
-          "columnsFrom": [
-            "vault_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vault_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -163,10 +152,7 @@
       "compositePrimaryKeys": {
         "blobs_vault_id_blob_id_pk": {
           "name": "blobs_vault_id_blob_id_pk",
-          "columns": [
-            "vault_id",
-            "blob_id"
-          ]
+          "columns": ["vault_id", "blob_id"]
         }
       },
       "uniqueConstraints": {},
@@ -216,12 +202,8 @@
           "name": "conflict_candidates_vault_id_vaults_id_fk",
           "tableFrom": "conflict_candidates",
           "tableTo": "vaults",
-          "columnsFrom": [
-            "vault_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vault_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -229,11 +211,7 @@
       "compositePrimaryKeys": {
         "conflict_candidates_vault_id_conflict_id_version_id_pk": {
           "name": "conflict_candidates_vault_id_conflict_id_version_id_pk",
-          "columns": [
-            "vault_id",
-            "conflict_id",
-            "version_id"
-          ]
+          "columns": ["vault_id", "conflict_id", "version_id"]
         }
       },
       "uniqueConstraints": {},
@@ -308,12 +286,8 @@
           "name": "conflicts_vault_id_vaults_id_fk",
           "tableFrom": "conflicts",
           "tableTo": "vaults",
-          "columnsFrom": [
-            "vault_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vault_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -321,10 +295,7 @@
       "compositePrimaryKeys": {
         "conflicts_vault_id_id_pk": {
           "name": "conflicts_vault_id_id_pk",
-          "columns": [
-            "vault_id",
-            "id"
-          ]
+          "columns": ["vault_id", "id"]
         }
       },
       "uniqueConstraints": {},
@@ -476,12 +447,8 @@
           "name": "devices_user_id_users_id_fk",
           "tableFrom": "devices",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -489,12 +456,8 @@
           "name": "devices_vault_id_vaults_id_fk",
           "tableFrom": "devices",
           "tableTo": "vaults",
-          "columnsFrom": [
-            "vault_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vault_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -504,9 +467,7 @@
         "devices_token_hash_unique": {
           "name": "devices_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -579,12 +540,8 @@
           "name": "file_versions_vault_id_vaults_id_fk",
           "tableFrom": "file_versions",
           "tableTo": "vaults",
-          "columnsFrom": [
-            "vault_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vault_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -592,10 +549,7 @@
       "compositePrimaryKeys": {
         "file_versions_vault_id_id_pk": {
           "name": "file_versions_vault_id_id_pk",
-          "columns": [
-            "vault_id",
-            "id"
-          ]
+          "columns": ["vault_id", "id"]
         }
       },
       "uniqueConstraints": {},
@@ -701,12 +655,8 @@
           "name": "files_vault_id_vaults_id_fk",
           "tableFrom": "files",
           "tableTo": "vaults",
-          "columnsFrom": [
-            "vault_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vault_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -714,10 +664,7 @@
       "compositePrimaryKeys": {
         "files_vault_id_id_pk": {
           "name": "files_vault_id_id_pk",
-          "columns": [
-            "vault_id",
-            "id"
-          ]
+          "columns": ["vault_id", "id"]
         }
       },
       "uniqueConstraints": {},
@@ -820,12 +767,8 @@
           "name": "journal_vault_id_vaults_id_fk",
           "tableFrom": "journal",
           "tableTo": "vaults",
-          "columnsFrom": [
-            "vault_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vault_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -833,10 +776,7 @@
       "compositePrimaryKeys": {
         "journal_vault_id_seq_pk": {
           "name": "journal_vault_id_seq_pk",
-          "columns": [
-            "vault_id",
-            "seq"
-          ]
+          "columns": ["vault_id", "seq"]
         }
       },
       "uniqueConstraints": {},
@@ -948,12 +888,8 @@
           "name": "one_time_tokens_user_id_users_id_fk",
           "tableFrom": "one_time_tokens",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -963,9 +899,7 @@
         "one_time_tokens_token_hash_unique": {
           "name": "one_time_tokens_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -1007,12 +941,8 @@
           "name": "recovery_codes_user_id_users_id_fk",
           "tableFrom": "recovery_codes",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1099,12 +1029,8 @@
           "name": "security_events_user_id_users_id_fk",
           "tableFrom": "security_events",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1187,12 +1113,8 @@
           "name": "upload_sessions_vault_id_vaults_id_fk",
           "tableFrom": "upload_sessions",
           "tableTo": "vaults",
-          "columnsFrom": [
-            "vault_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vault_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1326,16 +1248,12 @@
         "users_username_key_unique": {
           "name": "users_username_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username_key"
-          ]
+          "columns": ["username_key"]
         },
         "users_email_key_unique": {
           "name": "users_email_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email_key"
-          ]
+          "columns": ["email_key"]
         }
       },
       "policies": {},
@@ -1425,12 +1343,8 @@
           "name": "vaults_owner_id_users_id_fk",
           "tableFrom": "vaults",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1524,12 +1438,8 @@
           "name": "web_sessions_user_id_users_id_fk",
           "tableFrom": "web_sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1539,9 +1449,7 @@
         "web_sessions_token_hash_unique": {
           "name": "web_sessions_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -1553,31 +1461,17 @@
     "public.device_platform": {
       "name": "device_platform",
       "schema": "public",
-      "values": [
-        "windows",
-        "macos",
-        "linux",
-        "ios",
-        "android",
-        "unknown"
-      ]
+      "values": ["windows", "macos", "linux", "ios", "android", "unknown"]
     },
     "public.role": {
       "name": "role",
       "schema": "public",
-      "values": [
-        "user",
-        "admin"
-      ]
+      "values": ["user", "admin"]
     },
     "public.theme": {
       "name": "theme",
       "schema": "public",
-      "values": [
-        "light",
-        "dark",
-        "system"
-      ]
+      "values": ["light", "dark", "system"]
     },
     "public.token_kind": {
       "name": "token_kind",
@@ -1595,21 +1489,12 @@
     "public.user_status": {
       "name": "user_status",
       "schema": "public",
-      "values": [
-        "invited",
-        "active",
-        "blocked",
-        "pending_deletion",
-        "deleted"
-      ]
+      "values": ["invited", "active", "blocked", "pending_deletion", "deleted"]
     },
     "public.vault_status": {
       "name": "vault_status",
       "schema": "public",
-      "values": [
-        "active",
-        "deleted"
-      ]
+      "values": ["active", "deleted"]
     }
   },
   "schemas": {},

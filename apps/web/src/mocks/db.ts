@@ -1,3 +1,4 @@
+import { seedAdminData } from "./admindata.js";
 import type { Lang, Role, SecurityEventType, Theme } from "@kamino/protocol";
 import { seedUserData } from "./userdata.js";
 
@@ -94,7 +95,10 @@ export function resetDb(preset: "default" | "empty" = "default"): void {
   db.smtp = true;
   db.seq = 0;
   seedUserData();
-  if (preset === "empty") return;
+  if (preset === "empty") {
+    seedAdminData(db.users);
+    return;
+  }
 
   const admin = user({
     username: "admin",
@@ -150,6 +154,7 @@ export function resetDb(preset: "default" | "empty" = "default"): void {
       client: i % 2 === 0 ? "Firefox · macOS" : "Obsidian · iPhone",
     });
   }
+  seedAdminData(db.users);
 }
 
 /** Opens a session for the fake browser. */

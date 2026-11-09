@@ -57,7 +57,6 @@
       "blocked": "Sync bloccato"
     },
     "conflictsCount": "{{count}} conflitti",
-    "placeholder": "Questa sezione arriva con la prossima parte.",
     "notFound": "Pagina non trovata.",
     "backHome": "Torna alla panoramica",
     "resetBanner": "L'amministratore ha avviato il reset della tua password il {{date}}. Se non l'hai chiesto tu, contattalo.",
@@ -74,7 +73,8 @@
     "signInAs": "Accedi come {{user}}",
     "pairingRequest": "Richiesta di collegamento in arrivo",
     "staleNext": "Versione più recente in arrivo",
-    "quotaFull": "Quota quasi piena"
+    "quotaFull": "Quota quasi piena",
+    "smtpFail": "Email di prova fallisce"
   },
   "auth": {
     "login": {
@@ -165,7 +165,13 @@
     "pairing_closed": "Questa richiesta non è più valida.",
     "stale_resolution": "È arrivata una versione più recente.",
     "not_found": "Non trovato.",
-    "quota_exceeded": "Spazio esaurito"
+    "quota_exceeded": "Spazio esaurito",
+    "smtp_not_configured": "L'invio di email non è configurato.",
+    "last_admin": "Serve almeno un amministratore.",
+    "config_locked": "Questo valore è impostato dall'ambiente e non si può cambiare qui.",
+    "username_taken": "Questo nome utente è già in uso.",
+    "email_taken": "Questa email è già in uso.",
+    "invalid_request": "Dati non validi: controlla i campi."
   },
   "account": {
     "title": "Account",
@@ -388,5 +394,172 @@
     "retentionLowerText": "Le versioni più vecchie di {{count}} giorni verranno eliminate e non si potranno più ripristinare.",
     "retentionLowerConfirm": "Riduci",
     "zipChoice": "Che cosa scaricare"
+  },
+  "admin": {
+    "users": {
+      "title": "Utenti",
+      "create": "Crea utente",
+      "username": "Nome utente",
+      "email": "Email",
+      "role": "Ruolo",
+      "status": "Stato",
+      "space": "Spazio",
+      "vaults": "Vault",
+      "devices": "Dispositivi",
+      "sync": "Sync",
+      "lastLogin": "Ultimo accesso",
+      "never": "mai",
+      "unlimited": "illimitata",
+      "statuses": {
+        "active": "Attivo",
+        "invited": "Invitato",
+        "blocked": "Bloccato",
+        "deleting": "In cancellazione"
+      },
+      "privacy": "Per privacy non vedi nomi di vault né file degli utenti: solo numeri e stato complessivo."
+    },
+    "create": {
+      "title": "Crea utente",
+      "delivery": "Come ricevere l'accesso",
+      "byEmail": "Invia invito via email",
+      "byLink": "Genera un link di attivazione",
+      "noSmtp": "L'invio di email non è configurato: usa il link.",
+      "submit": "Crea",
+      "invited": "Invito inviato a {{email}}.",
+      "linkHint": "Consegna questo link all'utente: sceglierà lui la password. Scade tra 7 giorni e lo vedi solo ora.",
+      "copy": "Copia",
+      "copied": "Copiato.",
+      "done": "Fatto",
+      "link": "Link",
+      "copyFailed": "Copia non riuscita: il link è selezionato, copialo a mano."
+    },
+    "user": {
+      "notFound": "Utente non trovato.",
+      "created": "Creato il",
+      "totp": "Verifica in due passaggi",
+      "yes": "attiva",
+      "no": "non attiva",
+      "quota": "Quota",
+      "quotaUnlimited": "Illimitata",
+      "quotaGb": "Quota in GB",
+      "quotaBelow": "La quota è sotto lo spazio già usato: non cancella nulla, ma l'utente non potrà caricare finché non libera spazio.",
+      "save": "Salva",
+      "saved": "Salvato.",
+      "roles": {
+        "user": "Utente",
+        "admin": "Amministratore"
+      },
+      "block": "Blocca",
+      "unblock": "Sblocca",
+      "blockTitle": "Bloccare {{name}}?",
+      "blockText": "Niente accesso né sync finché non lo sblocchi. I dati restano intatti e contano nella quota.",
+      "unblockTitle": "Sbloccare {{name}}?",
+      "unblockText": "L'utente potrà di nuovo accedere e sincronizzare.",
+      "reset": "Link per reimpostare la password",
+      "resetTitle": "Generare un link di reset per {{name}}?",
+      "resetText": "L'utente vedrà un avviso al prossimo accesso e la voce nel suo registro di sicurezza. Sessioni e dispositivi non vengono chiusi.",
+      "resetHint": "Consegna questo link all'utente. Lo vedi solo ora.",
+      "generate": "Genera",
+      "danger": "Zona pericolosa",
+      "delete": "Elimina l'utente",
+      "deleteTitle": "Eliminare {{name}}?",
+      "deleteText": "Per 7 giorni l'account resta “in cancellazione” (niente accesso né sync), poi utente e vault vengono eliminati in modo definitivo.",
+      "sendZip": "Invia all'utente un link allo ZIP dei suoi vault (arriva solo a lui, valido 7 giorni)",
+      "sendZipOff": "Serve l'invio di email per mandare lo ZIP.",
+      "deleteConfirmLabel": "Scrivi il nome utente per confermare",
+      "deleteConfirm": "Elimina",
+      "deleted": "Utente in cancellazione.",
+      "self": "Questo sei tu: non puoi bloccarti né eliminarti.",
+      "cancel": "Annulla",
+      "quotaInvalid": "Inserisci un numero maggiore di zero.",
+      "demoteSelfTitle": "Toglierti il ruolo di amministratore?",
+      "demoteSelfText": "Perderai subito l'accesso all'area di amministrazione. Potrà ridartelo solo un altro amministratore.",
+      "demoteSelfConfirm": "Togli il ruolo"
+    },
+    "system": {
+      "title": "Sistema",
+      "tabs": {
+        "config": "Configurazione",
+        "health": "Salute",
+        "audit": "Registro"
+      },
+      "fromEnv": "Impostato dall'ambiente",
+      "save": "Salva",
+      "saved": "Salvato.",
+      "registration": "Registrazione",
+      "registrationClosed": "Chiusa: gli utenti li crei tu",
+      "registrationOpen": "Aperta a tutti",
+      "limits": "Quote e limiti",
+      "defaultQuota": "Quota predefinita (GB)",
+      "maxRetention": "Storico massimo (giorni, 0–90)",
+      "maxFile": "Dimensione massima di un file (MB)",
+      "email": "Email",
+      "smtpHost": "Server SMTP",
+      "smtpPort": "Porta",
+      "smtpSecurity": "Sicurezza",
+      "securities": {
+        "none": "Nessuna",
+        "starttls": "STARTTLS",
+        "tls": "TLS"
+      },
+      "smtpUser": "Utente",
+      "smtpPassword": "Password",
+      "smtpPasswordSet": "Impostata: lascia vuoto per non cambiarla",
+      "smtpFrom": "Mittente",
+      "allowInvalid": "Accetta certificati non validi",
+      "allowInvalidWarn": "Sconsigliato: usalo solo per un server interno di cui ti fidi.",
+      "smtpTest": "Invia email di prova",
+      "smtpTestOk": "Email di prova inviata al tuo indirizzo.",
+      "smtpTestFail": "Invio non riuscito:",
+      "status": {
+        "ok": "Tutto funziona",
+        "degraded": "Qualcosa va controllato",
+        "down": "Servizio non disponibile"
+      },
+      "checkStatus": {
+        "ok": "OK",
+        "warn": "Da controllare",
+        "error": "Errore",
+        "off": "Non configurato"
+      },
+      "checks": {
+        "database": "Database",
+        "storage": "Archivio dei file",
+        "disk": "Disco",
+        "jobs": "Attività in coda",
+        "smtp": "Email"
+      },
+      "diskValue": "{{percent}}% usato",
+      "jobsValue": "{{count}} in coda",
+      "version": "Versione {{version}} · {{codename}}",
+      "uptime": "Attivo da {{age}}",
+      "totals": "Totali",
+      "totalUsers": "Utenti",
+      "totalVaults": "Vault",
+      "totalDevices": "Dispositivi",
+      "totalStorage": "Spazio usato",
+      "byLevel": "Dispositivi per stato",
+      "when": "Quando",
+      "actor": "Chi",
+      "action": "Azione",
+      "target": "Su",
+      "newer": "Più recenti",
+      "older": "Meno recenti",
+      "page": "Pagina {{page}} di {{pages}}",
+      "actions": {
+        "user_created": "Utente creato",
+        "user_invited": "Utente invitato",
+        "user_blocked": "Utente bloccato",
+        "user_unblocked": "Utente sbloccato",
+        "user_deleted": "Utente eliminato",
+        "quota_changed": "Quota cambiata",
+        "role_changed": "Ruolo cambiato",
+        "reset_link_created": "Link di reset generato",
+        "config_changed": "Configurazione cambiata",
+        "smtp_test": "Email di prova"
+      },
+      "invalidNumber": "Inserisci un numero valido.",
+      "defaultQuotaUnlimited": "Quota predefinita illimitata"
+    }
   }
 }

@@ -1,0 +1,95 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { ad, simulateSmtpFailure } from "../../mocks/admindata.js";
+import { signInAs } from "../../mocks/db.js";
+import { renderRoute } from "../../test/render.js";
+
+afterEach(cleanup);
+
+describe("Admin system", () => {
+  it("config: env fields are locked and labelled", async () => {
+    signInAs("admin");
+    await renderRoute("/admin/system");
+    const maxFile = (await screen.findByLabelText(
+      "Dimensione massima di un file (MB)",
+    )) as HTMLInputElement;
+    expect(maxFile.disabled).toBe(true);
+    expect((screen.getByLabelText("Server SMTP") as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getAllByText("Impostato dall'ambiente").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("config: save registration and SMTP port; password write-only", async () => {
+    signInAs("admin");
+    await renderRoute("/admin/system?tab=config");
+    fireEvent.click(await screen.findByLabelText("Aperta a tutti"));
+    const reg = screen.getByRole("region", { name: "Registrazione" });
+    fireEvent.click(within(reg).getByRole("button", { name: "Salva" }));
+    await waitFor(() => expect(ad.config.registration.value).toBe("open"));
+    expect((screen.getByLabelText("Password") as HTMLInputElement).value).toBe("");
+    fireEvent.change(screen.getByLabelText("Porta"), { target: { value: "465" } });
+    const email = screen.getByRole("region", { name: "Email" });
+    fireEvent.click(within(email).getByRole("button", { name: "Salva" }));
+    await waitFor(() => expect(ad.config.smtp.port.value).toBe(465));
+    expect(ad.config.smtp.password).toBe("secret");
+  });
+
+  it("test email: success and detailed failure", async () => {
+    signInAs("admin");
+    await renderRoute("/admin/system");
+    fireEvent.click(await screen.findByRole("button", { name: "Invia email di prova" }));
+    expect(await screen.findByText("Email di prova inviata al tuo indirizzo.")).toBeDefined();
+    simulateSmtpFailure();
+    fireEvent.click(screen.getByRole("button", { name: "Invia email di prova" }));
+    expect(await screen.findByText(/535 5\.7\.8/)).toBeDefined();
+  });
+
+  it("health: status, checks with text, aggregate totals", async () => {
+    signInAs("admin");
+    await renderRoute("/admin/system?tab=health");
+    expect(await screen.findByText("Qualcosa va controllato")).toBeDefined();
+    expect(screen.getByText(/85% usato/)).toBeDefined();
+    const totals = screen.getByRole("heading", { name: "Totali" }).parentElement!;
+    expect(within(totals).getByText("Utenti")).toBeDefined();
+  });
+
+  it("audit: localized actions and pagination", async () => {
+    signInAs("admin");
+    await renderRoute("/admin/system?tab=audit");
+    expect(await screen.findByText(/Pagina 1 di 2/)).toBeDefined();
+    expect(screen.getAllByText("Utente creato").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Meno recenti" }));
+    expect(await screen.findByText(/Pagina 2 di 2/)).toBeDefined();
+  });
+  it("limits: env fields are not sent; saving one section keeps edits in another", async () => {
+    signInAs("admin");
+    await renderRoute("/admin/system");
+    fireEvent.change(await screen.findByLabelText("Porta"), { target: { value: "2525" } });
+    fireEvent.change(screen.getByLabelText("Storico massimo (giorni, 0–90)"), {
+      target: { value: "60" },
+    });
+    const limits = screen.getByRole("region", { name: "Quote e limiti" });
+    fireEvent.click(within(limits).getByRole("button", { name: "Salva" }));
+    // maxFileBytes is from the environment: had it been sent, nothing would be saved (config_locked).
+    await waitFor(() => expect(ad.config.maxRetentionDays.value).toBe(60));
+    expect((screen.getByLabelText("Porta") as HTMLInputElement).value).toBe("2525");
+  });
+
+  it("limits: empty or out-of-range numbers can't be saved", async () => {
+    signInAs("admin");
+    await renderRoute("/admin/system");
+    fireEvent.change(await screen.findByLabelText("Storico massimo (giorni, 0–90)"), {
+      target: { value: "" },
+    });
+    const limits = screen.getByRole("region", { name: "Quote e limiti" });
+    expect(within(limits).getByText("Inserisci un numero valido.")).toBeDefined();
+    expect(
+      (within(limits).getByRole("button", { name: "Salva" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.change(screen.getByLabelText("Porta"), { target: { value: "70000" } });
+    const email = screen.getByRole("region", { name: "Email" });
+    expect(
+      (within(email).getByRole("button", { name: "Salva" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+});

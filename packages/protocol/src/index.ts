@@ -7,3 +7,4 @@ export * from "./vaults.js";
 export * from "./devices.js";
 export * from "./conflicts.js";
 export * from "./history.js";
+export * from "./admin.js";

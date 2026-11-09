@@ -23,9 +23,9 @@ export function AuthCard({ title, children }: { title: string; children: ReactNo
   );
 }
 
-export function ErrorText({ children }: { children: ReactNode }) {
+export function ErrorText({ children, id }: { children: ReactNode; id?: string }) {
   return children ? (
-    <p role="alert" className="text-destructive text-sm">
+    <p id={id} role="alert" className="text-destructive text-sm">
       {children}
     </p>
   ) : null;

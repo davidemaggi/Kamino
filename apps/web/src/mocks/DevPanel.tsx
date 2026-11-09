@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button.js";
+import { simulateSmtpFailure } from "./admindata.js";
 import { db, resetDb, signInAs } from "./db.js";
 import { seedUserData, simulatePairingRequest, simulateStaleNext } from "./userdata.js";
 
@@ -45,6 +46,9 @@ export default function DevPanel({ onChange }: { onChange: () => void }) {
             onClick={act(() => seedUserData("quota-almost-full"))}
           >
             {t("dev.quotaFull")}
+          </Button>
+          <Button size="sm" variant="outline" onClick={act(() => simulateSmtpFailure())}>
+            {t("dev.smtpFail")}
           </Button>
           {["admin", "demo", "newadmin", "reset"].map((u) => (
             <Button key={u} size="sm" variant="ghost" onClick={act(() => signInAs(u))}>

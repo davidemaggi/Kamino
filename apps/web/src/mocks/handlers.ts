@@ -70,7 +70,7 @@ const codes = () =>
       `${nextId("R").slice(2).padStart(4, "B")}-${String(Math.floor(1000 + Math.random() * 8999))}`,
   );
 
-const authHandlers = [
+export const authHandlers = [
   http.get(`*/version`, () =>
     HttpResponse.json({
       version: "0.0.0",

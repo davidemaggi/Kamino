@@ -8,13 +8,21 @@ import { newPasswordError } from "../../components/newPassword.js";
 import { PasswordField } from "../../components/PasswordField.js";
 import { TextField } from "../../components/TextField.js";
 import { Button } from "../../components/ui/button.js";
+import { setupRoute } from "../../router.js";
 import { AuthCard, ErrorText } from "./AuthCard.js";
 
 export function SetupPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [f, setF] = useState({ token: "", username: "", email: "", password: "", repeat: "" });
+  const { token } = setupRoute.useSearch();
+  const [f, setF] = useState({
+    token: token ?? "",
+    username: "",
+    email: "",
+    password: "",
+    repeat: "",
+  });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));

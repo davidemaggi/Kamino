@@ -64,9 +64,19 @@ export function clearSessionCookie(reply: FastifyReply, secure: boolean): void {
 export async function registerAuthHttp(app: FastifyInstance, service: AuthService): Promise<void> {
   await app.register(cookie);
   app.decorateRequest("auth", null);
+  app.decorateRequest("device", null);
   app.addHook("onRequest", async (req, reply) => {
     if (!req.url.startsWith("/api/")) return;
-    if (WRITE.has(req.method) && req.headers["x-requested-with"] !== CSRF_VALUE)
+    // Bearer requests (devices) carry no cookie: a third-party site can't set that header without CORS.
+    const bearer = req.headers.authorization?.startsWith("Bearer ") ?? false;
+    // The plugin's login uses no cookie and returns its token in the body: nothing for CSRF to steal.
+    const deviceLogin = req.method === "POST" && req.url.split("?")[0] === "/api/v1/devices/login";
+    if (
+      WRITE.has(req.method) &&
+      !bearer &&
+      !deviceLogin &&
+      req.headers["x-requested-with"] !== CSRF_VALUE
+    )
       return fail(reply, 403, "forbidden");
     const token = req.cookies[SESSION_COOKIE];
     req.auth = token ? await service.resolveSession(token) : null;

@@ -2,6 +2,7 @@ import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { pino } from "pino";
 import { buildApp } from "../../src/app.js";
 import { AuthService } from "../../src/auth/service.js";
+import { VaultService } from "../../src/vaults/service.js";
 import { CSRF_VALUE, SESSION_COOKIE } from "../../src/auth/http.js";
 import { buildInfo } from "../../src/build-info.js";
 import { ensureKeyCheck } from "../../src/crypto/key-check.js";
@@ -16,6 +17,7 @@ export interface TestApp {
   app: FastifyInstance;
   db: Db;
   auth: AuthService;
+  vaults: VaultService;
   clock: { now: number };
   /** JSON request with CSRF header and the cookie jar of `agent`. */
   call(agent: Agent, method: string, url: string, body?: unknown): Promise<LightMyRequestResponse>;
@@ -33,6 +35,7 @@ export async function testApp(
   });
   const clock = { now: Date.UTC(2026, 10, 9, 12) };
   const auth = new AuthService(db, kek, "Kamino", () => clock.now);
+  const vaults = new VaultService(db, kek, () => clock.now);
   const app = await buildApp({
     config: {
       publicUrl: opts.publicUrl ?? "http://localhost:8080",
@@ -49,11 +52,13 @@ export async function testApp(
     buildInfo,
     kek,
     auth,
+    vaults,
   });
   return {
     app,
     db,
     auth,
+    vaults,
     clock,
     async call(agent, method, path, body) {
       const res = await app.inject({

@@ -9,6 +9,8 @@ import type { Db } from "./db/client.js";
 import type { Logger } from "./observability/logger.js";
 import { accountRoutes } from "./routes/account.js";
 import { authRoutes } from "./routes/auth.js";
+import { enrollRoutes } from "./routes/enroll.js";
+import { VaultService } from "./vaults/service.js";
 import { healthRoutes } from "./routes/health.js";
 import { versionRoutes } from "./routes/version.js";
 import { webRoutes } from "./web.js";
@@ -21,6 +23,7 @@ export type AppDeps = {
   kek: Kek;
   /** Injected by tests (fake clock); built from db + kek otherwise. */
   auth?: AuthService | undefined;
+  vaults?: VaultService | undefined;
   /** Directory with the web build; when absent or missing, no static routes are served. */
   webRoot?: string | undefined;
 };
@@ -45,6 +48,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const secure = deps.config.publicUrl.startsWith("https:");
   await app.register(authRoutes(auth, secure), { prefix: "/api/v1" });
   await app.register(accountRoutes(auth), { prefix: "/api/v1" });
+  const vaultsSvc = deps.vaults ?? new VaultService(deps.db, deps.kek);
+  await app.register(enrollRoutes(deps.db, auth, vaultsSvc), { prefix: "/api/v1" });
   healthRoutes(app, deps.db);
   versionRoutes(app, deps.buildInfo);
   webRoutes(app, deps.webRoot);

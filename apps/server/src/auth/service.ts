@@ -309,6 +309,29 @@ export class AuthService {
     return { status: "ok", user: u };
   }
 
+  /** Device login (C5): password, then TOTP in the same request when enabled. */
+  async checkDeviceCredentials(
+    username: string,
+    password: string,
+    totp: string | undefined,
+    ctx: Ctx,
+  ): Promise<{ status: "ok"; user: User } | { status: "totp_required" }> {
+    const r = await this.login(username, password, ctx);
+    if (r.status === "ok") {
+      await this.event(r.user.id, "device_linked", ctx);
+      return r;
+    }
+    this.challenges.delete(r.challengeId);
+    if (totp === undefined) return { status: "totp_required" };
+    const u = await this.byUsername(username);
+    if (!u || !(await this.checkSecondFactor(u, totp))) {
+      if (u) await this.event(u.id, "login_failed", ctx);
+      throw new AuthError("totp_invalid", 401);
+    }
+    await this.event(u.id, "device_linked", ctx);
+    return { status: "ok", user: u };
+  }
+
   /** TOTP code or a recovery code (consumed). A challenge allows a few wrong codes, then it's gone. */
   async loginTotp(challengeId: string, code: string, ctx: Ctx): Promise<User> {
     const ch = this.challenges.get(challengeId);

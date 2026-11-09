@@ -38,7 +38,7 @@ export async function runMigrations(
   verify: () => Promise<void> = async () => undefined,
 ): Promise<void> {
   const conn = await db.$client.reserve();
-  let failed = false;
+  let original: unknown;
   try {
     await conn`select pg_advisory_lock(${MIGRATION_LOCK_ID.toString()}::bigint)`;
     const bootstrap = bootstrapFolder();
@@ -50,15 +50,16 @@ export async function runMigrations(
     await verify();
     await migrate(db, { migrationsFolder });
   } catch (e) {
-    failed = true;
-    throw e;
-  } finally {
-    try {
-      await conn`select pg_advisory_unlock(${MIGRATION_LOCK_ID.toString()}::bigint)`;
-    } catch (unlockError) {
-      if (!failed) throw unlockError;
-    } finally {
-      conn.release();
-    }
+    original = e;
   }
+  let unlockError: unknown;
+  try {
+    await conn`select pg_advisory_unlock(${MIGRATION_LOCK_ID.toString()}::bigint)`;
+  } catch (e) {
+    unlockError = e;
+  }
+  conn.release();
+  // The original error wins: a failing unlock never hides why the migrations stopped.
+  if (original !== undefined) throw original;
+  if (unlockError !== undefined) throw unlockError;
 }

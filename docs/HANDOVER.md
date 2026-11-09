@@ -148,9 +148,12 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | Z7 | Fuori: risoluzione conflitti (M3), WebSocket e compattazione (M2), cifratura (M1b) |
 | Z8 | Outbox ricavata dall'indice; op con esito ignoto ripetute identiche |
 | Z9 | Client M1a solo file (cartelle in M1d); riconciliazione con indice esistente in M2 |
+| Z11 | Contratto del guscio: effetti sui file in ordine con il loro evento (`written` porta l'hash); una scansione solo a effetti completati |
+| Z12 | Esclusioni insensibili alle maiuscole sui file system che lo sono |
+| Z13 | Un file escluso su un dispositivo non genera mai una cancellazione; togliendo l'esclusione si riprende (revisione C1) |
 | Z10 | File spostato altrove verso un nome non rappresentabile qui: la copia locale va nel cestino solo quando il server ne ha il contenuto, il nome si libera (trovato dal simulatore; precisa 03 §6.4) |
 
-Il simulatore ha trovato una decina di difetti del client (nessuna perdita di contenuti, ma mancata convergenza o azioni altrui annullate), tutti corretti con regressione esatta in `packages/sync-core/src/sim/regressions.ts`. Strumenti di indagine usati: rigiocare il JSON del controesempio con `World` e tracciare eventi/effetti di un client.
+La revisione finale (2 critici, 3 importanti) ha trovato due cancellazioni spurie (esclusioni, `moved_elsewhere` verso aree escluse), una corsa del cestino e op senza esito scartate, più i limiti del simulatore (effetti istantanei, 5 contenuti, esclusioni mai usate, nessuna verifica delle cancellazioni non volute): tutto corretto. Il simulatore ora ha contenuti unici, effetti asincroni, esclusioni per dispositivo e cambi di impostazioni, timeout con consegna tardiva, risposte troncate, quota piena, e verifica che nessun contenuto esca dai file vivi senza un'azione dell'utente e che non nascano duplicati. Prima ancora il simulatore aveva trovato una decina di difetti del client (nessuna perdita di contenuti, ma mancata convergenza o azioni altrui annullate), tutti corretti con regressione esatta in `packages/sync-core/src/sim/regressions.ts`. Strumenti di indagine usati: rigiocare il JSON del controesempio con `World` e tracciare eventi/effetti di un client.
 
 ### Decisioni della fase UI (sotto-fase 4c)
 
@@ -201,6 +204,7 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 - **Web:** valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
 - **Web admin:** nella scheda Salute i controlli hanno solo il testo (la spec prevedeva icona + testo).
 - **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal; riconciliazione completa con indice esistente (`cursor_too_old`).
+- **M1a, minori rinviati dalla revisione:** `mkdir` su cartella esistente restituisce `accepted` con l'altro `fileId` (03 dice `duplicate`: allineare il documento in M1c); cancellazione di cartella con discendenti vivi → `modified_since` (da documentare); nessun controllo su `put`/`move` sotto un path che è un file; `stopped` è volatile; MAX_PATH di Windows non modellato; su Linux un disco con forme NFC e NFD dello stesso nome (stesso path canonico): da definire nel contratto del guscio in M1d.
 - **M1d:** cartelle sul client (`mkdir`, spostamento e cancellazione di cartelle; l'arbitro le gestisce già); `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client.
 - **M1+ (server):** implementare anche le rotte `admin` (utenti, configurazione con fonte dei valori, email di prova, salute, audit) e quelle di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.
 - **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.

@@ -217,7 +217,12 @@ describe("client", () => {
       versionId: "v9",
       hash: H2,
     });
-    const written = run(clean.state, { type: "written", fileId: e.fileId, ok: true }).state;
+    const written = run(clean.state, {
+      type: "written",
+      fileId: e.fileId,
+      hash: H2,
+      ok: true,
+    }).state;
     expect(written.durable.index[e.fileId]).toMatchObject({
       localHash: H2,
       baseHash: H2,
@@ -366,5 +371,92 @@ describe("client", () => {
     expect(retryDelay(3, 0)).toBe(8000);
     expect(retryDelay(30, 0.999)).toBeLessThanOrEqual(300_000);
     expect(retryDelay(2, 0.5)).toBeGreaterThan(retryDelay(2, 0));
+  });
+  // Review C1: excluding a synced file on one device must never delete it for everyone.
+  it("excluding a synced file (settings or a watched move) sends nothing, never a delete", () => {
+    const store = new MemoryStore();
+    const { state } = push(joined(), store, [scanItem("a.md", H1), scanItem("b.md", H2)]);
+    const excluding: ClientState = {
+      ...state,
+      config: { ...state.config, settings: { ...state.config.settings, patterns: ["a.md"] } },
+    };
+    const r1 = run(excluding, { type: "sync", scan: [scanItem("a.md", H1), scanItem("b.md", H2)] });
+    expect(ofType(r1.effects, "push")).toEqual([]);
+    const a = Object.values(r1.state.durable.index).find((e) => e.path === "a.md")!;
+    expect(a).toMatchObject({ ignored: true, localHash: H1 });
+
+    const moved = run(state, { type: "localRename", from: "b.md", to: ".trash/b.md" }).state;
+    const r2 = run(moved, {
+      type: "sync",
+      scan: [scanItem("a.md", H1), scanItem(".trash/b.md", H2)],
+    });
+    expect(ofType(r2.effects, "push")).toEqual([]);
+    expect(
+      Object.values(r2.state.durable.index).find((e) => e.path === ".trash/b.md"),
+    ).toMatchObject({ ignored: true });
+
+    // Lifting the exclusion: a file gone meanwhile is downloaded again, not deleted.
+    const lifted: ClientState = {
+      ...r1.state,
+      config: state.config,
+      vol: { ...r1.state.vol, phase: "idle", requestId: null },
+    };
+    const r3 = run(lifted, { type: "sync", scan: [scanItem("b.md", H2)] });
+    expect(ofType(r3.effects, "push")).toEqual([]);
+    expect(ofType(r3.effects, "write")).toMatchObject([{ path: "a.md", hash: H1, expect: null }]);
+  });
+  // Review C2: a rejected move follows the server path through the same checks (here: excluded).
+  it("moved_elsewhere into an excluded area never turns into a delete", () => {
+    const store = new MemoryStore();
+    const base = push(joined(), store, [scanItem("a.md", H1)]).state;
+    const s: ClientState = {
+      ...base,
+      config: { ...base.config, settings: { ...base.config.settings, patterns: ["d/**"] } },
+    };
+    const moved = run(s, { type: "localRename", from: "a.md", to: "b.md" }).state;
+    const r = run(moved, { type: "sync", scan: [scanItem("b.md", H1)] });
+    const p = ofType(r.effects, "push")[0]!;
+    expect(p.ops).toMatchObject([{ type: "move", toPath: "b.md" }]);
+    const rejected: OpResult = { status: "rejected", code: "moved_elsewhere", path: "d/c.md" };
+    const after = run(r.state, {
+      type: "pushResult",
+      requestId: p.requestId,
+      results: [rejected],
+      head: 3,
+    });
+    expect(ofType(after.effects, "rename")).toEqual([]);
+    const e = Object.values(after.state.durable.index)[0]!;
+    expect(e.unavailable).toBe("excluded");
+    const next = run(
+      { ...after.state, vol: { ...after.state.vol, phase: "idle", requestId: null } },
+      { type: "sync", scan: [scanItem("b.md", H1)] },
+    );
+    expect(
+      ofType(next.effects, "push")
+        .flatMap((x) => x.ops)
+        .filter((o) => o.type === "delete"),
+    ).toEqual([]);
+  });
+
+  // Review I2: ops without a result keep their unknown outcome and are resent identical.
+  it("ops left without a result stay sent", () => {
+    const r = run(joined(), { type: "sync", scan: [scanItem("a.md", H1), scanItem("b.md", H2)] });
+    const p = ofType(r.effects, "push")[0]!;
+    expect(p.ops).toHaveLength(2);
+    const first: OpResult = {
+      status: "accepted",
+      seq: 1,
+      fileId: p.ops[0]!.fileId,
+      versionId: (p.ops[0] as { versionId: string }).versionId,
+      path: "a.md",
+    };
+    const after = run(r.state, {
+      type: "pushResult",
+      requestId: p.requestId,
+      results: [first],
+      head: 1,
+    });
+    expect(after.state.durable.sent).toEqual([p.ops[1]]);
+    expect(ofType(after.effects, "push")[0]!.ops).toEqual([p.ops[1]]);
   });
 });

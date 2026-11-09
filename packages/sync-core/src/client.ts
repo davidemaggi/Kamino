@@ -55,6 +55,13 @@ export interface Entry {
    * and `remotePath` is not a local move (no `move` op is sent).
    */
   renaming: { path: string; target: string | null } | null;
+  /**
+   * Its local path is excluded by this device's settings (C1): the file stays as it is and this
+   * device sends nothing about it, never a deletion. Lifting the exclusion resumes sync.
+   */
+  ignored: boolean;
+  /** A trash was issued expecting this content; the next scan tells whether it happened. */
+  trashing: string | null;
 }
 
 export interface Durable {
@@ -108,7 +115,8 @@ export type ClientEvent =
       hasMore: boolean;
     }
   | { type: "networkError"; requestId: string }
-  | { type: "written"; fileId: string; ok: boolean }
+  /** `hash` = the content of the write effect this completes. */
+  | { type: "written"; fileId: string; hash: string; ok: boolean }
   | { type: "renamed"; fileId: string; to: string; ok: boolean }
   | { type: "trashed"; fileId: string; ok: boolean };
 
@@ -155,6 +163,11 @@ export function retryDelay(attempt: number, random: number): number {
 /**
  * The whole client as a pure reducer. `persist` is always the first effect: the shell saves
  * `durable` before doing anything else (S-04, write-ahead).
+ *
+ * Shell contract: file effects (`write`, `rename`, `trash`) are performed in order and each
+ * reports its event; a `sync` (with its scan) is only reported once every file effect issued so
+ * far has completed. Network events may arrive at any time. After a crash, in-flight effects may
+ * or may not have happened: the next scan tells.
  */
 export function step(
   state: ClientState,
@@ -187,7 +200,7 @@ export function step(
       if (event.requestId === s.vol.requestId) idle(s);
       break;
     case "written":
-      onWritten(c, event.fileId, event.ok);
+      onWritten(c, event.fileId, event.hash, event.ok);
       break;
     case "renamed":
       onRenamed(c, event.fileId, event.to, event.ok);
@@ -206,6 +219,8 @@ const caseInsensitive = (p: Platform) => p !== "linux";
 const diskKey = (s: ClientState, path: string) =>
   caseInsensitive(s.config.platform) ? collisionKey(path) : path;
 const local = (s: ClientState, path: string) => localPath(path, s.config.configDir);
+const excludedHere = (s: ClientState, path: string) =>
+  classify(path, s.config.settings, caseInsensitive(s.config.platform)).excluded;
 
 function idle(s: ClientState): void {
   s.vol.phase = "idle";
@@ -216,7 +231,7 @@ function idle(s: ClientState): void {
 function unavailableReason(s: ClientState, path: string): string | null {
   const r = isRepresentable(local(s, path), s.config.platform);
   if (!r.ok) return r.reason;
-  return classify(path, s.config.settings).excluded ? "excluded" : null;
+  return excludedHere(s, path) ? "excluded" : null;
 }
 
 /** The entry whose file occupies `path` on disk (or is being written there). */
@@ -252,6 +267,8 @@ function newLocalEntry(fileId: string, item: ScanItem): Entry {
     unavailable: null,
     blocked: null,
     renaming: null,
+    ignored: false,
+    trashing: null,
   };
 }
 
@@ -288,6 +305,8 @@ function remoteEntry(
     unavailable: unavailableReason(s, r.path),
     blocked: null,
     renaming: null,
+    ignored: false,
+    trashing: null,
   };
 }
 
@@ -334,6 +353,7 @@ function freeLocalSibling(s: ClientState, path: string, self: Entry): string {
 /** Download what the server has and this device doesn't (and is allowed to have). */
 function materialize(c: Ctx, e: Entry): void {
   if (!e.confirmed || e.materialized || e.pendingWrite || e.headDeleted || e.conflictId) return;
+  if (e.trashing || e.ignored) return;
   // Not on disk here: it lives at its server path (a local rename of a lost write doesn't count).
   if (e.remotePath !== null) e.path = e.remotePath;
   e.unavailable = unavailableReason(c.s, e.path);
@@ -344,8 +364,8 @@ function materialize(c: Ctx, e: Entry): void {
 /** Remote deletion of an unmodified file: to the trash, never a hard delete (03 §6.4). */
 function trashIfClean(c: Ctx, e: Entry): void {
   if (!e.headDeleted || e.conflictId || e.pendingWrite || e.localHash === null) return;
-  if (e.localHash !== e.baseHash) return; // the edit wins: the next put resurrects it
-  c.fx.push({ type: "trash", fileId: e.fileId, path: local(c.s, e.path), expect: e.localHash });
+  if (e.localHash !== e.baseHash || e.trashing || e.ignored) return; // the edit wins: the next put resurrects it
+  trash(c, e);
 }
 
 /** The server path changed: follow it, unless a local move is pending (first arrived wins, the server says). */
@@ -362,13 +382,14 @@ function followRemotePath(c: Ctx, e: Entry, path: string, seq: number | null): v
     e.renaming = e.renaming?.target ? { path, target: null } : null;
     return;
   }
-  if (!e.materialized || (e.localHash === null && !e.pendingWrite)) {
+  if (!e.pendingWrite && (!e.materialized || e.localHash === null)) {
     e.path = path;
     e.unavailable = unavailableReason(c.s, path);
     return;
   }
-  // A local move is pending: the server decides (first arrived wins).
-  if (previous !== null && e.path !== previous && !e.renaming) return;
+  if (e.ignored) return; // excluded here: the local file is left alone
+  // A local move is pending: the server decides (first arrived wins). A rejection (seq null) has decided.
+  if (seq !== null && previous !== null && e.path !== previous && !e.renaming) return;
   const reason = unavailableReason(c.s, path);
   if (reason) {
     // Can't live here under its new name (Z10): the local copy leaves once the server has it.
@@ -385,6 +406,8 @@ function followRemotePath(c: Ctx, e: Entry, path: string, seq: number | null): v
 /** Moves the local file to the server path, or next to it if something else is there on this device. */
 function follow(c: Ctx, e: Entry): void {
   if (!e.renaming || e.renaming.target !== null) return; // nothing to do, or already issued
+  // A write in progress targets the old path: move only once it is done.
+  if (e.trashing || e.ignored || e.pendingWrite) return;
   if (e.localHash === null && !e.pendingWrite) {
     // Nothing on disk to move: it simply lives at the server path.
     e.path = e.renaming.path;
@@ -392,6 +415,14 @@ function follow(c: Ctx, e: Entry): void {
     return;
   }
   const want = e.renaming.path;
+  // Settings may have changed since the move arrived: re-check that the target can be used here.
+  const reason = unavailableReason(c.s, want);
+  if (reason) {
+    e.unavailable = reason;
+    e.renaming = null;
+    retire(c, e);
+    return;
+  }
   const target = ownerOf(c.s, want, e) ? freeLocalSibling(c.s, want, e) : want;
   if (target === e.path) {
     e.renaming = null;
@@ -433,8 +464,19 @@ function applyScan(c: Ctx, scan: ScanItem[]): void {
   const owners = new Map<string, Entry>();
   const byTarget = new Map<string, Entry>();
   const holders: Entry[] = [];
+  const unignored = new Set<Entry>();
   for (const e of entries(s)) {
     if (e.localHash === null && !e.pendingWrite) continue;
+    // C1: excluded here by this device's settings → left alone, never a deletion.
+    const excluded = excludedHere(s, e.path);
+    if (excluded) {
+      e.ignored = true;
+      continue;
+    }
+    if (e.ignored) {
+      e.ignored = false;
+      unignored.add(e);
+    }
     holders.push(e);
     owners.set(diskKey(s, e.path), e);
     // A rename issued before a crash may have happened on disk without its event.
@@ -442,7 +484,7 @@ function applyScan(c: Ctx, scan: ScanItem[]): void {
   }
   const seen = new Set<Entry>();
   for (const item of scan) {
-    if (classify(item.path, s.config.settings).excluded) continue;
+    if (excludedHere(s, item.path)) continue;
     const moved = owners.has(diskKey(s, item.path))
       ? undefined
       : byTarget.get(diskKey(s, item.path));
@@ -485,9 +527,23 @@ function applyScan(c: Ctx, scan: ScanItem[]): void {
   for (const e of holders) {
     // Seen at its old path: an issued rename did not happen, retry it.
     if (seen.has(e) && e.renaming?.target && e.path !== e.renaming.target) e.renaming.target = null;
-    if (seen.has(e)) continue;
+    if (seen.has(e)) {
+      // Still there: an issued trash did not happen (retried) or the user changed it (synced).
+      if (e.trashing) e.trashing = null;
+      continue;
+    }
     if (e.pendingWrite) {
       e.pendingWrite = null; // the write never happened
+      continue;
+    }
+    if (e.trashing) {
+      trashDone(c, e);
+      continue;
+    }
+    if (unignored.has(e)) {
+      // Gone while excluded here: that says nothing about the server copy, download it again.
+      e.localHash = null;
+      e.materialized = false;
       continue;
     }
     e.localHash = null;
@@ -508,8 +564,9 @@ function onLocalRename(c: Ctx, from: string, to: string): void {
     if (!previous.confirmed && !c.s.durable.sent.some((op) => op.fileId === previous.fileId))
       delete c.s.durable.index[previous.fileId];
   }
-  if (classify(to, c.s.config.settings).excluded) e.localHash = null;
-  else e.path = to;
+  e.path = to;
+  // Moved into an area excluded here: this device stops syncing it, the server copy stays (C1).
+  e.ignored = excludedHere(c.s, to);
 }
 
 // ---------- push ----------
@@ -521,7 +578,7 @@ export function nextOps(s: ClientState, env: ClientEnv): Op[] {
   const moves: Op[] = [];
   const puts: Op[] = [];
   for (const e of entries(s)) {
-    if (e.conflictId || e.pendingWrite || e.blocked) continue;
+    if (e.conflictId || e.pendingWrite || e.blocked || e.trashing || e.ignored) continue;
     if (!e.confirmed) {
       if (e.localHash !== null)
         puts.push({
@@ -594,7 +651,8 @@ function startPush(c: Ctx): boolean {
 function onPushResult(c: Ctx, results: OpResult[]): void {
   const { s } = c;
   const sent = s.durable.sent;
-  s.durable.sent = [];
+  // Ops without a result keep their outcome unknown: resent identical (I2).
+  s.durable.sent = sent.filter((_, i) => results[i] === undefined);
   idle(s);
   sent.forEach((op, i) => {
     const r = results[i];
@@ -653,7 +711,7 @@ function bury(e: Entry): void {
   if (e.remotePath !== null) e.path = e.remotePath;
   e.localHash = null;
   e.materialized = false;
-  e.pendingWrite = null;
+  // A write already issued is not cancelled: when it lands, the file is trashed (headDeleted).
   e.base = null;
   e.baseHash = null;
 }
@@ -662,11 +720,7 @@ function onRejected(c: Ctx, e: Entry, op: Op, res: RejectedResult): void {
   e.blocked = res.code;
   switch (res.code) {
     case "moved_elsewhere":
-      if (res.path !== undefined) {
-        e.remotePath = res.path;
-        e.renaming = { path: res.path, target: null };
-        follow(c, e);
-      }
+      if (res.path !== undefined) followRemotePath(c, e, res.path, null);
       return;
     case "path_taken":
       if (op.type === "move") {
@@ -790,6 +844,11 @@ function onRemotePut(c: Ctx, entry: JournalEntry): void {
     materialize(c, e);
     return;
   }
+  if (!e.confirmed && entry.deviceId === s.config.deviceId) {
+    // Our own put, whose response was lost: its version is what our local content derives from.
+    e.base = entry.versionId;
+    e.baseHash = entry.contentHash;
+  }
   e.confirmed = true; // the server knows it, whatever this device thought
   if (entry.seq > e.headSeq) {
     e.head = entry.versionId;
@@ -813,7 +872,7 @@ function onRemotePut(c: Ctx, entry: JournalEntry): void {
 function catchUp(c: Ctx, e: Entry): void {
   if (!e.materialized || e.pendingWrite || e.conflictId || e.headDeleted || e.localHash === null)
     return;
-  if (e.unavailable) return;
+  if (e.unavailable || e.trashing || e.ignored) return;
   if (e.localHash === e.baseHash && e.headHash !== null && e.headHash !== e.localHash) write(c, e);
 }
 
@@ -833,11 +892,13 @@ function onRemoteDelete(c: Ctx, entry: JournalEntry): void {
 
 // ---------- file effects ----------
 
-function onWritten(c: Ctx, fileId: string, ok: boolean): void {
+function onWritten(c: Ctx, fileId: string, hash: string, ok: boolean): void {
   const e = c.s.durable.index[fileId];
-  if (!e?.pendingWrite) return;
+  // Only the write this entry is waiting for: an older one completing must not be adopted.
+  if (!e?.pendingWrite || e.pendingWrite.hash !== hash) return;
   if (ok) {
     adoptWrite(e);
+    follow(c, e); // a server move that arrived during the write
     trashIfClean(c, e);
     catchUp(c, e); // a newer version may have arrived while writing
   } else e.pendingWrite = null; // the file changed meanwhile: the next scan sees the user's content
@@ -861,28 +922,40 @@ function onRenamed(c: Ctx, fileId: string, to: string, ok: boolean): void {
 function retire(c: Ctx, e: Entry): void {
   if (!e.unavailable || !e.materialized || e.pendingWrite || e.conflictId || e.localHash === null)
     return;
-  if (e.localHash !== e.baseHash) return;
-  e.materialized = false;
+  if (e.localHash !== e.baseHash || e.trashing || e.ignored) return;
+  trash(c, e);
+}
+
+/** Durable intent first (I1): until a scan or the event confirms it, nothing else moves this file. */
+function trash(c: Ctx, e: Entry): void {
+  if (e.localHash === null) return;
+  e.trashing = e.localHash;
   c.fx.push({ type: "trash", fileId: e.fileId, path: local(c.s, e.path), expect: e.localHash });
+}
+
+/** The file left the disk through our trash. */
+function trashDone(c: Ctx, e: Entry): void {
+  e.trashing = null;
+  if (e.headDeleted) {
+    bury(e);
+    return;
+  }
+  // Z10, or resurrected on the server meanwhile: it lives on the server; download it if allowed.
+  e.localHash = null;
+  e.materialized = false;
+  e.base = null;
+  e.baseHash = null;
+  materialize(c, e);
 }
 
 function onTrashed(c: Ctx, fileId: string, ok: boolean): void {
   const e = c.s.durable.index[fileId];
   if (!e) return;
   if (!ok) {
-    if (e.unavailable && e.localHash !== null) e.materialized = true; // changed meanwhile: sync it first
+    e.trashing = null; // changed meanwhile: the next scan sees the user's content
     return;
   }
-  if (e.headDeleted) {
-    bury(e);
-    return;
-  }
-  // Resurrected on the server while being trashed here: download it again.
-  e.localHash = null;
-  e.materialized = false;
-  e.base = null;
-  e.baseHash = null;
-  materialize(c, e);
+  trashDone(c, e);
 }
 
 // ---------- joining (D-07, V-05) ----------

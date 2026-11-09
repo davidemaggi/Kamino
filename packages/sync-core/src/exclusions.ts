@@ -1,5 +1,5 @@
 import { PLUGIN_ID, PRODUCT_SLUG } from "@kamino/brand";
-import { CONFIG_PREFIX } from "./paths.js";
+import { CONFIG_PREFIX, collisionKey } from "./paths.js";
 
 /** Categories of the configuration folder (03 §11). */
 export const CONFIG_CATEGORIES = [
@@ -48,7 +48,7 @@ export function mergeSettings(vault: SyncSettings, device: Partial<SyncSettings>
   };
 }
 
-/** `*` (no "/"), `**` (zero or more segments), `?`, `[abc]`, `[!abc]`. Case-sensitive. */
+/** `*` (no "/"), `**` (zero or more segments), `?`, `[abc]`, `[!abc]` (never "/"). Case-sensitive. */
 export function globToRegExp(pattern: string): RegExp {
   let re = "^";
   let i = 0;
@@ -75,12 +75,13 @@ export function globToRegExp(pattern: string): RegExp {
       continue;
     }
     if (c === "[") {
-      const end = pattern.indexOf("]", i + 2);
-      if (end > 0) {
-        let body = pattern.slice(i + 1, end);
-        const negated = body.startsWith("!");
-        if (negated) body = body.slice(1);
-        re += `[${negated ? "^" : ""}${body.replace(/[\\\]^]/g, "\\$&")}]`;
+      const negated = pattern[i + 1] === "!";
+      const start = i + (negated ? 2 : 1);
+      const end = pattern.indexOf("]", start + 1);
+      const body = end > 0 ? pattern.slice(start, end).replaceAll("/", "") : "";
+      if (body !== "") {
+        const escaped = body.replace(/[\\\]^]/g, "\\$&");
+        re += negated ? `[^/${escaped}]` : `[${escaped}]`;
         i = end + 1;
         continue;
       }
@@ -92,15 +93,20 @@ export function globToRegExp(pattern: string): RegExp {
 }
 
 const compiled = new Map<string, RegExp>();
-export function globMatch(pattern: string, path: string): boolean {
-  let re = compiled.get(pattern);
+/**
+ * Patterns are NFC like paths. On case-insensitive file systems both sides are case-folded:
+ * "d/**" must also exclude "D/c.md", which is the same file there.
+ */
+export function globMatch(pattern: string, path: string, caseInsensitive = false): boolean {
+  const p = caseInsensitive ? collisionKey(pattern) : pattern.normalize("NFC");
+  let re = compiled.get(p);
   if (!re) {
-    re = globToRegExp(pattern);
-    compiled.set(pattern, re);
+    re = globToRegExp(p);
+    compiled.set(p, re);
   }
-  if (re.test(path)) return true;
+  if (re.test(caseInsensitive ? collisionKey(path) : path)) return true;
   // "dir/**" also covers the folder itself.
-  return pattern.endsWith("/**") && globMatch(pattern.slice(0, -3), path);
+  return pattern.endsWith("/**") && globMatch(pattern.slice(0, -3), path, caseInsensitive);
 }
 
 function configCategory(rel: string): ConfigCategory {
@@ -116,9 +122,14 @@ export type Classification =
   | { excluded: false; category: ConfigCategory | "vault" }
   | { excluded: true; reason: "always" | "category" | "pattern" };
 
-export function classify(path: string, settings: SyncSettings): Classification {
-  if (ALWAYS_EXCLUDED.some((p) => globMatch(p, path))) return { excluded: true, reason: "always" };
-  const pattern = settings.patterns.some((p) => globMatch(p, path));
+export function classify(
+  path: string,
+  settings: SyncSettings,
+  caseInsensitive = false,
+): Classification {
+  if (ALWAYS_EXCLUDED.some((p) => globMatch(p, path, caseInsensitive)))
+    return { excluded: true, reason: "always" };
+  const pattern = settings.patterns.some((p) => globMatch(p, path, caseInsensitive));
   if (path === CONFIG_PREFIX || path.startsWith(`${CONFIG_PREFIX}/`)) {
     const category = configCategory(path.slice(CONFIG_PREFIX.length + 1));
     if (!settings.config[category]) return { excluded: true, reason: "category" };

@@ -8,39 +8,42 @@ const env =
   (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const RUNS = Number(env["SIM_RUNS"] ?? 150);
 
-const PATHS = ["a.md", "A.md", "b.md", "d/c.md", "D/c.md", "é.md", "con.md", "x/y/z.md"];
+const PATHS = [
+  "a.md",
+  "A.md",
+  "b.md",
+  "d/c.md",
+  "D/c.md",
+  "d/e.md",
+  "é.md",
+  "con.md",
+  "x/y/z.md",
+  ".obsidian/app.json",
+  ".obsidian/workspace.json",
+  ".trash/t.md",
+];
 const HASHES = ["0", "1", "2", "3", "4"].map((c) => c.repeat(64));
 const PLATFORMS: Platform[] = ["linux", "windows", "macos", "android", "ios"];
+const PATTERNS: string[][] = [[], [".trash/**"], ["d/**"], ["x/**", ".trash/**"], ["b.md"]];
 
 const specArb: fc.Arbitrary<ClientSpec> = fc.record({
   platform: fc.constantFrom(...PLATFORMS),
   files: fc.array(fc.tuple(fc.constantFrom(...PATHS), fc.constantFrom(...HASHES)), {
     maxLength: 3,
   }),
+  patterns: fc.constantFrom(...PATTERNS),
 });
 
 const actionArb = (clients: number): fc.Arbitrary<Action> => {
   const c = fc.nat(clients - 1);
   const path = fc.constantFrom(...PATHS);
-  const crashAt = fc.option(fc.nat(6), { freq: 4 });
+  const crashAt = fc.option(fc.nat(8), { freq: 4 });
+  const hash = fc.constantFrom(...HASHES);
   return fc.oneof(
-    {
-      weight: 4,
-      arbitrary: fc.record({
-        t: fc.constant("write" as const),
-        c,
-        path,
-        hash: fc.constantFrom(...HASHES),
-      }),
-    },
+    { weight: 4, arbitrary: fc.record({ t: fc.constant("write" as const), c, path, hash }) },
     {
       weight: 3,
-      arbitrary: fc.record({
-        t: fc.constant("edit" as const),
-        c,
-        pick: fc.nat(9),
-        hash: fc.constantFrom(...HASHES),
-      }),
+      arbitrary: fc.record({ t: fc.constant("edit" as const), c, pick: fc.nat(9), hash }),
     },
     { weight: 2, arbitrary: fc.record({ t: fc.constant("remove" as const), c, pick: fc.nat(9) }) },
     {
@@ -53,14 +56,29 @@ const actionArb = (clients: number): fc.Arbitrary<Action> => {
         watched: fc.boolean(),
       }),
     },
+    {
+      weight: 1,
+      arbitrary: fc.record({
+        t: fc.constant("settings" as const),
+        c,
+        patterns: fc.constantFrom(...PATTERNS),
+      }),
+    },
     { weight: 5, arbitrary: fc.record({ t: fc.constant("cycle" as const), c }) },
     { weight: 4, arbitrary: fc.record({ t: fc.constant("sync" as const), c, crashAt }) },
+    {
+      weight: 4,
+      arbitrary: fc.record({ t: fc.constant("fs" as const), c, k: fc.nat(5), crashAt }),
+    },
     {
       weight: 6,
       arbitrary: fc.record({ t: fc.constant("deliver" as const), k: fc.nat(20), crashAt }),
     },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("drop" as const), k: fc.nat(20) }) },
+    { weight: 1, arbitrary: fc.record({ t: fc.constant("timeout" as const), k: fc.nat(20) }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("dup" as const), k: fc.nat(20) }) },
+    { weight: 1, arbitrary: fc.record({ t: fc.constant("truncate" as const) }) },
+    { weight: 1, arbitrary: fc.record({ t: fc.constant("quota" as const), on: fc.boolean() }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("crash" as const), c }) },
   );
 };
@@ -99,7 +117,8 @@ describe("simulator (02 §5)", () => {
     w.act({ t: "write", c: 1, path: "nota.md", hash: "2".repeat(64) });
     expect(w.settle()).toBe(true);
     expect(w.check()).toEqual([]);
-    expect(w.store.hasContent("1".repeat(64)) && w.store.hasContent("2".repeat(64))).toBe(true);
+    // Both writes survive: one live, the other as a conflict candidate.
+    expect(w.store.versions.size).toBe(2);
     expect(w.store.conflicts.size).toBe(1);
   });
   // fast-check counterexample: a device follows a remote rename onto a path where the user

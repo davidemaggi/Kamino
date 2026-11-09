@@ -17,6 +17,12 @@ describe("globMatch", () => {
     expect(globMatch("a.md", "A.md")).toBe(false);
     expect(globMatch("(x)+.md", "(x)+.md")).toBe(true);
     expect(globMatch("{config}/x", "{config}/x")).toBe(true);
+    expect(globMatch("[!]", "a")).toBe(false);
+    expect(globMatch("a[/]b", "a/b")).toBe(false);
+    expect(globMatch("a[!x]b", "a/b")).toBe(false);
+    expect(globMatch("d/**", "D/c.md")).toBe(false);
+    expect(globMatch("d/**", "D/c.md", true)).toBe(true);
+    expect(globMatch("e\u0301.md", "é.md")).toBe(true);
   });
 });
 

@@ -30,7 +30,7 @@ export interface TestApp {
   sync: SyncService;
   hub: Hub;
   /** A WebSocket client on /api/v1/ws. */
-  ws(): Promise<TestWs>;
+  ws(opts?: { autoPong?: boolean }): Promise<TestWs>;
   /** Temporary blob and staging directories (removed on close). */
   dirs: { blobs: string; staging: string };
   clock: { now: number };
@@ -94,7 +94,7 @@ export async function testApp(
     uploads,
     sync,
     hub,
-    ws: () => openWs(app),
+    ws: (o) => openWs(app, o?.autoPong ?? true),
     dirs,
     clock,
     async call(agent, method, path, body) {

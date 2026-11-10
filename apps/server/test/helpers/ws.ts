@@ -12,7 +12,7 @@ export interface TestWs {
   close(): void;
 }
 
-export async function openWs(app: FastifyInstance): Promise<TestWs> {
+export async function openWs(app: FastifyInstance, autoPong = true): Promise<TestWs> {
   await app.ready();
   const socket = await app.injectWS("/api/v1/ws");
   const queue: Msg[] = [];
@@ -21,6 +21,11 @@ export async function openWs(app: FastifyInstance): Promise<TestWs> {
   const closeWaiters: ((c: { code: number }) => void)[] = [];
   socket.on("message", (data) => {
     const m = ServerMessage.parse(JSON.parse(String(data)));
+    // Like a real client: answer heartbeats, so slow test steps don't look like a dead client.
+    if (m.type === "ping" && autoPong) {
+      socket.send(JSON.stringify({ type: "pong" }));
+      return;
+    }
     queue.push(m);
     for (const w of waiters.splice(0)) w();
   });

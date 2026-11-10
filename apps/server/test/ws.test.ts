@@ -145,15 +145,14 @@ describe.skipIf(dockerUnavailable)("websocket", () => {
   });
 
   it("a silent client is dropped after two heartbeats; one that talks stays", async () => {
-    const quiet = await t.ws();
+    const quiet = await t.ws({ autoPong: false });
     quiet.send(hello(b.token));
     await quiet.next("welcome");
+    // Answers every ping (the default), so it stays.
     const chatty = await t.ws();
     chatty.send(hello(a.token));
     await chatty.next("welcome");
-    const keep = setInterval(() => chatty.send({ type: "pong" }), 50);
     expect((await quiet.closed()).code).toBe(4408);
-    clearInterval(keep);
     expect(t.hub.size()).toBe(1);
     chatty.close();
   });

@@ -10,3 +10,5 @@ export * from "./history.js";
 export * from "./admin.js";
 export * from "./sync.js";
 export * from "./devices-auth.js";
+export * from "./settings.js";
+export * from "./ws.js";

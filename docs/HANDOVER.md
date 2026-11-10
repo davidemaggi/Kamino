@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1b mergiata (PR #9). **M1c (server di sync) implementata** sul branch `m1c-sync-server`, in revisione/PR. Prossimo: M1d (dopo gli spike) o M2.
+**Ultimo aggiornamento:** 2026-11-10 — M1b mergiata (PR #9). **M1c (server di sync) implementata e rivista**, PR #10 aperta. Prossimo: M1d (dopo gli spike) o M2.
 
 ## Dove siamo
 
@@ -18,7 +18,7 @@
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
-| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): implementata, branch `m1c-sync-server`, in revisione/PR · ⏳ M1d |
+| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): implementata e rivista, PR #10 aperta · ⏳ M1d |
 | M2…M7 | ⏳ |
 
 **Branch di lavoro:** `m1b-crypto-auth` (da `main` dopo la PR #8).
@@ -44,7 +44,7 @@
 
 ## Prossimi passi
 
-1. **Chiudere M1c:** revisione finale, PR e merge del committente.
+1. **Chiudere M1c:** merge della PR #10 da parte del committente.
 2. Prova del committente (facoltativa): `docker compose … up` con il volume `kamino-data`; web app in modalità ibrida (`VITE_KAMINO_API=hybrid`): login, account, elenco e riepilogo dei vault dal server vero.
 3. **M2 — WebSocket e tempo reale** può partire anche prima di M1d (il server ha già journal, `changes` e `ack`).
 4. **M1d — motore del plugin** (dopo gli spike R-1…R-5, rinviati dal committente insieme alla prova su telefono): guscio di `step()` con file system di Obsidian, `requestUrl`, persistenza; cartelle sul client (Z9).

@@ -4,7 +4,7 @@ import { mkdir, open, rename, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { BlobStore } from "./store.js";
 
-/** Write to a temp file, fsync, rename, fsync the directory: durable and atomic. */
+/** Write to a temp file, fsync, rename, fsync the directory (not on Windows): durable and atomic. */
 export class FsBlobStore implements BlobStore {
   constructor(private readonly root: string) {}
 
@@ -28,6 +28,8 @@ export class FsBlobStore implements BlobStore {
     }
     await fh.close();
     await rename(tmp, target);
+    // Windows can't fsync a directory handle (EPERM); NTFS journals the rename itself.
+    if (process.platform === "win32") return;
     const dir = await open(dirname(target), "r");
     try {
       await dir.sync();

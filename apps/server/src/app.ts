@@ -18,6 +18,8 @@ import { SyncService } from "./sync/commit.js";
 import { Hub } from "./realtime/hub.js";
 import { keepListening } from "./realtime/listener.js";
 import { wsRoutes } from "./routes/ws.js";
+import { deviceRoutes } from "./routes/devices.js";
+import { DeviceService } from "./devices/service.js";
 import { createBlobStore, type BlobStore } from "./blobs/store.js";
 import { UploadService } from "./blobs/uploads.js";
 import { VaultService } from "./vaults/service.js";
@@ -67,7 +69,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(authRoutes(auth, secure), { prefix: "/api/v1" });
   await app.register(accountRoutes(auth), { prefix: "/api/v1" });
   const vaultsSvc = deps.vaults ?? new VaultService(deps.db, deps.kek);
-  await app.register(enrollRoutes(deps.db, auth, vaultsSvc), { prefix: "/api/v1" });
+  const hub = deps.hub ?? new Hub();
+  const devicesSvc = new DeviceService(deps.db, vaultsSvc, hub, deps.now ?? Date.now);
+  await app.register(enrollRoutes(deps.db, auth, vaultsSvc, devicesSvc), { prefix: "/api/v1" });
+  await app.register(deviceRoutes(deps.db, devicesSvc), { prefix: "/api/v1" });
   const blobStore = deps.blobStore ?? createBlobStore(deps.config.storage);
   const uploads =
     deps.uploads ??
@@ -78,7 +83,6 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(vaultRoutes(deps.db, vaultsSvc), { prefix: "/api/v1" });
   // Spec §5: frames above 64 KB close the socket.
   await app.register(websocket, { options: { maxPayload: 65_536 } });
-  const hub = deps.hub ?? new Hub();
   await app.register(
     wsRoutes({
       db: deps.db,

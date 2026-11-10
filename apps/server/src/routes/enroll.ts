@@ -12,10 +12,16 @@ import { keyOf, type AuthService } from "../auth/service.js";
 import type { Db } from "../db/client.js";
 import { devices } from "../db/schema.js";
 import { deviceGuard } from "../devices/auth.js";
+import type { DeviceService } from "../devices/service.js";
 import type { VaultService } from "../vaults/service.js";
 import { parse } from "./auth.js";
 
-export function enrollRoutes(db: Db, auth: AuthService, vaultsSvc: VaultService) {
+export function enrollRoutes(
+  db: Db,
+  auth: AuthService,
+  vaultsSvc: VaultService,
+  devicesSvc: DeviceService,
+) {
   const limiter = new RateLimiter<"login">({ login: { max: 10, windowMs: 15 * 60_000 } });
   const limited = (key: string, reply: FastifyReply) => {
     const r = limiter.hit("login", key);
@@ -76,7 +82,8 @@ export function enrollRoutes(db: Db, auth: AuthService, vaultsSvc: VaultService)
       return reply.code(204).send();
     });
     app.delete("/device", { preHandler: guard }, async (req, reply) => {
-      await db.update(devices).set({ revokedAt: new Date() }).where(eq(devices.id, req.device!.id));
+      // The device unlinks itself: its other sockets are closed too.
+      await devicesSvc.revoke(req.device!.userId, req.device!.id);
       return reply.code(204).send();
     });
   };

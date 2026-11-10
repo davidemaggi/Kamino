@@ -155,6 +155,20 @@ Trovati durante M2a:
 - `revoke` del web che doveva restituire il `Device`;
 - il test multi-client che con pochi giri non arrivava mai alla compattazione: ora controlla di aver attraversato ogni percorso.
 
+Revisione finale (0 critici, 3 importanti, 8 minori). Corretti, con test:
+- più `hello` sullo stesso socket non autenticato avviavano più ricerche del token; ora c'è uno stato "in autenticazione";
+- `changes` poteva arrivare prima di `welcome`;
+- un dispositivo sempre connesso sembrava inattivo: ora `ack` e heartbeat aggiornano "ultimo contatto", al massimo una volta al minuto;
+- il timer del `hello` resta attivo fino a `welcome`;
+- `ack` e `status` ravvicinati vengono raggruppati;
+- un cursore oltre la testa riceve `cursor_too_old`;
+- impostazioni identiche non producono una voce di journal;
+- heartbeat dei test meno aggressivo; il client di test risponde ai ping, verifica che `welcome` arrivi per primo, e il test multi-client cambia anche le impostazioni.
+
+Rinviati:
+- `Hub.closeUser` va collegato al blocco degli utenti dall'admin (M5); oggi il blocco arriva al battito successivo;
+- la compattazione per retention si basa su `journal.at`, preso dentro la transazione dopo il lock del vault, quindi in ordine con il `seq`.
+
 ### Decisioni di M1c (server di sync)
 
 | # | Decisione |

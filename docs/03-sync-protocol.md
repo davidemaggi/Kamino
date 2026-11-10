@@ -134,7 +134,7 @@ Letto in un'unica transazione consistente: lo stato corrisponde esattamente a `h
 
 Il journal conserva le voci almeno fino al minimo tra i cursori dei dispositivi attivi e almeno per la finestra di retention dello storico. Dispositivi inattivi da più di 90 giorni non trattengono il journal. Un dispositivo con `cursor` più vecchio della voce più vecchia conservata riceve `cursor_too_old` e procede con una **riconciliazione completa** (§8) partendo dallo snapshot; il suo indice locale (con le basi note) gli permette di distinguere le proprie modifiche locali da quelle remote senza perdite.
 
-> **Implementazione (M2a).** Job notturno (pg-boss). Elimina le voci già confermate da tutti i dispositivi attivi (non revocati, visti negli ultimi 90 giorni) e più vecchie della retention del vault, e registra l'ultimo `seq` eliminato in `vaults.journal_floor`. Un cursore sotto il floor riceve `410 cursor_too_old` su `GET /changes`, oppure `error cursor_too_old` + chiusura `4410` sul WebSocket. Floor e voci si leggono in un'unica transazione, così una compattazione non può aprire buchi silenziosi.
+> **Implementazione (M2a).** Job notturno (pg-boss). Elimina le voci già confermate da tutti i dispositivi attivi (non revocati, visti negli ultimi 90 giorni) e più vecchie della retention del vault, e registra l'ultimo `seq` eliminato in `vaults.journal_floor`. Un cursore sotto il floor riceve `410 cursor_too_old` su `GET /changes`, oppure `error cursor_too_old` + chiusura `4410` sul WebSocket. Floor e voci si leggono in un'unica transazione, così una compattazione non può aprire buchi silenziosi. Anche un cursore **oltre la testa** riceve `cursor_too_old`: il journal del server non è quello che il dispositivo conosceva (ad esempio dopo il ripristino da un backup), e saltare i `seq` riusati perderebbe modifiche.
 
 ### 6.4 Applicazione lato client
 
@@ -180,7 +180,8 @@ In modalità **Periodica** e **Manuale** non c'è WebSocket: il client usa `GET 
 >   - `4409` sostituito (massimo 5 socket per dispositivo);
 >   - `4410` `cursor_too_old`;
 >   - `4426` protocollo non supportato.
-> - **Limiti:** frame oltre 64 KB → chiusura.
+> - **Ordine:** solo il primo `hello` conta; i messaggi inviati subito dopo (ad esempio un `ack`) vengono gestiti dopo `welcome`, fino a 20. Prima di `welcome` il server non invia nient'altro.
+> - **Limiti:** frame oltre 64 KB → chiusura. Gli `ack` e gli `status` ravvicinati diventano una sola scrittura alla volta, con l'ultimo valore.
 > - **Senza WebSocket:** lo stato si invia con `POST /api/v1/vaults/:vaultId/status`, come in M1c.
 
 ## 8. Ciclo di sync del client

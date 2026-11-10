@@ -1,0 +1,9 @@
+{
+  "extends": "@kamino/tsconfig/node.json",
+  "compilerOptions": {
+    "types": [],
+    // Runs in the plugin (browser) and in the server tests (Node): only what both have.
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src"]
+}

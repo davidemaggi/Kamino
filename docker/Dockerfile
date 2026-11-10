@@ -14,6 +14,7 @@ COPY packages/brand/package.json packages/brand/
 COPY packages/protocol/package.json packages/protocol/
 COPY packages/status/package.json packages/status/
 COPY packages/sync-core/package.json packages/sync-core/
+COPY packages/sync-engine/package.json packages/sync-engine/
 COPY packages/ui-diff/package.json packages/ui-diff/
 COPY packages/tsconfig/package.json packages/tsconfig/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \

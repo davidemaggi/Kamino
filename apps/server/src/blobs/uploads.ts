@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { uuidv7 } from "../auth/tokens.js";
 import { CryptoError } from "../crypto/aead.js";
 import {
@@ -19,6 +19,9 @@ import type { BlobStore } from "./store.js";
 
 export const CHUNK_SIZE = 4 * 1024 * 1024;
 const SESSION_TTL_MS = 24 * 3_600_000;
+/** A `complete` that crashed mid-way leaves its claim; after this long another call may take over. */
+const CLAIM_TTL_MS = 15 * 60_000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export class TransferError extends Error {
   constructor(
@@ -76,6 +79,7 @@ export class UploadService {
   }
 
   private async session(vc: VaultCrypto, id: string) {
+    if (!UUID.test(id)) throw new TransferError("not_found", 404);
     const s = (
       await this.db
         .select()
@@ -93,19 +97,30 @@ export class UploadService {
   /** C6: the chunk is encrypted as STREAM segment `index` on arrival; plaintext never hits the disk. */
   async putChunk(vc: VaultCrypto, id: string, index: number, body: Buffer): Promise<number[]> {
     const s = await this.session(vc, id);
+    // Once `complete` has claimed the session its chunks are frozen.
+    if (s.state !== "open") throw new TransferError("invalid_request", 409);
     const count = UploadService.count(s.size, s.chunkSize);
     if (!Number.isInteger(index) || index < 0 || index >= count)
       throw new TransferError("invalid_request", 400);
     const expected = index === count - 1 ? s.size - (count - 1) * s.chunkSize : s.chunkSize;
     if (body.length !== expected) throw new TransferError("invalid_request", 400);
-    const sealed = encryptSegment(
-      blobKey(vc.keys.content, s.salt),
-      { vaultId: vc.vaultId, blobId: s.blobId },
-      index,
-      index === count - 1,
-      body,
-    );
+    const key = blobKey(vc.keys.content, s.salt);
+    const ids = { vaultId: vc.vaultId, blobId: s.blobId };
     const target = join(this.dir(id), String(index));
+    // A chunk is written once: a repeat must carry the same bytes (a different body would reuse
+    // the segment's nonce with other plaintext).
+    const previous = await readFile(target).catch(() => null);
+    if (previous) {
+      let same = false;
+      try {
+        same = decryptSegment(key, ids, index, index === count - 1, previous).equals(body);
+      } catch (e) {
+        if (!(e instanceof CryptoError)) throw e;
+      }
+      if (!same) throw new TransferError("invalid_request", 409);
+      return this.received(id);
+    }
+    const sealed = encryptSegment(key, ids, index, index === count - 1, body);
     await writeFile(`${target}.tmp`, sealed);
     await rename(`${target}.tmp`, target);
     return this.received(id);
@@ -124,51 +139,101 @@ export class UploadService {
     return { received: await this.received(id), expiresAt: s.expiresAt.toISOString() };
   }
 
-  /** Verifies SHA-256 by decrypting in order, then promotes the segments as the blob (no re-encryption). */
+  /**
+   * Claims the session, then in a single pass decrypts each staged segment once, hashing the
+   * plaintext and streaming the same sealed bytes to the store (no re-encryption). Under a lock
+   * per blob: a blob that already exists is never rewritten (dedup, and readers stay safe).
+   * The blob row is written only after a durable `put` whose content matched the hash.
+   */
   async complete(vc: VaultCrypto, id: string): Promise<{ contentHash: string; size: number }> {
     const s = await this.session(vc, id);
     const contentHash = vc.dec("upload_sessions", "content_hash", id, s.contentHashEnc);
+    if (s.state === "done") return { contentHash, size: s.size };
     const count = UploadService.count(s.size, s.chunkSize);
-    const got = await this.received(id);
-    if (got.length !== count) throw new TransferError("invalid_request", 409);
-    const key = blobKey(vc.keys.content, s.salt);
-    const ids = { vaultId: vc.vaultId, blobId: s.blobId };
-    const sha = createHash("sha256");
-    try {
-      for (let i = 0; i < count; i++)
-        sha.update(
-          decryptSegment(
-            key,
-            ids,
-            i,
-            i === count - 1,
-            await readFile(join(this.dir(id), String(i))),
+    if (s.state === "open" && (await this.received(id)).length !== count)
+      throw new TransferError("invalid_request", 409);
+    const now = new Date(this.now());
+    const claimed = await this.db
+      .update(uploadSessions)
+      .set({ state: "completing", claimedAt: now })
+      .where(
+        and(
+          eq(uploadSessions.id, id),
+          or(
+            eq(uploadSessions.state, "open"),
+            and(
+              eq(uploadSessions.state, "completing"),
+              lt(uploadSessions.claimedAt, new Date(this.now() - CLAIM_TTL_MS)),
+            ),
           ),
-        );
+        ),
+      )
+      .returning({ id: uploadSessions.id });
+    if (claimed.length === 0) {
+      // Another `complete` holds it (409, retry later) or has just finished.
+      const again = await this.session(vc, id);
+      if (again.state === "done") return { contentHash, size: s.size };
+      throw new TransferError("invalid_request", 409);
+    }
+    const storeKey = blobKeyOf(vc.vaultId, s.blobId);
+    let outcome: "stored" | "exists" | "mismatch";
+    try {
+      outcome = await this.db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${storeKey}, 0))`);
+        const [exists] = await tx
+          .select({ blobId: blobs.blobId })
+          .from(blobs)
+          .where(and(eq(blobs.vaultId, vc.vaultId), eq(blobs.blobId, s.blobId)));
+        if (exists) return "exists";
+        const key = blobKey(vc.keys.content, s.salt);
+        const ids = { vaultId: vc.vaultId, blobId: s.blobId };
+        const sha = createHash("sha256");
+        const dir = this.dir(id);
+        const hdr = header(s.salt, s.chunkSize);
+        let bad = false;
+        try {
+          await this.store.put(
+            storeKey,
+            (async function* () {
+              yield hdr;
+              for (let i = 0; i < count; i++) {
+                const sealed = await readFile(join(dir, String(i)));
+                sha.update(decryptSegment(key, ids, i, i === count - 1, sealed));
+                yield sealed;
+              }
+            })(),
+          );
+        } catch (e) {
+          if (!(e instanceof CryptoError)) throw e;
+          bad = true;
+        }
+        if (bad || sha.digest("hex") !== contentHash) {
+          // No row references this key yet, and the lock keeps other writers out.
+          await this.store.delete(storeKey);
+          return "mismatch";
+        }
+        await tx.insert(blobs).values({
+          vaultId: vc.vaultId,
+          blobId: s.blobId,
+          size: s.size,
+          storedSize: HEADER_BYTES + s.size + count * TAG_BYTES,
+        });
+        return "stored";
+      });
     } catch (e) {
-      if (!(e instanceof CryptoError)) throw e;
+      // Transient failure (storage, database): give the session back so the client can retry.
+      await this.db
+        .update(uploadSessions)
+        .set({ state: "open", claimedAt: null })
+        .where(eq(uploadSessions.id, id));
+      throw e;
+    }
+    if (outcome === "mismatch") {
       await this.discard(id);
       throw new TransferError("hash_mismatch", 422);
     }
-    if (sha.digest("hex") !== contentHash) {
-      await this.discard(id);
-      throw new TransferError("hash_mismatch", 422);
-    }
-    const dir = this.dir(id);
-    const hdr = header(s.salt, s.chunkSize);
-    await this.store.put(
-      blobKeyOf(vc.vaultId, s.blobId),
-      (async function* () {
-        yield hdr;
-        for (let i = 0; i < count; i++) yield await readFile(join(dir, String(i)));
-      })(),
-    );
-    const storedSize = HEADER_BYTES + s.size + count * TAG_BYTES;
-    await this.db
-      .insert(blobs)
-      .values({ vaultId: vc.vaultId, blobId: s.blobId, size: s.size, storedSize })
-      .onConflictDoNothing();
-    await this.discard(id);
+    await this.db.update(uploadSessions).set({ state: "done" }).where(eq(uploadSessions.id, id));
+    await rm(this.dir(id), { recursive: true, force: true });
     return { contentHash, size: s.size };
   }
 
@@ -184,6 +249,14 @@ export class UploadService {
       .from(uploadSessions)
       .where(lt(uploadSessions.expiresAt, new Date(this.now())));
     for (const s of old) await this.discard(s.id);
+    // Staging left behind by a crash. List first: a directory is created after its row (see
+    // `create`), so any directory listed here already has its row if it is still live.
+    const dirs = await readdir(this.stagingDir).catch(() => [] as string[]);
+    const known = new Set(
+      (await this.db.select({ id: uploadSessions.id }).from(uploadSessions)).map((r) => r.id),
+    );
+    for (const d of dirs)
+      if (!known.has(d)) await rm(join(this.stagingDir, d), { recursive: true, force: true });
   }
 }
 

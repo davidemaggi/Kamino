@@ -65,9 +65,9 @@ export const UploadComplete = z.object({ contentHash: ContentHash, size: z.numbe
 
 export const AckRequest = z.object({ seq: z.number().int().min(0) });
 export const DeviceStatusReport = z.object({
-  pendingOps: z.number().int().min(0),
-  pendingBytes: z.number().int().min(0),
-  deferredFiles: z.number().int().min(0),
+  pendingOps: z.number().int().min(0).max(2_147_483_647),
+  pendingBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  deferredFiles: z.number().int().min(0).max(2_147_483_647),
   lastErrorCode: ErrorCode.optional(),
 });
 export type DeviceStatusReport = z.infer<typeof DeviceStatusReport>;

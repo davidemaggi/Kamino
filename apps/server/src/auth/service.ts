@@ -318,6 +318,7 @@ export class AuthService {
   ): Promise<{ status: "ok"; user: User } | { status: "totp_required" }> {
     const r = await this.login(username, password, ctx);
     if (r.status === "ok") {
+      if (needsTotpSetup(r.user)) throw new AuthError("totp_mandatory", 403);
       await this.event(r.user.id, "device_linked", ctx);
       return r;
     }

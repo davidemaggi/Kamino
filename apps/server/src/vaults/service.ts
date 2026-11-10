@@ -2,7 +2,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { generateDek, wrapDek } from "../crypto/dek.js";
 import type { Kek } from "../crypto/keyring.js";
 import type { Db } from "../db/client.js";
-import { devices, files, oneTimeTokens, vaults } from "../db/schema.js";
+import { devices, files, oneTimeTokens, users, vaults } from "../db/schema.js";
 import { AuthError } from "../auth/service.js";
 import { hashToken, randomToken, uuidv7 } from "../auth/tokens.js";
 import { VaultCrypto } from "./vault-crypto.js";
@@ -89,12 +89,17 @@ export class VaultService {
     return { token, expiresAt };
   }
 
-  /** The user behind a valid enrollment token (reusable for 10 minutes). */
+  /** The active user behind a valid enrollment token (reusable for 10 minutes). */
   async enrollUser(token: string): Promise<string> {
     const row = (
       await this.db
-        .select()
+        .select({
+          userId: oneTimeTokens.userId,
+          expiresAt: oneTimeTokens.expiresAt,
+          status: users.status,
+        })
         .from(oneTimeTokens)
+        .innerJoin(users, eq(users.id, oneTimeTokens.userId))
         .where(
           and(
             eq(oneTimeTokens.tokenHash, hashToken(token)),
@@ -104,6 +109,7 @@ export class VaultService {
     )[0];
     if (!row?.userId || row.expiresAt.getTime() <= this.now())
       throw new AuthError("token_expired", 401);
+    if (row.status !== "active") throw new AuthError("user_blocked", 403);
     return row.userId;
   }
 

@@ -296,6 +296,9 @@ export const uploadSessions = pgTable("upload_sessions", {
   size: bigint("size", { mode: "number" }).notNull(),
   chunkSize: integer("chunk_size").notNull(),
   salt: bytea("salt").notNull(),
+  /** open → completing (claimed by one `complete`) → done (kept until expiry, for repeated calls). */
+  state: text("state").notNull().default("open"),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

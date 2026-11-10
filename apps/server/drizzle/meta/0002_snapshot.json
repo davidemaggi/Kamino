@@ -1,5 +1,5 @@
 {
-  "id": "46a54e47-655c-407f-9725-6def85b464cb",
+  "id": "1bd7ec9c-c00f-49d6-9b73-c279e114cc51",
   "prevId": "92a24b5d-d22c-4da3-8c2a-09cdf718485d",
   "version": "7",
   "dialect": "postgresql",
@@ -1098,6 +1098,19 @@
           "type": "bytea",
           "primaryKey": false,
           "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "expires_at": {
           "name": "expires_at",

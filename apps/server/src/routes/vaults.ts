@@ -43,19 +43,37 @@ async function statsOf(db: Db, v: Vault): Promise<Stats> {
     .from(conflicts)
     .where(and(eq(conflicts.vaultId, v.id), eq(conflicts.status, "open")));
   const devs = await db
-    .select({ cursor: devices.cursorSeq, error: devices.lastErrorCode })
+    .select({
+      cursor: devices.cursorSeq,
+      error: devices.lastErrorCode,
+      pending: devices.pendingOps,
+      deferred: devices.deferredFiles,
+      lastSync: devices.lastSyncAt,
+      lastAck: devices.lastAckAt,
+    })
     .from(devices)
     .where(and(eq(devices.vaultId, v.id), isNull(devices.revokedAt)));
   const usedBytes = Number(sizes?.live ?? 0);
   const trashBytes = Number(sizes?.trash ?? 0);
   const openConflicts = Number(open?.n ?? 0);
+  // "Safe" only when every device has synced, caught up with the head and queued nothing
+  // (packages/status: working.notLinked / neverSynced / queued).
+  const working =
+    devs.length === 0 ||
+    devs.some(
+      (d) =>
+        d.cursor < v.headSeq ||
+        d.pending > 0 ||
+        d.deferred > 0 ||
+        (d.lastSync === null && d.lastAck === null),
+    );
   // Worst first: a decision to take, then attention, then work in progress.
   const level: Level =
     openConflicts > 0
       ? "decision"
       : devs.some((d) => d.error !== null)
         ? "attention"
-        : devs.some((d) => d.cursor < v.headSeq)
+        : working
           ? "working"
           : "safe";
   return {

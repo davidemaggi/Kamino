@@ -76,6 +76,14 @@ describe.skipIf(dockerUnavailable)("device enrollment", () => {
     expect(ok.status).toBe("ok");
   });
 
+  it("an admin without two-step verification can't link devices", async () => {
+    await user(t, "boss");
+    await t.db.$client`update users set role = 'admin' where username = 'boss'`;
+    const r = await raw(t, "POST", "/devices/login", { username: "boss", password: PW });
+    expect(r.statusCode).toBe(403);
+    expect(r.json().error.code).toBe("totp_mandatory");
+  });
+
   it("enrollment tokens expire after 10 minutes", async () => {
     const enroll = await user(t, "mario");
     t.clock.now += 11 * 60_000;
@@ -105,6 +113,17 @@ describe.skipIf(dockerUnavailable)("device enrollment", () => {
     expect((await d.call("PATCH", "/device", { name: "y" })).json().error.code).toBe(
       "user_blocked",
     );
+    // A still-valid enrollment token stops working too.
+    await t.db.$client`update users set status = 'active' where username = 'mario'`;
+    const enroll = (
+      await raw(t, "POST", "/devices/login", { username: "mario", password: PW })
+    ).json().enrollToken as string;
+    await t.db.$client`update users set status = 'blocked' where username = 'mario'`;
+    expect(
+      (
+        await raw(t, "GET", "/enroll/vaults", undefined, { authorization: `Bearer ${enroll}` })
+      ).json().error.code,
+    ).toBe("user_blocked");
     await t.db.$client`update users set status = 'active' where username = 'mario'`;
     expect((await d.call("DELETE", "/device")).statusCode).toBe(204);
     expect((await d.call("PATCH", "/device", { name: "z" })).json().error.code).toBe(

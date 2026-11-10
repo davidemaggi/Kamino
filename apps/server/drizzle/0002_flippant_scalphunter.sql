@@ -120,6 +120,8 @@ CREATE TABLE "upload_sessions" (
 	"size" bigint NOT NULL,
 	"chunk_size" integer NOT NULL,
 	"salt" "bytea" NOT NULL,
+	"state" text DEFAULT 'open' NOT NULL,
+	"claimed_at" timestamp with time zone,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );

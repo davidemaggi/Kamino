@@ -59,9 +59,15 @@ describe.skipIf(dockerUnavailable)("web vault routes", () => {
     });
     expect(list.quota).toEqual({ usedBytes: 12, limitBytes: null });
     await b.call("POST", `${base}/ack`, { seq: 1 });
-    expect(
-      VaultsSummary.parse((await t.call(web, "GET", "/vaults/summary")).json()).vaults[0]!.level,
-    ).toBe("safe");
+    const level = async () =>
+      VaultsSummary.parse((await t.call(web, "GET", "/vaults/summary")).json()).vaults[0]!.level;
+    expect(await level()).toBe("safe");
+    // Local changes still queued on a device → not safe yet.
+    const report = { pendingOps: 3, pendingBytes: 10, deferredFiles: 0 };
+    await b.call("POST", `${base}/status`, report);
+    expect(await level()).toBe("working");
+    await b.call("POST", `${base}/status`, { ...report, pendingOps: 0 });
+    expect(await level()).toBe("safe");
 
     // A stale edit → open conflict → decision; the candidate counts as history.
     const other = Buffer.from("other text");
@@ -81,5 +87,11 @@ describe.skipIf(dockerUnavailable)("web vault routes", () => {
     list = VaultList.parse((await t.call(web, "GET", "/vaults")).json());
     expect(list.vaults[0]).toMatchObject({ level: "decision", conflicts: 1, historyBytes: 10 });
     expect((await t.call({}, "GET", "/vaults")).statusCode).toBe(401);
+
+    // A vault whose only device never synced is not safe either.
+    const mario = (await t.auth.byUsername("mario"))!.id;
+    await linkDevice(t, (await t.vaults.createEnrollToken(mario)).token);
+    list = VaultList.parse((await t.call(web, "GET", "/vaults")).json());
+    expect(list.vaults.find((v) => v.id !== a.vaultId)?.level).toBe("working");
   });
 });

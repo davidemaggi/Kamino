@@ -41,6 +41,13 @@ Nello scenario LAN `KAMINO_PUBLIC_URL` deve essere l'indirizzo IP o il nome host
 
 `KAMINO_TRUST_PROXY` dice al server di quali proxy fidarsi per l'indirizzo del client (`X-Forwarded-For`): un numero di salti (es. `1`) o un elenco di IP/CIDR. Nei compose Caddy e tunnel vale `1`, perché il server è raggiungibile solo dal proxy; nello scenario LAN non va impostato. Se il server è esposto direttamente e la variabile è impostata, un client potrebbe falsificare il proprio indirizzo ed eludere i limiti sui tentativi di accesso.
 
+**Dati dei vault.** I contenuti dei file sono salvati cifrati (una chiave per vault, derivata dalla master key) e non compaiono mai in chiaro su disco. Dove vanno:
+
+- `KAMINO_STORAGE=fs` (default): nella cartella `KAMINO_STORAGE_DIR` (default `/data/blobs`). I compose montano il volume `kamino-data` su `/data`: **fa parte del backup**, insieme al database e alla master key.
+- `KAMINO_STORAGE=s3`: in un bucket S3 compatibile (MinIO, Garage, SeaweedFS, AWS, Backblaze…). Variabili: `KAMINO_S3_BUCKET` (obbligatoria), `KAMINO_S3_ENDPOINT` (vuota = AWS), `KAMINO_S3_REGION` (default `us-east-1`), `KAMINO_S3_ACCESS_KEY_ID`, `KAMINO_S3_SECRET_ACCESS_KEY` (o `KAMINO_S3_SECRET_ACCESS_KEY_FILE`), `KAMINO_S3_FORCE_PATH_STYLE` (`true` per MinIO e simili). I nomi degli oggetti sono `idVault/idBlob`, senza nomi di file.
+- I pezzi degli upload in corso stanno sempre su disco locale in `KAMINO_STAGING_DIR` (default `/data/staging`), già cifrati; gli upload abbandonati da più di 24 ore vengono ripuliti da soli.
+- `KAMINO_MAX_FILE_BYTES` limita la dimensione di un singolo file (default 500 MB); i file più grandi vengono rifiutati con `file_too_large` e il plugin li segnala.
+
 ## 2. La master key
 
 La master key è una chiave di 32 byte codificata in base64. Protegge le chiavi di cifratura dei dati: **se la perdi, i dati nel database non sono più leggibili**; se la cambi, il server rifiuta di partire con l'errore `master key does not match this database`.

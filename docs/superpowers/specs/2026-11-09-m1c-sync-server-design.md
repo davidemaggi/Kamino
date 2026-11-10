@@ -1,6 +1,6 @@
 # M1c — Server di sync: vault, dispositivi, blob, commit
 
-> Stato: **in revisione** · Data: 2026-11-09 · Branch: `m1c-sync-server`
+> Stato: **implementata** · Data: 2026-11-09 · Branch: `m1c-sync-server`
 > M1: M1a sync-core (fatta), M1b crypto + auth web (fatta), **M1c** (questa), M1d motore del plugin.
 > Riferimenti: [03 — protocollo](../../03-sync-protocol.md) §1–6, §12; [04](../../04-security-threat-model.md) §5, §8; [05](../../05-data-model.md) §3–6; spec M1a (`sync-core`, Z1–Z13) e M1b (B1–B9); contratto del plugin `apps/plugin/src/connection/types.ts`.
 
@@ -73,7 +73,7 @@ interface BlobStore {
 
 ## 6. Test
 
-- Contratto di `BlobStore` su fs e su MinIO (scrittura, lettura a intervalli, assenza, sovrascrittura, cancellazione).
+- Contratto di `BlobStore` su fs e su S3 (SeaweedFS) (scrittura, lettura a intervalli, assenza, sovrascrittura, cancellazione).
 - Upload: chunk fuori ordine e ripetuti, ripresa, `hash_mismatch`, `file_too_large`, scadenza; download con `Range` (intervalli che attraversano segmenti); il chiaro non compare mai nello staging né nello storage.
 - **Oracolo** (C4): fast-check su sequenze di op contro server e `MemoryStore`, stessi esiti; più i casi di 03 §5.3 come test espliciti.
 - Collegamento: login dispositivo con/senza TOTP, iscrizione scaduta, token revocato, utente bloccato, vault di un altro utente, header di protocollo.

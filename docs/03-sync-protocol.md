@@ -260,6 +260,13 @@ POST /api/v1/vaults/:vaultId/conflicts/:id/resolve
 
 **Collegamento manuale**: `POST /api/v1/auth/device-login { username, password, totp? }` → token temporaneo (5 min) per `GET /vaults` e `POST /vaults/:id/devices` → `deviceToken`. Non richiede approvazione (la password è la prova). Gli altri dispositivi e la web app mostrano "nuovo dispositivo collegato"; se SMTP è configurato, email di avviso di sicurezza all'utente. *(scelta del tech lead)*
 
+> **Rotte reali (M1c).** Il collegamento manuale è implementato così:
+> 1. `POST /api/v1/devices/login { username, password, totp? }` → `{ status: "ok", enrollToken, expiresAt }` oppure `{ status: "totp_required" }`. Il token di iscrizione vale **10 minuti**.
+> 2. Con `Authorization: Bearer <enrollToken>`: `GET /api/v1/enroll/vaults`, `POST /api/v1/enroll/vaults { name }` (onboarding: il primo dispositivo del vault è l'origine) e `POST /api/v1/enroll/vaults/:vaultId/devices { name, platform, pluginVersion, protocolVersion }` → `{ deviceId, deviceToken, vault }`.
+> 3. Con il `deviceToken`: `PATCH /api/v1/device` (rinomina) e `DELETE /api/v1/device` (il dispositivo si scollega da solo).
+>
+> Le rotte con Bearer non richiedono l'intestazione anti-CSRF della web app. L'avviso "nuovo dispositivo collegato" arriva con M2 (WebSocket) e l'email con SMTP. Dettagli nella spec M1c (`docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md` §2).
+
 **Onboarding vault (Jango)**: device-login → `POST /api/v1/vaults { name }` → `deviceToken` → upload iniziale (put con base `null`) a batch, con avanzamento visibile e ripresa.
 
 **Ricostruzione server (V-05)**: identica all'onboarding, con il plugin che scarta il legame con il vecchio server (indice, token). Gli altri dispositivi si ricollegano e passano per la riconciliazione (§8.1).

@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-09 — M1a mergiata (PR #8). **M1b (crittografia + autenticazione web) implementata** sul branch `m1b-crypto-auth`, in revisione/PR. Prossimo: M1c.
+**Ultimo aggiornamento:** 2026-11-10 — M1b mergiata (PR #9). **M1c (server di sync) implementata** sul branch `m1c-sync-server`, in revisione/PR. Prossimo: M1d (dopo gli spike) o M2.
 
 ## Dove siamo
 
@@ -18,7 +18,7 @@
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
-| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | 🔧 M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`, piano `docs/superpowers/plans/2026-11-09-m1a-sync-core.md`): implementata e rivista (2 critici + 3 importanti corretti), PR #8 aperta · M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`, piano `docs/superpowers/plans/2026-11-09-m1b-crypto-auth.md`): mergiata (PR #9) · M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md` in revisione, branch `m1c-sync-server`) 🔧 · M1c, M1d ⏳ |
+| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): implementata, branch `m1c-sync-server`, in revisione/PR · ⏳ M1d |
 | M2…M7 | ⏳ |
 
 **Branch di lavoro:** `m1b-crypto-auth` (da `main` dopo la PR #8).
@@ -44,9 +44,9 @@
 
 ## Prossimi passi
 
-1. **Chiudere M1b:** prova del committente e merge della PR #9.
-2. Prova del committente: `docker compose … up`, link di setup nei log, login con TOTP; oppure la modalità ibrida della web app.
-3. **M1c — vault/file/blob/commit sul server**, con device-login e token dei dispositivi (B1): rotte di `sync.ts` sopra `decide()` di `sync-core` dentro la transazione; `MemoryStore` come oracolo nei test (stesse op → stessi esiti).
+1. **Chiudere M1c:** revisione finale, PR e merge del committente.
+2. Prova del committente (facoltativa): `docker compose … up` con il volume `kamino-data`; web app in modalità ibrida (`VITE_KAMINO_API=hybrid`): login, account, elenco e riepilogo dei vault dal server vero.
+3. **M2 — WebSocket e tempo reale** può partire anche prima di M1d (il server ha già journal, `changes` e `ack`).
 4. **M1d — motore del plugin** (dopo gli spike R-1…R-5, rinviati dal committente insieme alla prova su telefono): guscio di `step()` con file system di Obsidian, `requestUrl`, persistenza; cartelle sul client (Z9).
 
 ## Come riprendere su un altro PC
@@ -135,6 +135,23 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
 
+### Decisioni di M1c (server di sync)
+
+| # | Decisione |
+|---|---|
+| C1 | Perimetro: collegamento con credenziali (QR in M6), token dei dispositivi, vault con DEK, upload a chunk, download con `Range`, commit tramite l'arbitro, journal, snapshot, `ack`/`status` via REST (WebSocket in M2); più `GET /vaults` e `/vaults/summary` per la web app |
+| C2 | `BlobStore` con due adattatori, file system e S3, e un unico test di contratto; il test S3 usa SeaweedFS in testcontainers (MinIO non pubblica più immagini) |
+| C3 | Arbitro sincrono e puro: il server prepara i dati in anticipo e, se `decide` ne chiede altri (`NeedData`), li carica e ripete; una transazione per op con `SELECT … FOR UPDATE` sul vault |
+| C4 | `MemoryStore` è l'oracolo: fast-check con `size: "max"` (variabile `ORACLE_RUNS` per più giri) |
+| C5 | Collegamento in tre passi: `POST /devices/login` → token di iscrizione (10 min) → `/enroll/vaults…` → token del dispositivo (solo l'hash nel DB, revocabile) |
+| C6 | Chunk cifrati all'arrivo come segmenti STREAM (4 MiB) nello staging; `complete` verifica lo SHA-256 e promuove senza ricifrare |
+| C7 | `Range`: si leggono e decifrano solo i segmenti necessari |
+| C8 | Path, nomi di vault e hash solo cifrati; unicità con `path_mac`; il controllo "cartella con discendenti vivi" decifra i path in memoria |
+| C9 | `KAMINO_MAX_FILE_BYTES` (500 MB) → `file_too_large`; quote in M5 |
+| C10 | Sessioni di upload scadute (24 h) ripulite da un timer orario; GC dei blob orfani con lo storico (M3) |
+
+Trovati e corretti durante M1c: l'oracolo con le dimensioni piccole di fast-check passava senza provare nulla; con `size: "max"` ha trovato un **bug dell'arbitro** (resurrezione e ripristino di cartella: il file tornava vivo prima di cambiare path, violando l'unicità; ora la mutazione `path` precede `head`/`undelete`, con test di regressione). `file_versions` non salvava la base dichiarata (vincolo [V] di 05 §5): ora `base_version_id` c'è, anche per i candidati di conflitto. Il test "cifrato a riposo" confrontava JSON (che nasconde i byte): ora legge i byte come testo.
+
 ### Decisioni di M1b (crittografia + autenticazione web)
 
 | # | Decisione |
@@ -220,7 +237,7 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 - **Web:** valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
 - **Web admin:** nella scheda Salute i controlli hanno solo il testo (la spec prevedeva icona + testo).
 - **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal; riconciliazione completa con indice esistente (`cursor_too_old`).
-- **Fino a M1c:** in produzione, dopo il login la home mostra un errore perché `/vaults/summary` (e le altre rotte dell'area utente) non esistono ancora sul server; coperto dal vincolo "nessuna release pubblica prima della fine di M1".
+- **Dopo M1c:** `/vaults` e `/vaults/summary` esistono sul server; le altre rotte dell'area utente (dettaglio vault, dispositivi dal web, conflitti, storico, cestino) e quelle admin no: in produzione quelle schermate danno errore. Coperto dal vincolo "nessuna release pubblica prima della fine di M1".
 - **M1a, minori rinviati dalla revisione:** `mkdir` su cartella esistente restituisce `accepted` con l'altro `fileId` (03 dice `duplicate`: allineare il documento in M1c); cancellazione di cartella con discendenti vivi → `modified_since` (da documentare); nessun controllo su `put`/`move` sotto un path che è un file; `stopped` è volatile; MAX_PATH di Windows non modellato; su Linux un disco con forme NFC e NFD dello stesso nome (stesso path canonico): da definire nel contratto del guscio in M1d.
 - **M1d:** cartelle sul client (`mkdir`, spostamento e cancellazione di cartelle; l'arbitro le gestisce già); `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client.
 - **M1+ (server):** implementare anche le rotte `admin` (utenti, configurazione con fonte dei valori, email di prova, salute, audit) e quelle di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.

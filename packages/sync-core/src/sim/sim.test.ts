@@ -22,6 +22,8 @@ const PATHS = [
   ".obsidian/workspace.json",
   ".trash/t.md",
 ];
+/** Folders users create and move to (Z9): nested, case variants, excluded areas. */
+const DIRS = ["d", "D", "n", "n/m", "x", "x/y", "q/r", ".trash"];
 const HASHES = ["0", "1", "2", "3", "4"].map((c) => c.repeat(64));
 const PLATFORMS: Platform[] = ["linux", "windows", "macos", "android", "ios"];
 const PATTERNS: string[][] = [[], [".trash/**"], ["d/**"], ["x/**", ".trash/**"], ["b.md"]];
@@ -37,6 +39,7 @@ const specArb: fc.Arbitrary<ClientSpec> = fc.record({
 const actionArb = (clients: number): fc.Arbitrary<Action> => {
   const c = fc.nat(clients - 1);
   const path = fc.constantFrom(...PATHS);
+  const dir = fc.constantFrom(...DIRS);
   const crashAt = fc.option(fc.nat(8), { freq: 4 });
   const hash = fc.constantFrom(...HASHES);
   return fc.oneof(
@@ -80,6 +83,18 @@ const actionArb = (clients: number): fc.Arbitrary<Action> => {
     { weight: 1, arbitrary: fc.record({ t: fc.constant("truncate" as const) }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("quota" as const), on: fc.boolean() }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("crash" as const), c }) },
+    { weight: 2, arbitrary: fc.record({ t: fc.constant("mkdir" as const), c, path: dir }) },
+    { weight: 1, arbitrary: fc.record({ t: fc.constant("rmdir" as const), c, pick: fc.nat(9) }) },
+    {
+      weight: 2,
+      arbitrary: fc.record({
+        t: fc.constant("moveDir" as const),
+        c,
+        pick: fc.nat(9),
+        to: dir,
+        watched: fc.boolean(),
+      }),
+    },
   );
 };
 
@@ -101,7 +116,8 @@ describe("simulator (02 §5)", () => {
         expect(w.settle()).toBe(true);
         expect(w.check()).toEqual([]);
       }),
-      { numRuns: RUNS },
+      // SIM_NO_SHRINK=1: report the first failure as is (shrinking a non-settling run is slow).
+      { numRuns: RUNS, endOnFailure: env["SIM_NO_SHRINK"] === "1" },
     );
   }, 120_000);
 

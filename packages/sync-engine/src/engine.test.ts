@@ -156,6 +156,25 @@ describe("engine", () => {
     expect(e.pending()).toEqual([{ path: "c.md", op: "create", since: expect.any(Number) }]);
   });
 
+  it("syncs folders both ways, empty ones included", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    await fs.mkdir("empty/inner");
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    const live = () =>
+      [...server.store.files.values()]
+        .filter((f) => f.kind === "folder" && !f.deleted)
+        .map((f) => f.path)
+        .sort();
+    expect(live()).toEqual(["empty", "empty/inner"]);
+    server.store.commit([{ type: "mkdir", opId: "o9", fileId: "F9", path: "remote" }], "dev-b");
+    await e.syncNow();
+    expect(fs.folders.has("remote")).toBe(true);
+    await e.syncNow();
+    expect(live()).toEqual(["empty", "empty/inner", "remote"]);
+  });
+
   it("resumes from the saved state after a restart", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

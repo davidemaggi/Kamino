@@ -48,7 +48,7 @@ export const STATE_FILES = {
 /** Pull period until the WebSocket of M2b (E6). */
 export const PULL_PERIOD_MS = 60_000;
 
-type FileEffect = Extract<Effect, { type: "write" | "rename" | "trash" }>;
+type FileEffect = Extract<Effect, { type: "write" | "rename" | "trash" | "mkdir" | "rmdir" }>;
 
 async function loadJson<T>(fs: VaultFs, name: string, log: (c: string) => void): Promise<T | null> {
   const raw = await fs.loadState(name);
@@ -260,7 +260,7 @@ export class Engine {
     this.unreadable = scan.unreadable;
     this.dirty = false;
     await this.d.fs.saveState(STATE_FILES.cache, JSON.stringify(this.scanner.cache));
-    await this.dispatch({ type: "sync", scan: scan.files });
+    await this.dispatch({ type: "sync", scan: scan.files, folders: scan.folders });
     await this.settled();
     if (this.stopReason) return;
     await this.report();
@@ -345,7 +345,9 @@ export class Engine {
     switch (fx.type) {
       case "write":
       case "rename":
-      case "trash": {
+      case "trash":
+      case "mkdir":
+      case "rmdir": {
         const p = this.fileChain.then(() => this.fileEffect(fx));
         this.fileChain = p.catch(() => {});
         this.track(p);
@@ -484,6 +486,19 @@ export class Engine {
         const cur = await sha256Hex(fs.read(fx.path)).catch(() => null);
         const ok = cur === fx.expect && (await fs.trash(fx.path).catch(() => false));
         ev = { type: "trashed", fileId: fx.fileId, ok };
+        break;
+      }
+      case "mkdir": {
+        const ok = await fs.mkdir(fx.path).then(
+          () => true,
+          () => false,
+        );
+        ev = { type: "folderDone", fileId: fx.fileId, op: "mkdir", ok };
+        break;
+      }
+      case "rmdir": {
+        const ok = await fs.rmdirIfEmpty(fx.path).catch(() => false);
+        ev = { type: "folderDone", fileId: fx.fileId, op: fx.leftover ? "leftover" : "rmdir", ok };
         break;
       }
     }

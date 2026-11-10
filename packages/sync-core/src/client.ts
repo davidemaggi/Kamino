@@ -64,8 +64,40 @@ export interface Entry {
   trashing: string | null;
 }
 
+/**
+ * One folder as this device knows it (Z9). Kept apart from files: the server stores paths flat,
+ * so a folder only needs to exist, move and go away; files never depend on it.
+ */
+export interface FolderEntry {
+  fileId: string;
+  /** Canonical path on this device. */
+  path: string;
+  confirmed: boolean;
+  remotePath: string | null;
+  /** Journal position of the latest server state known (created, moved, deleted). */
+  seq: number;
+  /** Deleted on the server. */
+  deleted: boolean;
+  /** On disk at the last scan (or created by us since). */
+  onDisk: boolean;
+  /** Was on disk for this entry: only then a missing folder means "deleted here". */
+  materialized: boolean;
+  /** Effect in flight, persisted before it (write-ahead). */
+  pending: "mkdir" | "rmdir" | null;
+  /** Old local paths left behind by remote moves: removed once empty (their files move one by one). */
+  leftovers: string[];
+  /**
+   * Merged by the server into this other folder ("d" and "D" on a case-sensitive disk): nothing to
+   * send while that folder lives there; a real folder again once it moves or goes.
+   */
+  aliasOf?: string | null;
+  blocked: ErrorCode | null;
+}
+
 export interface Durable {
   index: Record<string, Entry>;
+  /** Absent in states saved before M1d. */
+  folders: Record<string, FolderEntry>;
   /** Ops sent with unknown outcome: resent identical (same opId) before anything else. */
   sent: Op[];
   cursor: number;
@@ -102,8 +134,12 @@ export interface ScanItem {
 }
 
 export type ClientEvent =
-  /** Start of a cycle (03 §8): full scan of the vault, then push and pull. */
-  | { type: "sync"; scan: ScanItem[] }
+  /**
+   * Start of a cycle (03 §8): full scan of the vault, then push and pull. `folders` = canonical
+   * folder paths on disk; absent = this shell doesn't report folders (folder state untouched).
+   */
+  | { type: "sync"; scan: ScanItem[]; folders?: string[] }
+  | { type: "folderDone"; fileId: string; op: "mkdir" | "rmdir" | "leftover"; ok: boolean }
   | { type: "localRename"; from: string; to: string }
   | { type: "snapshotResult"; requestId: string; snapshot: Snapshot }
   | { type: "pushResult"; requestId: string; results: OpResult[]; head: number }
@@ -133,6 +169,10 @@ export type Effect =
   | { type: "rename"; fileId: string; from: string; to: string; toPath: string }
   /** Move to the trash only if the file still has hash `expect`. */
   | { type: "trash"; fileId: string; path: string; expect: string }
+  /** Create the folder (and its parents); a folder already there is fine. */
+  | { type: "mkdir"; fileId: string; path: string }
+  /** Remove the folder only if empty; `leftover` = an old path left by a remote move. */
+  | { type: "rmdir"; fileId: string; path: string; leftover: boolean }
   | { type: "ack"; seq: number }
   | { type: "notify"; kind: NotifyKind; fileId?: string; code?: ErrorCode };
 
@@ -149,7 +189,7 @@ interface Ctx {
 export function initialState(config: ClientConfig): ClientState {
   return {
     config,
-    durable: { index: {}, sent: [], cursor: 0, joined: false },
+    durable: { index: {}, folders: {}, sent: [], cursor: 0, joined: false },
     vol: { phase: "idle", requestId: null, stopped: null },
   };
 }
@@ -180,10 +220,15 @@ export function step(
     durable: JSON.parse(JSON.stringify(state.durable)) as Durable,
     vol: { ...state.vol },
   };
+  // States saved before M1d have no folders.
+  if (!(s.durable as Partial<Durable>).folders) s.durable.folders = {};
   const c: Ctx = { s, env, fx: [] };
   switch (event.type) {
     case "sync":
-      onSync(c, event.scan);
+      onSync(c, event.scan, event.folders);
+      break;
+    case "folderDone":
+      onFolderDone(c, event.fileId, event.op, event.ok);
       break;
     case "localRename":
       onLocalRename(c, event.from, event.to);
@@ -441,10 +486,12 @@ function renameDone(e: Entry, to: string): void {
 
 // ---------- local side ----------
 
-function onSync(c: Ctx, scan: ScanItem[]): void {
+function onSync(c: Ctx, scan: ScanItem[], folderScan: string[] | undefined): void {
   const { s } = c;
   for (const e of entries(s)) e.blocked = null;
+  for (const f of folderList(s)) f.blocked = null;
   applyScan(c, scan);
+  if (folderScan) applyFolderScan(c, folderScan);
   if (s.vol.phase !== "idle") return;
   if (!s.durable.joined) {
     startSnapshot(c);
@@ -457,7 +504,440 @@ function onSync(c: Ctx, scan: ScanItem[]): void {
     retire(c, e);
     trashIfClean(c, e);
   }
+  // After the file effects above: a folder is removed once its files have left.
+  pruneLeftovers(s);
+  for (const f of folderList(s)) {
+    materializeFolder(c, f);
+    removeFolder(c, f);
+    f.leftovers = f.leftovers.filter((p) => {
+      const prefix = `${diskKey(s, p)}/`;
+      const inside = entries(s).filter(
+        (e) =>
+          (e.localHash !== null || e.pendingWrite !== null) &&
+          diskKey(s, e.path).startsWith(prefix),
+      );
+      const folders = folderList(s).filter(
+        (g) => g.onDisk && !g.deleted && diskKey(s, g.path).startsWith(prefix),
+      );
+      if (inside.length === 0 && folders.length === 0) {
+        c.fx.push({ type: "rmdir", fileId: f.fileId, path: local(s, p), leftover: true });
+        return true;
+      }
+      // Its files are still on their way to the new folder: wait for them.
+      if (folders.length === 0 && inside.some((e) => e.renaming)) return true;
+      // It holds files of this device that stay: a folder of its own again.
+      const id = c.env.newId();
+      const g = newFolder(id, p, false);
+      g.onDisk = true;
+      g.materialized = true;
+      s.durable.folders[id] = g;
+      return false;
+    });
+  }
   if (!startPush(c)) startPull(c);
+}
+
+// ---------- folders (Z9) ----------
+
+const folderList = (s: ClientState): FolderEntry[] => Object.values(s.durable.folders);
+
+/** Folders never synced here: the configuration folder (its files carry their paths) and excluded areas. */
+export function folderExcluded(path: string, settings: SyncSettings, ci: boolean): boolean {
+  if (path === "{config}" || path.startsWith("{config}/")) return true;
+  return classify(path, settings, ci).excluded || classify(`${path}/_`, settings, ci).excluded;
+}
+
+function folderSkipped(s: ClientState, path: string): boolean {
+  if (folderExcluded(path, s.config.settings, caseInsensitive(s.config.platform))) return true;
+  return !isRepresentable(local(s, path), s.config.platform).ok;
+}
+
+function newFolder(fileId: string, path: string, confirmed: boolean): FolderEntry {
+  return {
+    fileId,
+    path,
+    confirmed,
+    remotePath: confirmed ? path : null,
+    seq: 0,
+    deleted: false,
+    onDisk: false,
+    materialized: false,
+    pending: null,
+    leftovers: [],
+    aliasOf: null,
+    blocked: null,
+  };
+}
+
+/** Something on disk below `path`, as far as this device knows. */
+function hasLocalDescendants(s: ClientState, path: string): boolean {
+  const prefix = `${diskKey(s, path)}/`;
+  return (
+    entries(s).some(
+      (e) =>
+        (e.localHash !== null || e.pendingWrite !== null) && diskKey(s, e.path).startsWith(prefix),
+    ) || folderList(s).some((f) => f.onDisk && diskKey(s, f.path).startsWith(prefix))
+  );
+}
+
+/** Another live folder is at this path on this disk: a leftover there is no longer ours to remove. */
+function pruneLeftovers(s: ClientState): void {
+  const list = folderList(s);
+  for (const f of list)
+    f.leftovers = f.leftovers.filter(
+      (p) =>
+        !folderSkipped(s, p) &&
+        !list.some((g) => (g === f || !g.deleted) && diskKey(s, g.path) === diskKey(s, p)),
+    );
+}
+
+const inFlight = (s: ClientState, fileId: string) =>
+  s.durable.sent.some((op) => op.fileId === fileId);
+
+function applyFolderScan(c: Ctx, paths: string[]): void {
+  const { s } = c;
+  pruneLeftovers(s);
+  const list = folderList(s);
+  const onDisk = new Set(paths.map((p) => diskKey(s, p)));
+  const seen = new Set<FolderEntry>();
+  for (const path of paths) {
+    if (folderSkipped(s, path)) continue;
+    const key = diskKey(s, path);
+    // Left behind by a remote move: on its way out, not a new folder.
+    if (list.some((f) => f.leftovers.some((p) => diskKey(s, p) === key))) continue;
+    // A tombstone isn't reused: a folder made again at that path is a new one.
+    const matches = list.filter(
+      (f) => diskKey(s, f.path) === key && !(f.deleted && !f.onDisk && !f.pending),
+    );
+    if (matches.length > 0) {
+      for (const f of matches) {
+        f.onDisk = true;
+        f.materialized = true;
+        f.path = path;
+        seen.add(f);
+      }
+      continue;
+    }
+    const id = c.env.newId();
+    const f = newFolder(id, path, false);
+    f.onDisk = true;
+    f.materialized = true;
+    s.durable.folders[id] = f;
+    list.push(f);
+    seen.add(f);
+  }
+  for (const f of list) {
+    f.leftovers = f.leftovers.filter((p) => onDisk.has(diskKey(s, p)));
+    if (seen.has(f)) {
+      // A mkdir happened (its event was lost) or an rmdir didn't (the folder wasn't empty).
+      f.pending = null;
+      continue;
+    }
+    if (f.pending === "mkdir") {
+      f.pending = null; // didn't happen: retried
+      continue;
+    }
+    if (f.pending === "rmdir") {
+      f.pending = null; // happened; its event was lost
+      f.onDisk = false;
+      f.materialized = false;
+      continue;
+    }
+    if (!f.onDisk || folderSkipped(s, f.path)) continue; // excluded here: never a deletion
+    f.onDisk = false;
+    // Made and removed here before the server ever knew it.
+    if (!f.confirmed && !inFlight(s, f.fileId)) delete s.durable.folders[f.fileId];
+  }
+}
+
+/** Create here a folder the server has and this device doesn't. */
+function materializeFolder(c: Ctx, f: FolderEntry): void {
+  if (!f.confirmed || f.deleted || f.onDisk || f.materialized || f.pending) return;
+  if (folderSkipped(c.s, f.path)) return;
+  f.pending = "mkdir";
+  c.fx.push({ type: "mkdir", fileId: f.fileId, path: local(c.s, f.path) });
+}
+
+/** Deleted on the server: removed here once empty; with files of this device inside it comes back. */
+function removeFolder(c: Ctx, f: FolderEntry): void {
+  if (!f.deleted || !f.onDisk || f.pending || hasLocalDescendants(c.s, f.path)) return;
+  if (folderSkipped(c.s, f.path)) return; // excluded here: left alone
+  f.pending = "rmdir";
+  c.fx.push({ type: "rmdir", fileId: f.fileId, path: local(c.s, f.path), leftover: false });
+}
+
+function onFolderDone(
+  c: Ctx,
+  fileId: string,
+  op: "mkdir" | "rmdir" | "leftover",
+  ok: boolean,
+): void {
+  const f = c.s.durable.folders[fileId];
+  if (!f) return;
+  if (op === "leftover") return; // the next scan tells whether it's gone
+  if (f.pending !== op) return;
+  f.pending = null;
+  if (!ok) return; // retried at the next cycle
+  f.onDisk = op === "mkdir";
+  f.materialized = op === "mkdir";
+}
+
+/** A folder moved on disk by the user, with everything inside it (the server keeps paths flat). */
+function renameFolderLocally(c: Ctx, from: string, to: string): void {
+  const { s } = c;
+  const key = diskKey(s, from);
+  const f = folderList(s).find((x) => x.onDisk && diskKey(s, x.path) === key);
+  if (!f) return;
+  const prefix = `${key}/`;
+  const moved = (p: string) => to + p.slice(from.length);
+  for (const e of entries(s))
+    if (
+      (e.localHash !== null || e.pendingWrite !== null) &&
+      diskKey(s, e.path).startsWith(prefix)
+    ) {
+      e.path = moved(e.path);
+      e.renaming = null;
+      e.ignored = excludedHere(s, e.path);
+    }
+  for (const g of folderList(s))
+    if (g.onDisk && (g === f || diskKey(s, g.path).startsWith(prefix))) {
+      const to = moved(g.path);
+      if (folderSkipped(s, to)) {
+        // Into an area this device doesn't sync: gone from here (a folder holds no content; the
+        // server refuses the deletion while files are still inside it).
+        g.onDisk = false;
+        continue;
+      }
+      g.path = to;
+    }
+}
+
+/** Folder ops: deletes (deepest first), moves and mkdirs (shallowest first). */
+function nextFolderOps(s: ClientState, env: ClientEnv) {
+  const depth = (p: string) => p.split("/").length;
+  const del: { op: Op; d: number }[] = [];
+  const mov: { op: Op; d: number }[] = [];
+  const mk: { op: Op; d: number }[] = [];
+  for (const f of folderList(s)) {
+    if (f.pending || f.blocked || folderSkipped(s, f.path)) continue;
+    const d = depth(f.path);
+    if (f.onDisk) {
+      if (!f.confirmed || (f.deleted && hasLocalDescendants(s, f.path)))
+        mk.push({ op: { type: "mkdir", opId: env.newId(), fileId: f.fileId, path: f.path }, d });
+      else if (
+        !f.deleted &&
+        f.remotePath !== null &&
+        diskKey(s, f.path) !== diskKey(s, f.remotePath)
+      )
+        mov.push({
+          op: {
+            type: "move",
+            opId: env.newId(),
+            fileId: f.fileId,
+            fromPath: f.remotePath,
+            toPath: f.path,
+          },
+          d,
+        });
+    } else if (f.confirmed && !f.deleted && f.materialized && !hasLocalDescendants(s, f.path))
+      del.push({
+        op: { type: "delete", opId: env.newId(), fileId: f.fileId, baseVersionId: null },
+        d,
+      });
+  }
+  const ops = (xs: { op: Op; d: number }[], dir: 1 | -1) =>
+    xs.sort((a, b) => dir * (a.d - b.d)).map((x) => x.op);
+  return { deletes: ops(del, -1), moves: ops(mov, 1), mkdirs: ops(mk, 1) };
+}
+
+const isFolderOp = (s: ClientState, op: Op) =>
+  op.type === "mkdir" || (op.type !== "put" && s.durable.folders[op.fileId] !== undefined);
+
+function onFolderAccepted(
+  c: Ctx,
+  op: Op,
+  res: Pick<AcceptedResult, "seq" | "path" | "fileId">,
+): void {
+  const { s } = c;
+  let f = s.durable.folders[op.fileId];
+  if (op.type === "mkdir") {
+    const existing = s.durable.folders[res.fileId];
+    if (
+      f &&
+      res.fileId !== op.fileId &&
+      diskKey(s, f.path) !== diskKey(s, res.path) &&
+      collisionKey(f.path) !== collisionKey(res.path)
+    )
+      // Moved here since the mkdir left: still a new folder, sent again with its new path.
+      return;
+    if (f && res.fileId !== op.fileId && diskKey(s, f.path) !== diskKey(s, res.path)) {
+      // The same folder for the server ("d" and "D"), two on this case-sensitive disk: this one
+      // stays as it is and has nothing more to send (its files meet on the server as files do).
+      f.confirmed = true;
+      f.deleted = false;
+      f.remotePath = f.path;
+      f.seq = Math.max(f.seq, res.seq);
+      f.aliasOf = res.fileId;
+      return;
+    }
+    if (f && res.fileId !== op.fileId) {
+      // Merged with a folder the server already had (03 §9.4): this device adopts its id.
+      delete s.durable.folders[op.fileId];
+      if (existing) {
+        if (diskKey(s, existing.path) !== diskKey(s, f.path)) {
+          // It thought itself elsewhere (an area excluded since): it is the folder on disk here.
+          existing.path = f.path;
+          existing.onDisk = f.onDisk;
+          existing.materialized = f.materialized;
+          existing.leftovers = [];
+        }
+        existing.onDisk ||= f.onDisk;
+        existing.materialized ||= f.materialized;
+        existing.confirmed = true;
+        existing.deleted = false;
+        existing.remotePath ??= res.path;
+        return;
+      }
+      f = { ...f, fileId: res.fileId };
+      s.durable.folders[res.fileId] = f;
+    }
+    f ??= existing;
+    if (!f) return;
+    f.confirmed = true;
+    f.deleted = false;
+    if (res.seq >= f.seq) {
+      f.remotePath = res.path;
+      f.seq = res.seq;
+    }
+    return;
+  }
+  if (!f) return;
+  if (op.type === "move") {
+    if (res.seq >= f.seq) {
+      f.remotePath = res.path;
+      f.seq = res.seq;
+    }
+  } else if (op.type === "delete") {
+    f.deleted = true;
+    f.seq = Math.max(f.seq, res.seq);
+    if (!f.onDisk) f.materialized = false;
+  }
+}
+
+function onFolderRejected(c: Ctx, op: Op, res: RejectedResult): void {
+  const f = c.s.durable.folders[op.fileId];
+  if (!f) return;
+  f.blocked = res.code;
+  switch (res.code) {
+    case "modified_since":
+      // The server still has files inside (changed or unknown here): the folder comes back.
+      f.blocked = null;
+      f.materialized = false;
+      materializeFolder(c, f);
+      return;
+    case "not_found":
+      // Already deleted on the server: with files of this device inside, a mkdir brings it back.
+      f.blocked = null;
+      f.deleted = true;
+      if (!f.onDisk) f.materialized = false;
+      return;
+    case "moved_elsewhere":
+      // Moved elsewhere first: at the next cycle this device moves it again from there.
+      if (res.path !== undefined) f.remotePath = res.path;
+      return;
+    case "path_taken":
+      if (op.type === "move" && f.remotePath !== null) {
+        // Moved here onto a folder the server already has: they become one. The old one is gone
+        // from this device (the server refuses the deletion while files are still inside it).
+        f.blocked = null;
+        f.path = f.remotePath;
+        f.onDisk = false;
+        return;
+      }
+      c.fx.push({ type: "notify", kind: "blocked", fileId: f.fileId, code: res.code });
+      return;
+    default:
+      c.fx.push({ type: "notify", kind: "blocked", fileId: f.fileId, code: res.code });
+  }
+}
+
+/** Journal entries about folders (03 §6.4). */
+function onRemoteFolder(c: Ctx, entry: JournalEntry): void {
+  const { s } = c;
+  const f = s.durable.folders[entry.fileId];
+  if (entry.type === "file_moved" || entry.type === "folder_deleted")
+    for (const a of folderList(s))
+      if (a.aliasOf === entry.fileId) {
+        // Its twin moved or went: this folder needs its own place on the server.
+        a.aliasOf = null;
+        a.confirmed = false;
+        a.remotePath = null;
+      }
+  switch (entry.type) {
+    case "folder_created": {
+      if (!f) {
+        const key = diskKey(s, entry.path);
+        const mine = folderList(s).find((x) => !x.confirmed && diskKey(s, x.path) === key);
+        const e = newFolder(entry.fileId, mine?.path ?? entry.path, true);
+        e.remotePath = entry.path;
+        e.seq = entry.seq;
+        if (mine) {
+          e.onDisk = mine.onDisk;
+          e.materialized = mine.materialized;
+          // With its mkdir in flight, the result merges it.
+          if (!inFlight(s, mine.fileId)) delete s.durable.folders[mine.fileId];
+        }
+        s.durable.folders[e.fileId] = e;
+        materializeFolder(c, e);
+        return;
+      }
+      if (entry.seq <= f.seq) return;
+      f.seq = entry.seq;
+      f.confirmed = true;
+      f.deleted = false;
+      f.remotePath = entry.path;
+      if (!f.onDisk && !f.pending) {
+        f.path = entry.path;
+        f.materialized = false;
+        materializeFolder(c, f);
+      }
+      return;
+    }
+    case "file_moved": {
+      if (!f || entry.seq <= f.seq) return;
+      f.seq = entry.seq;
+      const previous = f.remotePath;
+      f.remotePath = entry.path;
+      if (diskKey(s, f.path) === diskKey(s, entry.path)) return;
+      if (!f.onDisk && !f.pending) {
+        f.path = entry.path;
+        f.materialized = false;
+        materializeFolder(c, f);
+        return;
+      }
+      // A local move is pending: the server decides (first arrived wins).
+      if (previous !== null && diskKey(s, f.path) !== diskKey(s, previous)) return;
+      if (f.pending) return;
+      // Not a rename on disk: its files follow one by one, then the old folder goes once empty.
+      f.leftovers.push(f.path);
+      f.path = entry.path;
+      f.onDisk = false;
+      f.materialized = false;
+      materializeFolder(c, f);
+      return;
+    }
+    case "folder_deleted": {
+      if (!f || entry.seq <= f.seq) return;
+      f.seq = entry.seq;
+      f.deleted = true;
+      if (!f.onDisk) {
+        f.materialized = false;
+        return;
+      }
+      removeFolder(c, f);
+      return;
+    }
+  }
 }
 
 function applyScan(c: Ctx, scan: ScanItem[]): void {
@@ -556,7 +1036,10 @@ function applyScan(c: Ctx, scan: ScanItem[]): void {
 
 function onLocalRename(c: Ctx, from: string, to: string): void {
   const e = ownerOf(c.s, from);
-  if (!e) return;
+  if (!e) {
+    renameFolderLocally(c, from, to);
+    return;
+  }
   e.renaming = null; // the user's move wins over following the server
   // The rename succeeded, so whatever the index thought was at `to` is no longer on disk.
   const previous = ownerOf(c.s, to, e);
@@ -634,7 +1117,12 @@ export function nextOps(s: ClientState, env: ClientEnv): Op[] {
         mtime: e.mtime,
       });
   }
-  return [...deletes, ...moves, ...puts].slice(0, s.config.batchSize);
+  // Files leave a folder before it goes; a moved folder before its files; folders before files.
+  const f = nextFolderOps(s, env);
+  return [...deletes, ...f.deletes, ...f.moves, ...moves, ...f.mkdirs, ...puts].slice(
+    0,
+    s.config.batchSize,
+  );
 }
 
 function startPush(c: Ctx): boolean {
@@ -664,6 +1152,11 @@ function onPushResult(c: Ctx, results: OpResult[]): void {
 
 function applyResult(c: Ctx, op: Op, r: OpResult): void {
   const res = r.status === "duplicate" ? r.original : r;
+  if (isFolderOp(c.s, op)) {
+    if (res.status === "accepted") onFolderAccepted(c, op, res);
+    else if (res.status === "rejected") onFolderRejected(c, op, res);
+    return;
+  }
   const e = c.s.durable.index[op.fileId];
   if (!e) return;
   if (res.status === "accepted") onAccepted(c, e, op, res);
@@ -789,6 +1282,10 @@ function applyEntry(c: Ctx, entry: JournalEntry): boolean {
   const { s } = c;
   const own =
     entry.opId === undefined ? undefined : s.durable.sent.find((op) => op.opId === entry.opId);
+  if (own && isFolderOp(s, own)) {
+    onFolderAccepted(c, own, { seq: entry.seq, path: entry.path, fileId: entry.fileId });
+    return true;
+  }
   if (own) {
     // Our op went through but its response was lost: the journal tells us. Still resent (duplicate).
     const e = s.durable.index[own.fileId];
@@ -799,7 +1296,10 @@ function applyEntry(c: Ctx, entry: JournalEntry): boolean {
   }
   // This device's own entries go through the same rules: the journal positions make them no-ops
   // when the index already reflects them, and restore them when it doesn't.
-  if (entry.kind === "folder") return true; // folders: M1d (Z9)
+  if (entry.kind === "folder") {
+    onRemoteFolder(c, entry);
+    return true;
+  }
   switch (entry.type) {
     case "file_put":
     case "file_restored":
@@ -1012,6 +1512,21 @@ function onSnapshot(c: Ctx, snap: Snapshot): void {
     });
     s.durable.index[e.fileId] = e;
     materialize(c, e);
+  }
+  for (const r of snap.files) {
+    if (r.kind !== "folder" || s.durable.folders[r.fileId]) continue;
+    const key = diskKey(s, r.path);
+    const mine = folderList(s).find((x) => !x.confirmed && diskKey(s, x.path) === key);
+    const f = newFolder(r.fileId, mine?.path ?? r.path, true);
+    f.remotePath = r.path;
+    f.seq = snap.head;
+    if (mine) {
+      f.onDisk = mine.onDisk;
+      f.materialized = mine.materialized;
+      delete s.durable.folders[mine.fileId];
+    }
+    s.durable.folders[f.fileId] = f;
+    materializeFolder(c, f);
   }
   s.durable.cursor = snap.head;
   s.durable.joined = true;

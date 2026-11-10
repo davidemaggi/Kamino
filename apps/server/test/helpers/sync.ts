@@ -76,3 +76,26 @@ export async function linkDevice(
   const b = r.json() as { deviceId: string; deviceToken: string };
   return deviceOf(t, b.deviceToken, id, b.deviceId);
 }
+
+/** Uploads a content through the real API (session, chunks, complete); returns its hash. */
+export async function uploadContent(d: TestDevice, content: Buffer): Promise<string> {
+  const { createHash } = await import("node:crypto");
+  const hash = createHash("sha256").update(content).digest("hex");
+  const base = `/vaults/${d.vaultId}`;
+  const s = (
+    await d.call("POST", `${base}/uploads`, { contentHash: hash, size: content.length })
+  ).json() as { uploadId: string; chunkSize: number };
+  const count = Math.max(1, Math.ceil(content.length / s.chunkSize));
+  for (let i = 0; i < count; i++)
+    await d.call(
+      "PUT",
+      `${base}/uploads/${s.uploadId}/chunks/${i}`,
+      content.subarray(i * s.chunkSize, (i + 1) * s.chunkSize),
+      {
+        "content-type": "application/octet-stream",
+      },
+    );
+  const done = await d.call("POST", `${base}/uploads/${s.uploadId}/complete`);
+  if (done.statusCode !== 200) throw new Error(`upload failed: ${done.body}`);
+  return hash;
+}

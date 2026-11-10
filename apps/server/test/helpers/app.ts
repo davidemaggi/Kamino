@@ -5,6 +5,7 @@ import { AuthService } from "../../src/auth/service.js";
 import { VaultService } from "../../src/vaults/service.js";
 import { FsBlobStore } from "../../src/blobs/fs-store.js";
 import { UploadService } from "../../src/blobs/uploads.js";
+import { SyncService } from "../../src/sync/commit.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,6 +25,7 @@ export interface TestApp {
   auth: AuthService;
   vaults: VaultService;
   uploads: UploadService;
+  sync: SyncService;
   /** Temporary blob and staging directories (removed on close). */
   dirs: { blobs: string; staging: string };
   clock: { now: number };
@@ -49,6 +51,7 @@ export async function testApp(
   const blobStore = new FsBlobStore(dirs.blobs);
   // 8-byte chunks: small files already span several STREAM segments.
   const uploads = new UploadService(db, blobStore, dirs.staging, 1_000_000, () => clock.now, 8);
+  const sync = new SyncService(db, () => clock.now);
   const app = await buildApp({
     config: {
       publicUrl: opts.publicUrl ?? "http://localhost:8080",
@@ -68,6 +71,7 @@ export async function testApp(
     vaults,
     blobStore,
     uploads,
+    sync,
   });
   return {
     app,
@@ -75,6 +79,7 @@ export async function testApp(
     auth,
     vaults,
     uploads,
+    sync,
     dirs,
     clock,
     async call(agent, method, path, body) {

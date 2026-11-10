@@ -11,6 +11,8 @@ import { accountRoutes } from "./routes/account.js";
 import { authRoutes } from "./routes/auth.js";
 import { enrollRoutes } from "./routes/enroll.js";
 import { transferRoutes } from "./routes/transfer.js";
+import { syncRoutes } from "./routes/sync.js";
+import { SyncService } from "./sync/commit.js";
 import { createBlobStore, type BlobStore } from "./blobs/store.js";
 import { UploadService } from "./blobs/uploads.js";
 import { VaultService } from "./vaults/service.js";
@@ -29,6 +31,7 @@ export type AppDeps = {
   vaults?: VaultService | undefined;
   blobStore?: BlobStore | undefined;
   uploads?: UploadService | undefined;
+  sync?: SyncService | undefined;
   /** Directory with the web build; when absent or missing, no static routes are served. */
   webRoot?: string | undefined;
 };
@@ -60,6 +63,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     deps.uploads ??
     new UploadService(deps.db, blobStore, deps.config.stagingDir, deps.config.maxFileBytes);
   await app.register(transferRoutes(deps.db, vaultsSvc, uploads, blobStore), { prefix: "/api/v1" });
+  const sync = deps.sync ?? new SyncService(deps.db);
+  await app.register(syncRoutes(deps.db, vaultsSvc, sync), { prefix: "/api/v1" });
   healthRoutes(app, deps.db);
   versionRoutes(app, deps.buildInfo);
   webRoutes(app, deps.webRoot);

@@ -59,6 +59,9 @@ importers:
       '@kamino/status':
         specifier: workspace:*
         version: link:../../packages/status
+      '@kamino/sync-engine':
+        specifier: workspace:*
+        version: link:../../packages/sync-engine
       '@kamino/ui-diff':
         specifier: workspace:*
         version: link:../../packages/ui-diff

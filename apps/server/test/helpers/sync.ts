@@ -99,3 +99,25 @@ export async function uploadContent(d: TestDevice, content: Buffer): Promise<str
   if (done.statusCode !== 200) throw new Error(`upload failed: ${done.body}`);
   return hash;
 }
+
+/** Uploads `content` and commits it as a new file at `path`; returns the commit result. */
+export async function putFile(d: TestDevice, path: string, content = Buffer.from(path)) {
+  const hash = await uploadContent(d, content);
+  const id = `${path}-${Math.random().toString(36).slice(2, 8)}`;
+  const r = await d.call("POST", `/vaults/${d.vaultId}/commits`, {
+    ops: [
+      {
+        type: "put",
+        opId: `o-${id}`,
+        fileId: `f-${id}`,
+        versionId: `v-${id}`,
+        path,
+        baseVersionId: null,
+        contentHash: hash,
+        size: content.length,
+        mtime: 1,
+      },
+    ],
+  });
+  return r.json() as { results: { status: string; seq?: number }[]; head: number };
+}

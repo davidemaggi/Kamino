@@ -18,3 +18,39 @@ export async function startListener(db: Db, hub: Hub): Promise<{ stop(): Promise
   );
   return { stop: () => sub.unlisten() };
 }
+
+/**
+ * Keeps trying in the background (backoff 1 s → 30 s): the server serves REST even while the
+ * database is unreachable, and sockets catch up as soon as the listener is in place.
+ */
+export function keepListening(
+  db: Db,
+  hub: Hub,
+  onError: (e: unknown) => void = () => undefined,
+): { stop(): Promise<void> } {
+  let stopped = false;
+  let current: { stop(): Promise<void> } | undefined;
+  let timer: NodeJS.Timeout | undefined;
+  const attempt = (delay: number) => {
+    startListener(db, hub).then(
+      async (l) => {
+        if (stopped) await l.stop();
+        else current = l;
+      },
+      (e: unknown) => {
+        if (stopped) return;
+        onError(e);
+        timer = setTimeout(() => attempt(Math.min(delay * 2, 30_000)), delay);
+        timer.unref();
+      },
+    );
+  };
+  attempt(1_000);
+  return {
+    async stop() {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      await current?.stop().catch(() => undefined);
+    },
+  };
+}

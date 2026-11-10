@@ -1,11 +1,10 @@
 import { AckRequest, CommitRequest, DeviceStatusReport } from "@kamino/protocol";
-import { eq } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { fail } from "../auth/http.js";
 import { AuthError } from "../auth/service.js";
 import type { Db } from "../db/client.js";
-import { devices } from "../db/schema.js";
 import { deviceGuard } from "../devices/auth.js";
+import { recordStatus } from "../devices/status.js";
 import { CursorTooOld, type SyncService } from "../sync/commit.js";
 import type { VaultService } from "../vaults/service.js";
 import type { VaultCrypto } from "../vaults/vault-crypto.js";
@@ -72,16 +71,7 @@ export function syncRoutes(db: Db, vaultsSvc: VaultService, sync: SyncService) {
       async (req, reply) => {
         const b = parse(DeviceStatusReport, req, reply);
         if (!b) return reply;
-        await db
-          .update(devices)
-          .set({
-            pendingOps: b.pendingOps,
-            pendingBytes: b.pendingBytes,
-            deferredFiles: b.deferredFiles,
-            lastErrorCode: b.lastErrorCode ?? null,
-            lastErrorAt: b.lastErrorCode ? new Date() : null,
-          })
-          .where(eq(devices.id, req.device!.id));
+        await recordStatus(db, req.device!.id, b);
         return reply.code(204).send();
       },
     );

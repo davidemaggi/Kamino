@@ -66,6 +66,8 @@ export type Mutation =
       type: "version";
       fileId: string;
       versionId: string;
+      /** The declared base, always kept (05 §5: enables a future three-way merge). */
+      baseVersionId: string | null;
       hash: string;
       size: number;
       mtime: number;
@@ -158,6 +160,7 @@ function versionOf(fileId: string, op: PutOp): Mutation {
     type: "version",
     fileId,
     versionId: op.versionId,
+    baseVersionId: op.baseVersionId,
     hash: op.contentHash,
     size: op.size,
     mtime: op.mtime,

@@ -240,6 +240,7 @@ export class SyncService {
           vaultId: v,
           id: m.versionId,
           fileId: m.fileId,
+          baseVersionId: m.baseVersionId,
           contentHashEnc: vc.enc("file_versions", "content_hash", `${v}:${m.versionId}`, m.hash),
           blobId: vc.blobId(m.hash),
           size: m.size,

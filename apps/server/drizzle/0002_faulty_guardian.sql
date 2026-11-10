@@ -69,6 +69,7 @@ CREATE TABLE "file_versions" (
 	"vault_id" uuid NOT NULL,
 	"id" text NOT NULL,
 	"file_id" text NOT NULL,
+	"base_version_id" text,
 	"content_hash_enc" "bytea" NOT NULL,
 	"blob_id" text NOT NULL,
 	"size" bigint NOT NULL,

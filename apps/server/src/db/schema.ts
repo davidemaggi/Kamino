@@ -222,6 +222,7 @@ export const fileVersions = pgTable(
       .references(() => vaults.id, { onDelete: "cascade" }),
     id: text("id").notNull(),
     fileId: text("file_id").notNull(),
+    baseVersionId: text("base_version_id"),
     contentHashEnc: bytea("content_hash_enc").notNull(),
     blobId: text("blob_id").notNull(),
     size: bigint("size", { mode: "number" }).notNull(),

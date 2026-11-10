@@ -93,6 +93,15 @@ describe.skipIf(dockerUnavailable)("sync flow: two devices", () => {
       ],
     });
     expect(conflictA.json().results[0]).toMatchObject({ status: "conflict", headVersionId: "v2" });
+    // Every version keeps its declared base, conflict candidates included (05 §5).
+    const bases = await t.db.$client<
+      { id: string; base_version_id: string | null }[]
+    >`select id, base_version_id from file_versions order by id`;
+    expect(bases).toEqual([
+      { id: "v1", base_version_id: null },
+      { id: "v2", base_version_id: "v1" },
+      { id: "v3", base_version_id: "v1" },
+    ]);
 
     // Snapshot: the current version and the open conflict; nothing lost.
     const snap = Snapshot.parse((await b.call("GET", `${base}/snapshot`)).json());

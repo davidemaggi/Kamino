@@ -20,7 +20,8 @@ async function json(req: Request): Promise<unknown> {
   return req.json().catch(() => undefined);
 }
 
-export const userHandlers = [
+/** Served by the real server since M1c: hybrid mode leaves them out. */
+export const vaultListHandlers = [
   http.get(
     `${API}/vaults/summary`,
     () =>
@@ -33,6 +34,10 @@ export const userHandlers = [
     `${API}/vaults`,
     () => unauthorized() ?? HttpResponse.json({ vaults: ud.vaults, quota: ud.quota }),
   ),
+];
+
+export const userHandlers = [
+  ...vaultListHandlers,
   http.get(`${API}/vaults/:id`, ({ params }) => {
     const v = ud.vaults.find((x) => x.id === params["id"]);
     return unauthorized() ?? (v ? HttpResponse.json(v) : fail(404, "not_found"));

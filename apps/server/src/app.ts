@@ -12,6 +12,7 @@ import { authRoutes } from "./routes/auth.js";
 import { enrollRoutes } from "./routes/enroll.js";
 import { transferRoutes } from "./routes/transfer.js";
 import { syncRoutes } from "./routes/sync.js";
+import { vaultRoutes } from "./routes/vaults.js";
 import { SyncService } from "./sync/commit.js";
 import { createBlobStore, type BlobStore } from "./blobs/store.js";
 import { UploadService } from "./blobs/uploads.js";
@@ -65,6 +66,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(transferRoutes(deps.db, vaultsSvc, uploads, blobStore), { prefix: "/api/v1" });
   const sync = deps.sync ?? new SyncService(deps.db);
   await app.register(syncRoutes(deps.db, vaultsSvc, sync), { prefix: "/api/v1" });
+  await app.register(vaultRoutes(deps.db, vaultsSvc), { prefix: "/api/v1" });
   healthRoutes(app, deps.db);
   versionRoutes(app, deps.buildInfo);
   webRoutes(app, deps.webRoot);

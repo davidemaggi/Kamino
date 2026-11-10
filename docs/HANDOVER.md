@@ -72,7 +72,7 @@ Blocco E — Task 8 ✅ `2dddddd`: `ObsidianFs` (file temporaneo in `<pluginDir>
 
 **Ordine cambiato:** il Task 7 si fa dopo il 12 (sul PC Windows Docker gira in WSL su `tcp://127.0.0.1:2375`, contesto `wsl`: lanciare i test del server con `DOCKER_HOST=tcp://127.0.0.1:2375`).
 
-**Blocchi rimanenti:** C (file grandi streaming), D (integrazione motore↔server vero), E (adattatori Obsidian, collegamento, watcher), F (impostazioni, build produzione), G (docs, verifica, revisione, PR).
+**Blocchi rimanenti:** D (integrazione motore↔server vero), E (adattatori Obsidian, collegamento, watcher), F (impostazioni, build produzione), G (docs, verifica, revisione, PR).
 
 ## Prossimi passi
 

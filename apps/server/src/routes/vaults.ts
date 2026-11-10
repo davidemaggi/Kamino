@@ -2,11 +2,10 @@ import type { Vault as VaultDto } from "@kamino/protocol";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { requireUser } from "../auth/http.js";
+import { vaultLevel, type Level } from "../devices/level.js";
 import type { Db } from "../db/client.js";
 import { conflicts, devices, files, fileVersions } from "../db/schema.js";
 import type { Vault, VaultService } from "../vaults/service.js";
-
-type Level = VaultDto["level"];
 
 /** Admin maximum for history retention until system settings arrive (M5). */
 const MAX_RETENTION_DAYS = 90;
@@ -56,26 +55,11 @@ async function statsOf(db: Db, v: Vault): Promise<Stats> {
   const usedBytes = Number(sizes?.live ?? 0);
   const trashBytes = Number(sizes?.trash ?? 0);
   const openConflicts = Number(open?.n ?? 0);
-  // "Safe" only when every device has synced, caught up with the head and queued nothing
-  // (packages/status: working.notLinked / neverSynced / queued).
-  const working =
-    devs.length === 0 ||
-    devs.some(
-      (d) =>
-        d.cursor < v.headSeq ||
-        d.pending > 0 ||
-        d.deferred > 0 ||
-        (d.lastSync === null && d.lastAck === null),
-    );
-  // Worst first: a decision to take, then attention, then work in progress.
-  const level: Level =
-    openConflicts > 0
-      ? "decision"
-      : devs.some((d) => d.error !== null)
-        ? "attention"
-        : working
-          ? "working"
-          : "safe";
+  const level = vaultLevel(
+    openConflicts,
+    devs.map((d) => ({ ...d, revoked: false })),
+    v.headSeq,
+  );
   return {
     fileCount: Number(sizes?.liveFiles ?? 0),
     deviceCount: devs.length,

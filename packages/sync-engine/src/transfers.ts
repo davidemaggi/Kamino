@@ -117,10 +117,13 @@ export class Transfers {
     vaultId: string,
     hash: string,
     onBytes: (n: number) => void,
+    /** Called with the size once known, before any byte is yielded; may throw to stop. */
+    onTotal?: (total: number) => void,
   ): AsyncIterable<Uint8Array> {
     let total = Infinity;
     for (let start = 0; start < total; start += this.pieceSize) {
       const r = await this.api.blobRange(vaultId, hash, start, start + this.pieceSize);
+      if (start === 0) onTotal?.(r.total);
       total = r.total;
       if (r.body.length === 0) return;
       onBytes(r.body.length);

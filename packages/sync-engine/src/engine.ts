@@ -35,6 +35,17 @@ export interface EngineDeps {
   token: () => string | null;
   /** Codes only: never paths, names, contents or tokens. */
   log?: (code: string) => void;
+  /** Without streaming (`fs.streaming === false`), files over this size wait (E3, 100 MB). */
+  limits?: { maxInMemoryBytes?: number };
+}
+
+export const DEFAULT_MAX_IN_MEMORY_BYTES = 100 * 1024 * 1024;
+
+/** The file is over the in-memory limit of an adapter without streaming. */
+class TooLarge extends Error {
+  constructor(readonly size: number) {
+    super("too_large");
+  }
 }
 
 /** Names of the engine's own state files (in the plugin folder). */
@@ -92,6 +103,8 @@ export class Engine {
   private lastError: string | undefined;
   private openConflicts: { id: string; fileId: string }[] = [];
   private unreadable: string[] = [];
+  /** Files waiting for streaming or a higher limit, by local path; rebuilt each cycle. */
+  private readonly waiting = new Map<string, DeferredFile>();
   /** A local change was reported after the last scan. */
   private dirty = false;
 
@@ -199,7 +212,13 @@ export class Engine {
   }
 
   deferred(): DeferredFile[] {
-    return [];
+    return [...this.waiting.values()];
+  }
+
+  /** Over the limit for an adapter that holds whole files in memory. */
+  private tooBig(size: number): boolean {
+    if (this.d.fs.streaming) return false;
+    return size > (this.d.limits?.maxInMemoryBytes ?? DEFAULT_MAX_IN_MEMORY_BYTES);
   }
 
   /** Local paths that couldn't be read at the last scan. */
@@ -259,6 +278,7 @@ export class Engine {
     }
     this.unreadable = scan.unreadable;
     this.dirty = false;
+    this.waiting.clear();
     await this.d.fs.saveState(STATE_FILES.cache, JSON.stringify(this.scanner.cache));
     await this.dispatch({ type: "sync", scan: scan.files, folders: scan.folders });
     await this.settled();
@@ -437,6 +457,11 @@ export class Engine {
         const src = byHash.get(hash);
         // Not on disk any more: the commit answers blob_missing, the next cycle decides.
         if (!src) continue;
+        if (this.tooBig(src.size)) {
+          // Never lost: it stays on disk and in the queue (blob_missing), shown as deferred.
+          this.waiting.set(src.path, { path: src.path, size: src.size, direction: "upload" });
+          continue;
+        }
         try {
           await this.transfers.upload(vaultId, src.path, hash, src.size, () => {});
         } catch (e) {
@@ -467,10 +492,19 @@ export class Engine {
       case "write": {
         let ok = false;
         try {
-          const parts = this.transfers.download(this.d.vaultId, fx.hash, () => {});
+          const parts = this.transfers.download(
+            this.d.vaultId,
+            fx.hash,
+            () => {},
+            (total) => {
+              if (this.tooBig(total)) throw new TooLarge(total);
+            },
+          );
           ok = (await fs.write(fx.path, parts, fx.expect, fx.hash)) === "ok";
         } catch (e) {
-          if (e instanceof ApiError) this.failure(e);
+          if (e instanceof TooLarge)
+            this.waiting.set(fx.path, { path: fx.path, size: e.size, direction: "download" });
+          else if (e instanceof ApiError) this.failure(e);
           else this.log("write_failed");
         }
         ev = { type: "written", fileId: fx.fileId, hash: fx.hash, ok };

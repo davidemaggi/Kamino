@@ -3,6 +3,11 @@ import { pino } from "pino";
 import { buildApp } from "../../src/app.js";
 import { AuthService } from "../../src/auth/service.js";
 import { VaultService } from "../../src/vaults/service.js";
+import { FsBlobStore } from "../../src/blobs/fs-store.js";
+import { UploadService } from "../../src/blobs/uploads.js";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { CSRF_VALUE, SESSION_COOKIE } from "../../src/auth/http.js";
 import { buildInfo } from "../../src/build-info.js";
 import { ensureKeyCheck } from "../../src/crypto/key-check.js";
@@ -18,6 +23,9 @@ export interface TestApp {
   db: Db;
   auth: AuthService;
   vaults: VaultService;
+  uploads: UploadService;
+  /** Temporary blob and staging directories (removed on close). */
+  dirs: { blobs: string; staging: string };
   clock: { now: number };
   /** JSON request with CSRF header and the cookie jar of `agent`. */
   call(agent: Agent, method: string, url: string, body?: unknown): Promise<LightMyRequestResponse>;
@@ -36,6 +44,11 @@ export async function testApp(
   const clock = { now: Date.UTC(2026, 10, 9, 12) };
   const auth = new AuthService(db, kek, "Kamino", () => clock.now);
   const vaults = new VaultService(db, kek, () => clock.now);
+  const root = mkdtempSync(join(tmpdir(), "kamino-app-"));
+  const dirs = { blobs: join(root, "blobs"), staging: join(root, "staging") };
+  const blobStore = new FsBlobStore(dirs.blobs);
+  // 8-byte chunks: small files already span several STREAM segments.
+  const uploads = new UploadService(db, blobStore, dirs.staging, 1_000_000, () => clock.now, 8);
   const app = await buildApp({
     config: {
       publicUrl: opts.publicUrl ?? "http://localhost:8080",
@@ -53,12 +66,16 @@ export async function testApp(
     kek,
     auth,
     vaults,
+    blobStore,
+    uploads,
   });
   return {
     app,
     db,
     auth,
     vaults,
+    uploads,
+    dirs,
     clock,
     async call(agent, method, path, body) {
       const res = await app.inject({
@@ -78,6 +95,7 @@ export async function testApp(
     async close() {
       await app.close();
       await db.$client.end();
+      rmSync(root, { recursive: true, force: true });
     },
   };
 }

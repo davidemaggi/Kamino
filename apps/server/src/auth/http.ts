@@ -10,6 +10,7 @@ import {
   type Ctx,
   type User,
 } from "./service.js";
+import { TransferError } from "../blobs/uploads.js";
 
 /** What an admin without TOTP may still do (U-07): see who they are, enable TOTP, sign out. */
 const TOTP_SETUP_ROUTES = new Set([
@@ -86,6 +87,7 @@ export async function registerAuthHttp(app: FastifyInstance, service: AuthServic
   });
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof AuthError) return fail(reply, err.status, err.code);
+    if (err instanceof TransferError) return fail(reply, err.status, err.code);
     // Fastify parse errors keep their 4xx status; never log request contents.
     const e = err as { name?: string; code?: unknown; statusCode?: number };
     if (e.statusCode !== undefined && e.statusCode < 500)

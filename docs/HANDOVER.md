@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1d in corso: Blocchi A (`sync-engine`, Task 1–4) e B (cartelle in `sync-core`, Task 5) completati e pushati; prossimo il Blocco C (Task 6, file grandi). Branch `m1d-plugin-engine`.
+**Ultimo aggiornamento:** 2026-11-10 — M1d in corso: Task 1–6 e 8 completati e pushati; prossimo il Task 9 (collegamento vero nel plugin), poi 10–12, poi il Task 7 (integrazione col server vero, serve Docker), poi il 13. Branch `m1d-plugin-engine`.
 
 ## Dove siamo
 
@@ -65,6 +65,12 @@ Blocco B — Task 5 (cartelle sul client, Z9) ✅ `8169f40`:
 - le cartelle vivono in `Durable.folders`, separate dall'indice dei file (la logica dei file, già provata dal simulatore, non cambia); effetti `mkdir`/`rmdir`, evento `folderDone`; l'evento `sync` porta `folders?` (assente = il guscio non riporta cartelle);
 - spostamento remoto di una cartella = `mkdir` del nuovo percorso + il vecchio rimosso quando è vuoto (i file seguono uno a uno); `d`/`D` su disco case-sensitive = "alias" che non invia nulla;
 - il simulatore ora crea, rimuove e sposta cartelle (anche non viste dal watcher) e controlla che convergano; durante lo sviluppo ha trovato 9 difetti, tutti corretti; `test:deep` (3000 scenari) verde. `SIM_NO_SHRINK=1` riporta un errore senza ridurlo (la riduzione di un caso che non si stabilizza è lentissima).
+
+Blocco C — Task 6 ✅ `03e3cd2`: streaming verificato (20 MB con meno di 3 chunk in memoria, in entrambe le direzioni); senza streaming i file oltre `limits.maxInMemoryBytes` (100 MB) restano in `deferred()`, mai persi.
+
+Blocco E — Task 8 ✅ `2dddddd`: `ObsidianFs` (file temporaneo in `<pluginDir>/tmp`, `appendBinary` se c'è, hash verificato prima del `rename`, cestino di sistema con ripiego su `.trash`, stato atomico con recupero del `.tmp`) e `ObsidianHttp` su `requestUrl`; mock `MockAdapter` e `requestUrlMock` in `src/__mocks__/obsidian.ts`.
+
+**Ordine cambiato:** il Task 7 si fa dopo il 12 (sul PC Windows Docker gira in WSL su `tcp://127.0.0.1:2375`, contesto `wsl`: lanciare i test del server con `DOCKER_HOST=tcp://127.0.0.1:2375`).
 
 **Blocchi rimanenti:** C (file grandi streaming), D (integrazione motore↔server vero), E (adattatori Obsidian, collegamento, watcher), F (impostazioni, build produzione), G (docs, verifica, revisione, PR).
 

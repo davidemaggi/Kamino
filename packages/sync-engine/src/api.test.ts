@@ -89,8 +89,15 @@ class BlobServer {
       const data = this.blobs.get(g[1]!);
       if (!data) return err(404, "not_found");
       const rm = /^bytes=(\d+)-(\d+)$/.exec(r.headers?.range ?? "");
-      if (!rm) return { status: 200, body: data };
-      return { status: 206, body: data.subarray(Number(rm[1]), Number(rm[2]) + 1) };
+      // Like the server: no Range, or an empty blob → the whole blob with 200.
+      if (!rm || data.length === 0) return { status: 200, body: data };
+      const start = Number(rm[1]);
+      const end = Math.min(data.length, Number(rm[2]) + 1);
+      return {
+        status: 206,
+        body: data.subarray(start, end),
+        headers: { "Content-Range": `bytes ${start}-${end - 1}/${data.length}` },
+      };
     }
     return err(404, "not_found");
   };
@@ -246,14 +253,32 @@ describe("transfers", () => {
     server.blobs.set(hash, bytes("0123456789"));
     t.pieceSize = 4;
     let n = 0;
-    const data = await collect(t.download("v", hash, 10, (b) => (n += b)));
+    const data = await collect(t.download("v", hash, (b) => (n += b)));
     expect(new TextDecoder().decode(data)).toBe("0123456789");
-    expect(http.log.map((r) => r.headers?.range)).toEqual(["bytes=0-3", "bytes=4-7", "bytes=8-9"]);
+    // The size comes from the first Content-Range.
+    expect(http.log.map((r) => r.headers?.range)).toEqual(["bytes=0-3", "bytes=4-7", "bytes=8-11"]);
     expect(n).toBe(10);
+  });
+
+  it("downloads an empty blob", async () => {
+    const { server, hash, t } = await setup("", 4);
+    server.blobs.set(hash, new Uint8Array(0));
+    expect((await collect(t.download("v", hash, () => {}))).length).toBe(0);
   });
 
   it("a download error surfaces as an ApiError", async () => {
     const { t } = await setup("x", 4);
-    await expect(collect(t.download("v", HASH, 10, () => {}))).rejects.toBeInstanceOf(ApiError);
+    await expect(collect(t.download("v", HASH, () => {}))).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("a truncated piece is an error", async () => {
+    const { server, http, hash, t } = await setup("0123456789", 4);
+    server.blobs.set(hash, bytes("0123456789"));
+    const handle = server.handle;
+    http.handler = async (r) => {
+      const res = await handle(r);
+      return res.body ? { ...res, body: res.body.subarray(1) } : res;
+    };
+    await expect(collect(t.download("v", hash, () => {}))).rejects.toBeInstanceOf(ApiError);
   });
 });

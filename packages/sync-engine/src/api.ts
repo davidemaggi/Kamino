@@ -201,16 +201,33 @@ export class Api {
       path: `${vault(vaultId)}/uploads/${enc(uploadId)}/complete`,
     });
   }
-  /** Plain bytes [start, end) of a blob. */
-  async blobRange(vaultId: string, hash: string, start: number, end: number): Promise<Uint8Array> {
+  /**
+   * Plain bytes [start, end) of a blob, and its total size (from `content-range`). A 200 is the
+   * whole blob (the server answers so for an empty one).
+   */
+  async blobRange(
+    vaultId: string,
+    hash: string,
+    start: number,
+    end: number,
+  ): Promise<{ body: Uint8Array; total: number }> {
     const res = await this.send({
       method: "GET",
       path: `${vault(vaultId)}/blobs/${enc(hash)}`,
       headers: { range: `bytes=${start}-${end - 1}` },
     });
     const body = res.body ?? new Uint8Array(0);
-    if (body.length !== end - start) throw new ApiError("http", res.status, "short_body");
-    return body;
+    if (res.status === 200) {
+      if (start !== 0) throw new ApiError("http", res.status, "short_body");
+      return { body, total: body.length };
+    }
+    const header = Object.entries(res.headers ?? {}).find(
+      ([k]) => k.toLowerCase() === "content-range",
+    )?.[1];
+    const m = header ? /^bytes (\d+)-(\d+)\/(\d+)$/.exec(header) : null;
+    if (!m || Number(m[1]) !== start || body.length !== Number(m[2]) - start + 1)
+      throw new ApiError("http", res.status, "short_body");
+    return { body, total: Number(m[3]) };
   }
 }
 

@@ -109,18 +109,22 @@ export class Transfers {
     await this.forget(hash);
   }
 
-  /** The plain content of a blob, in Range pieces of `pieceSize`. */
+  /**
+   * The plain content of a blob, in Range pieces of `pieceSize`. The size comes from the first
+   * response (the write effect doesn't carry it).
+   */
   async *download(
     vaultId: string,
     hash: string,
-    size: number,
     onBytes: (n: number) => void,
   ): AsyncIterable<Uint8Array> {
-    for (let start = 0; start < size; start += this.pieceSize) {
-      const end = Math.min(size, start + this.pieceSize);
-      const piece = await this.api.blobRange(vaultId, hash, start, end);
-      onBytes(piece.length);
-      yield piece;
+    let total = Infinity;
+    for (let start = 0; start < total; start += this.pieceSize) {
+      const r = await this.api.blobRange(vaultId, hash, start, start + this.pieceSize);
+      total = r.total;
+      if (r.body.length === 0) return;
+      onBytes(r.body.length);
+      yield r.body;
     }
   }
 }

@@ -4,3 +4,5 @@ export * from "./memory-fs.js";
 export * from "./scanner.js";
 export * from "./api.js";
 export * from "./transfers.js";
+export * from "./status.js";
+export * from "./engine.js";

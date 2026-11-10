@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M2a mergiata (PR #11). **M1d (motore del plugin) in corso senza gli spike**, per scelta del committente (i test sui dispositivi si consegnano alla fine); branch `m1d-plugin-engine`.
+**Ultimo aggiornamento:** 2026-11-10 — M1d in corso, Blocco A Task 2 (scanner) completato ma non ancora committato (sessione interrotta per token). Branch `m1d-plugin-engine`.
 
 ## Dove siamo
 
@@ -22,7 +22,7 @@
 | M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ⏳ M2b |
 | M3…M7 | ⏳ |
 
-**Branch di lavoro:** `m1b-crypto-auth` (da `main` dopo la PR #8).
+**Branch di lavoro:** `m1d-plugin-engine` (da `main` dopo la PR #11).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -42,6 +42,27 @@
 | 11 | Verifica comandi di `CLAUDE.md` | ✅ (+ `pnpm format:check` in CI) |
 | 12 | Spike R-1…R-5 | ✅ prototipi e istruzioni (`spikes/`, `docs/spikes/`); ⏳ esecuzione su dispositivi e chiusura |
 | — | Revisione finale dell'intero branch | ✅ 0 critici, 1 importante + 9 minori corretti in un giro, ricontrollati |
+
+### Task di M1d (Blocco A — `sync-engine`)
+
+Piano: `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`, spec: `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md` (E1–E10).
+
+| # | Task | Stato |
+|---|---|---|
+| 1 | Pacchetto, porte, `MemoryFs`, hash | ✅ committato `8c131cb` (`ports.ts`, `hash.ts`, `memory-fs.ts`, `memory-fs.test.ts`, `index.ts`; `docker/Dockerfile` e `.changeset/config.json` aggiornati) |
+| 2 | Scanner con cache degli stat | ✅ scritto e testato (7 test passano, typecheck ok) — **NON ancora committato** (`scanner.ts`, `scanner.test.ts`, `index.ts` modificato) |
+| 3 | API e trasferimenti | ⏳ prossimo |
+| 4 | Motore (`engine.ts`, `status.ts`) | ⏳ |
+
+**Per riprendere Task 2:** i file sono pronti in working tree. Committare con:
+```bash
+cd /Users/davide/Repos/Kamino
+pnpm exec prettier --write packages/sync-engine/src >/dev/null
+/tmp/kamino-tools/commit.sh "feat(sync-engine): scan the vault with a stat cache" packages/sync-engine pnpm-lock.yaml
+```
+Poi procedere con Task 3 (`src/api.ts`, `src/transfers.ts`, `src/api.test.ts`) seguendo il piano.
+
+**Blocchi rimanenti dopo A:** B (cartelle in `sync-core`, Z9), C (file grandi streaming), D (integrazione motore↔server vero), E (adattatori Obsidian, collegamento, watcher), F (impostazioni, build produzione), G (docs, verifica, revisione, PR).
 
 ## Prossimi passi
 

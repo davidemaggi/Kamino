@@ -172,7 +172,15 @@ Le tabelle di §3–6 esistono dalla terza migrazione. Dove l'implementazione si
 - **`blobs`:** `(vault_id, blob_id)` con `size` (chiaro) e `stored_size` (cifrato). La chiave nello storage è derivata (`vaultId/blobId`), non salvata. `last_referenced_at` e la GC arrivano con M3.
 - **`upload_sessions`:** i pezzi ricevuti non sono in tabella: sono i file presenti nello staging (`KAMINO_STAGING_DIR/<id>/<indice>`), già cifrati come segmenti STREAM con il `salt` della sessione. `state` (`open` → `completing` → `done`) e `claimed_at` fanno sì che un solo `complete` lavori sulla sessione; dopo, i chunk non cambiano più. `reserved_bytes` arriva con le quote (M5).
 - **`conflicts`:** `head_version_id` è la corrente all'apertura. `resolution` e i campi di risoluzione arrivano con M2.
-- **Non ancora presenti:** `vaults.settings`, `devices.settings_override`, `pairings` (M6), `quotas`/`quota_usage` (M5).
+- **Non ancora presenti:** `pairings` (M6), `quotas`/`quota_usage` (M5).
+
+### Aggiunte di M2a (migrazione `0003`)
+
+- `vaults.journal_floor` bigint: l'ultimo `seq` eliminato dalla compattazione; un cursore più basso riceve `cursor_too_old`.
+- `vaults.settings_enc` 🔒 (AAD `vaults ‖ settings ‖ id`): le impostazioni di sync del vault; null = default di S-10.
+- `devices.settings_override_enc` 🔒 (AAD `devices ‖ settings_override ‖ id`): l'override del dispositivo; null = segue il default.
+- Voci di journal sul vault (`vault_settings_changed`) con `file_id` = `_vault` e path cifrato `_vault`.
+- Schema `pgboss`: creato e aggiornato da pg-boss all'avvio, dopo la verifica della master key.
 
 ## 7. Sistema
 

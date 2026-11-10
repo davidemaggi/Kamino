@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1b mergiata (PR #9). **M1c (server di sync) implementata e rivista**, PR #10 aperta. Prossimo: M1d (dopo gli spike) o M2.
+**Ultimo aggiornamento:** 2026-11-10 — M1c mergiata (PR #10). **M2a (tempo reale sul server) implementata e rivista**, PR #11 aperta. M2b (parte plugin) dopo M1d.
 
 ## Dove siamo
 
@@ -18,8 +18,9 @@
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
-| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): implementata e rivista, PR #10 aperta · ⏳ M1d |
-| M2…M7 | ⏳ |
+| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · ⏳ M1d |
+| M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): implementata e rivista, PR #11 aperta · ⏳ M2b |
+| M3…M7 | ⏳ |
 
 **Branch di lavoro:** `m1b-crypto-auth` (da `main` dopo la PR #8).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
@@ -44,9 +45,9 @@
 
 ## Prossimi passi
 
-1. **Chiudere M1c:** merge della PR #10 da parte del committente.
-2. Prova del committente (facoltativa): `docker compose … up` con il volume `kamino-data`; web app in modalità ibrida (`VITE_KAMINO_API=hybrid`): login, account, elenco e riepilogo dei vault dal server vero.
-3. **M2 — WebSocket e tempo reale** può partire anche prima di M1d (il server ha già journal, `changes` e `ack`).
+1. **Chiudere M2a:** merge della PR #11 da parte del committente.
+2. Prova del committente (facoltativa): `docker compose … up`; web app in modalità ibrida (`VITE_KAMINO_API=hybrid`): login, account, elenco e riepilogo dei vault dal server vero.
+3. **M2b — parte plugin di M2** dopo M1d.
 4. **M1d — motore del plugin** (dopo gli spike R-1…R-5, rinviati dal committente insieme alla prova su telefono): guscio di `step()` con file system di Obsidian, `requestUrl`, persistenza; cartelle sul client (Z9).
 
 ## Come riprendere su un altro PC
@@ -134,6 +135,39 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di M2a (tempo reale sul server)
+
+| # | Decisione |
+|---|---|
+| D1 | Solo server; la parte plugin di M2 (applicazione delle voci, eco, modalità, D-07, Wi-Fi) è M2b, dopo M1d |
+| D2 | WebSocket `/api/v1/ws` (03 §7): `hello` entro 5 s col token, catch-up a pagine di 500, `ack`/`status`, heartbeat 30 s con ricontrollo di revoca e blocco |
+| D3 | Fan-out: `pg_notify` nella transazione del commit, `LISTEN` dedicato (postgres-js si riconnette da solo), hub per vault, lettura coalescente una pagina alla volta |
+| D4 | Compattazione dietro i cursori attivi (90 giorni) e la retention; `journal_floor` → `cursor_too_old` (`410` / chiusura `4410`) |
+| D5 | pg-boss (ADR 0008): compattazione notturna e pulizia degli upload orarie, avviati dopo la verifica della chiave |
+| D6 | Dispositivi dal web (elenco/dettaglio/rinomina/revoca) e dal plugin (`/device`, `/vault/devices`); livelli da un'unica funzione |
+| D7 | Impostazioni di vault e override cifrati; voce `vault_settings_changed` (`_vault`, `ignorable`); default S-10 senza categorie anche in `sync-core` |
+| D8 | `PROTOCOL_VERSION` resta 1 |
+
+Trovati durante M2a:
+- un ciclo infinito nel limite di 5 socket per dispositivo, trovato dai test dell'hub;
+- `buildApp` che aspettava il `LISTEN`, rompendo l'avvio con il database irraggiungibile: ora il listener parte in background;
+- `revoke` del web che doveva restituire il `Device`;
+- il test multi-client che con pochi giri non arrivava mai alla compattazione: ora controlla di aver attraversato ogni percorso.
+
+Revisione finale (0 critici, 3 importanti, 8 minori). Corretti, con test:
+- più `hello` sullo stesso socket non autenticato avviavano più ricerche del token; ora c'è uno stato "in autenticazione";
+- `changes` poteva arrivare prima di `welcome`;
+- un dispositivo sempre connesso sembrava inattivo: ora `ack` e heartbeat aggiornano "ultimo contatto", al massimo una volta al minuto;
+- il timer del `hello` resta attivo fino a `welcome`;
+- `ack` e `status` ravvicinati vengono raggruppati;
+- un cursore oltre la testa riceve `cursor_too_old`;
+- impostazioni identiche non producono una voce di journal;
+- heartbeat dei test meno aggressivo; il client di test risponde ai ping, verifica che `welcome` arrivi per primo, e il test multi-client cambia anche le impostazioni.
+
+Rinviati:
+- `Hub.closeUser` va collegato al blocco degli utenti dall'admin (M5); oggi il blocco arriva al battito successivo;
+- la compattazione per retention si basa su `journal.at`, preso dentro la transazione dopo il lock del vault, quindi in ordine con il `seq`.
 
 ### Decisioni di M1c (server di sync)
 
@@ -254,6 +288,8 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 - **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal; riconciliazione completa con indice esistente (`cursor_too_old`).
 - **Dopo M1c:** `/vaults` e `/vaults/summary` esistono sul server; le altre rotte dell'area utente (dettaglio vault, dispositivi dal web, conflitti, storico, cestino) e quelle admin no: in produzione quelle schermate danno errore. Coperto dal vincolo "nessuna release pubblica prima della fine di M1".
 - **M1a, minori rinviati dalla revisione:** `mkdir` su cartella esistente restituisce `accepted` con l'altro `fileId` (03 dice `duplicate`: allineare il documento in M1c); cancellazione di cartella con discendenti vivi → `modified_since` (da documentare); nessun controllo su `put`/`move` sotto un path che è un file; `stopped` è volatile; MAX_PATH di Windows non modellato; su Linux un disco con forme NFC e NFD dello stesso nome (stesso path canonico): da definire nel contratto del guscio in M1d.
+- **M1d/M2b:** le impostazioni del plugin (`apps/plugin/src/settings/model.ts`) chiamano le categorie `core`, `enabledPlugins`, `installedPlugins`, mentre il contratto usa `base`, `pluginList`, `plugins`: mappare quando il plugin userà `/vault/settings` e `/device/settings`. Il client WebSocket del plugin deve gestire i codici di chiusura di 03 §7 (nota M2a) e `403 totp_mandatory` su `/devices/login`.
+- **Multi-istanza:** la revoca chiude subito i socket dell'istanza che la riceve; le altre istanze se ne accorgono al battito successivo (entro 30 s).
 - **M1d:** cartelle sul client (`mkdir`, spostamento e cancellazione di cartelle; l'arbitro le gestisce già); `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client.
 - **M1+ (server):** implementare anche le rotte `admin` (utenti, configurazione con fonte dei valori, email di prova, salute, audit) e quelle di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.
 - **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.

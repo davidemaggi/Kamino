@@ -156,6 +156,10 @@ export const vaults = pgTable("vaults", {
   kekId: text("kek_id").notNull(),
   dekVersion: integer("dek_version").notNull().default(1),
   headSeq: bigint("head_seq", { mode: "number" }).notNull().default(0),
+  /** Last journal seq removed by compaction: a cursor below it gets cursor_too_old (03 §6.3). */
+  journalFloor: bigint("journal_floor", { mode: "number" }).notNull().default(0),
+  /** Vault sync settings (S-10), AAD vaults ‖ settings ‖ id; null = the S-10 defaults. */
+  settingsEnc: bytea("settings_enc"),
   retentionDays: integer("retention_days").notNull().default(30),
   status: vaultStatus("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -186,6 +190,8 @@ export const devices = pgTable("devices", {
   lastErrorCode: text("last_error_code"),
   lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
   lastIp: text("last_ip"),
+  /** Device override of the vault settings, AAD devices ‖ settings_override ‖ id; null = follow. */
+  settingsOverrideEnc: bytea("settings_override_enc"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
 });

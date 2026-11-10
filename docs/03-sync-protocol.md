@@ -134,6 +134,8 @@ Letto in un'unica transazione consistente: lo stato corrisponde esattamente a `h
 
 Il journal conserva le voci almeno fino al minimo tra i cursori dei dispositivi attivi e almeno per la finestra di retention dello storico. Dispositivi inattivi da più di 90 giorni non trattengono il journal. Un dispositivo con `cursor` più vecchio della voce più vecchia conservata riceve `cursor_too_old` e procede con una **riconciliazione completa** (§8) partendo dallo snapshot; il suo indice locale (con le basi note) gli permette di distinguere le proprie modifiche locali da quelle remote senza perdite.
 
+> **Implementazione (M2a).** Job notturno (pg-boss). Elimina le voci già confermate da tutti i dispositivi attivi (non revocati, visti negli ultimi 90 giorni) e più vecchie della retention del vault, e registra l'ultimo `seq` eliminato in `vaults.journal_floor`. Un cursore sotto il floor riceve `410 cursor_too_old` su `GET /changes`, oppure `error cursor_too_old` + chiusura `4410` sul WebSocket. Floor e voci si leggono in un'unica transazione, così una compattazione non può aprire buchi silenziosi. Anche un cursore **oltre la testa** riceve `cursor_too_old`: il journal del server non è quello che il dispositivo conosceva (ad esempio dopo il ripristino da un backup), e saltare i `seq` riusati perderebbe modifiche.
+
 ### 6.4 Applicazione lato client
 
 Per ogni voce, in ordine di `seq`:
@@ -165,6 +167,22 @@ Messaggi JSON con campo `type`. Heartbeat ogni 30 s; connessione considerata mor
 | entrambi | `ping` / `pong` | Heartbeat. |
 
 In modalità **Periodica** e **Manuale** non c'è WebSocket: il client usa `GET /changes` e `POST /api/v1/devices/me/status`.
+
+> **Implementazione (M2a).** Rotta `GET /api/v1/ws`; schemi in `@kamino/protocol` (`ClientMessage`, `ServerMessage`).
+> - **Catch-up:** pagine da 500 voci; un socket invia la pagina successiva solo dopo che la precedente è stata consegnata al socket, e più commit ravvicinati diventano una sola lettura.
+> - **Heartbeat:** a ogni battito il server ricontrolla dispositivo e utente, così una revoca o un blocco fatti da un'altra istanza chiudono il socket entro un battito. La revoca fatta sulla stessa istanza lo chiude subito.
+> - **Codici di chiusura:**
+>   - `4400` messaggio non valido;
+>   - `4401` `hello` mancante (5 s) o token non valido;
+>   - `4403` dispositivo revocato o utente bloccato;
+>   - `4404` vault non trovato;
+>   - `4408` client silenzioso per 2 battiti;
+>   - `4409` sostituito (massimo 5 socket per dispositivo);
+>   - `4410` `cursor_too_old`;
+>   - `4426` protocollo non supportato.
+> - **Ordine:** solo il primo `hello` conta; i messaggi inviati subito dopo (ad esempio un `ack`) vengono gestiti dopo `welcome`, fino a 20. Prima di `welcome` il server non invia nient'altro.
+> - **Limiti:** frame oltre 64 KB → chiusura. Gli `ack` e gli `status` ravvicinati diventano una sola scrittura alla volta, con l'ultimo valore.
+> - **Senza WebSocket:** lo stato si invia con `POST /api/v1/vaults/:vaultId/status`, come in M1c.
 
 ## 8. Ciclo di sync del client
 
@@ -287,6 +305,11 @@ Path canonico `{config}/...`. Categorie (valutate sul path relativo alla config 
 Esclusioni predefinite fuori dalla config dir (modificabili): `.trash/`, `.git/`, `.DS_Store`, `Thumbs.db`, `desktop.ini`.
 
 Le impostazioni effettive di un dispositivo = default del vault ⊕ override del dispositivo. Entrambi sono salvati sul server (cifrati, perché i pattern possono rivelare la struttura) e in locale.
+
+> **Implementazione (M2a).**
+> - **Default S-10:** nessuna categoria della cartella di configurazione, più le esclusioni predefinite (`DEFAULT_SYNC_SETTINGS` in `@kamino/protocol`).
+> - **Rotte del plugin:** `GET`/`PUT /api/v1/vault/settings` e `GET`/`PUT /api/v1/device/settings` (`{ override, effective }`, con `override: null` = segue il default).
+> - **Propagazione:** una modifica del default è la voce di journal `vault_settings_changed` con `fileId`/`path` riservati `_vault` (`VAULT_EVENT_ID`) e `ignorable: true`. Sul WebSocket è seguita dal messaggio `vault_settings_changed { settings }`.
 
 ## 12. Stato di sync di un dispositivo (derivato)
 

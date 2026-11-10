@@ -6,6 +6,8 @@ import { VaultService } from "../../src/vaults/service.js";
 import { FsBlobStore } from "../../src/blobs/fs-store.js";
 import { UploadService } from "../../src/blobs/uploads.js";
 import { SyncService } from "../../src/sync/commit.js";
+import { Hub } from "../../src/realtime/hub.js";
+import { openWs, type TestWs } from "./ws.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +28,9 @@ export interface TestApp {
   vaults: VaultService;
   uploads: UploadService;
   sync: SyncService;
+  hub: Hub;
+  /** A WebSocket client on /api/v1/ws. */
+  ws(opts?: { autoPong?: boolean }): Promise<TestWs>;
   /** Temporary blob and staging directories (removed on close). */
   dirs: { blobs: string; staging: string };
   clock: { now: number };
@@ -37,7 +42,11 @@ export type Agent = { cookie?: string | undefined };
 
 export async function testApp(
   url: string,
-  opts: { publicUrl?: string; log?: { write(line: string): void } } = {},
+  opts: {
+    publicUrl?: string;
+    log?: { write(line: string): void };
+    realtime?: { helloMs?: number; heartbeatMs?: number; listen?: boolean };
+  } = {},
 ): Promise<TestApp> {
   const db = createDb(url);
   await runMigrations(db, async () => {
@@ -52,6 +61,7 @@ export async function testApp(
   // 8-byte chunks: small files already span several STREAM segments.
   const uploads = new UploadService(db, blobStore, dirs.staging, 1_000_000, () => clock.now, 8);
   const sync = new SyncService(db, () => clock.now);
+  const hub = new Hub();
   const app = await buildApp({
     config: {
       publicUrl: opts.publicUrl ?? "http://localhost:8080",
@@ -72,6 +82,9 @@ export async function testApp(
     blobStore,
     uploads,
     sync,
+    hub,
+    realtime: { helloMs: 500, heartbeatMs: 30_000, ...opts.realtime },
+    now: () => clock.now,
   });
   return {
     app,
@@ -80,6 +93,8 @@ export async function testApp(
     vaults,
     uploads,
     sync,
+    hub,
+    ws: (o) => openWs(app, o?.autoPong ?? true),
     dirs,
     clock,
     async call(agent, method, path, body) {

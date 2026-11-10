@@ -1,4 +1,5 @@
 import { PRODUCT_NAME } from "@kamino/brand";
+import websocket from "@fastify/websocket";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { registerAuthHttp } from "./auth/http.js";
 import { AuthService } from "./auth/service.js";
@@ -14,6 +15,13 @@ import { transferRoutes } from "./routes/transfer.js";
 import { syncRoutes } from "./routes/sync.js";
 import { vaultRoutes } from "./routes/vaults.js";
 import { SyncService } from "./sync/commit.js";
+import { Hub } from "./realtime/hub.js";
+import { keepListening } from "./realtime/listener.js";
+import { wsRoutes } from "./routes/ws.js";
+import { deviceRoutes } from "./routes/devices.js";
+import { DeviceService } from "./devices/service.js";
+import { settingsRoutes } from "./routes/settings.js";
+import { SettingsService } from "./vaults/settings.js";
 import { createBlobStore, type BlobStore } from "./blobs/store.js";
 import { UploadService } from "./blobs/uploads.js";
 import { VaultService } from "./vaults/service.js";
@@ -33,6 +41,11 @@ export type AppDeps = {
   blobStore?: BlobStore | undefined;
   uploads?: UploadService | undefined;
   sync?: SyncService | undefined;
+  hub?: Hub | undefined;
+  /** WebSocket timings (tests shorten them); `listen: false` skips the LISTEN connection. */
+  realtime?: { helloMs?: number; heartbeatMs?: number; listen?: boolean } | undefined;
+  /** Application clock (tests inject a fake one). */
+  now?: (() => number) | undefined;
   /** Directory with the web build; when absent or missing, no static routes are served. */
   webRoot?: string | undefined;
 };
@@ -58,7 +71,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(authRoutes(auth, secure), { prefix: "/api/v1" });
   await app.register(accountRoutes(auth), { prefix: "/api/v1" });
   const vaultsSvc = deps.vaults ?? new VaultService(deps.db, deps.kek);
-  await app.register(enrollRoutes(deps.db, auth, vaultsSvc), { prefix: "/api/v1" });
+  const hub = deps.hub ?? new Hub();
+  const devicesSvc = new DeviceService(deps.db, vaultsSvc, hub, deps.now ?? Date.now);
+  await app.register(enrollRoutes(deps.db, auth, vaultsSvc, devicesSvc), { prefix: "/api/v1" });
+  await app.register(deviceRoutes(deps.db, devicesSvc), { prefix: "/api/v1" });
+  const settings = new SettingsService(deps.db, vaultsSvc, deps.now ?? Date.now);
+  await app.register(settingsRoutes(deps.db, settings), { prefix: "/api/v1" });
   const blobStore = deps.blobStore ?? createBlobStore(deps.config.storage);
   const uploads =
     deps.uploads ??
@@ -67,6 +85,31 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const sync = deps.sync ?? new SyncService(deps.db);
   await app.register(syncRoutes(deps.db, vaultsSvc, sync), { prefix: "/api/v1" });
   await app.register(vaultRoutes(deps.db, vaultsSvc), { prefix: "/api/v1" });
+  // Spec §5: frames above 64 KB close the socket.
+  await app.register(websocket, { options: { maxPayload: 65_536 } });
+  await app.register(
+    wsRoutes({
+      db: deps.db,
+      hub,
+      sync,
+      vaults: vaultsSvc,
+      buildInfo: deps.buildInfo,
+      settingsOf: (vaultId) => settings.vaultSettings(vaultId),
+      helloMs: deps.realtime?.helloMs ?? 5_000,
+      heartbeatMs: deps.realtime?.heartbeatMs ?? 30_000,
+      now: deps.now ?? Date.now,
+    }),
+    { prefix: "/api/v1" },
+  );
+  if (deps.realtime?.listen !== false) {
+    let listener: { stop(): Promise<void> } | undefined;
+    app.addHook("onReady", async () => {
+      listener = keepListening(deps.db, hub, (e) =>
+        app.log.warn({ err: (e as Error).name }, "notify listener unavailable, retrying"),
+      );
+    });
+    app.addHook("onClose", async () => listener?.stop());
+  }
   healthRoutes(app, deps.db);
   versionRoutes(app, deps.buildInfo);
   webRoutes(app, deps.webRoot);

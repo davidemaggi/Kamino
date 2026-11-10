@@ -36,8 +36,38 @@ export const vaultListHandlers = [
   ),
 ];
 
+/** Served by the real server since M2a: hybrid mode leaves them out. */
+export const deviceHandlers = [
+  http.get(`${API}/devices`, () => unauthorized() ?? HttpResponse.json(ud.devices)),
+  http.get(`${API}/devices/:id`, ({ params }) => {
+    const d = ud.devices.find((x) => x.id === params["id"]);
+    return unauthorized() ?? (d ? HttpResponse.json(d) : fail(404, "not_found"));
+  }),
+  http.patch(`${API}/devices/:id`, async ({ request, params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
+    const d = ud.devices.find((x) => x.id === params["id"]);
+    if (!d) return unauthorized() ?? fail(404, "not_found");
+    const b = DevicePatch.safeParse(await json(request));
+    if (!b.success) return fail(400, "internal");
+    d.name = b.data.name;
+    return unauthorized() ?? HttpResponse.json(d);
+  }),
+  http.post(`${API}/devices/:id/revoke`, ({ params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
+    const d = ud.devices.find((x) => x.id === params["id"]);
+    if (!d) return unauthorized() ?? fail(404, "not_found");
+    d.revoked = true;
+    d.level = "blocked";
+    refreshVaults();
+    return unauthorized() ?? HttpResponse.json(d);
+  }),
+];
+
 export const userHandlers = [
   ...vaultListHandlers,
+  ...deviceHandlers,
   http.get(`${API}/vaults/:id`, ({ params }) => {
     const v = ud.vaults.find((x) => x.id === params["id"]);
     return unauthorized() ?? (v ? HttpResponse.json(v) : fail(404, "not_found"));
@@ -78,31 +108,6 @@ export const userHandlers = [
         "content-disposition": `attachment; filename="${v.name}.zip"`,
       },
     });
-  }),
-  http.get(`${API}/devices`, () => unauthorized() ?? HttpResponse.json(ud.devices)),
-  http.get(`${API}/devices/:id`, ({ params }) => {
-    const d = ud.devices.find((x) => x.id === params["id"]);
-    return unauthorized() ?? (d ? HttpResponse.json(d) : fail(404, "not_found"));
-  }),
-  http.patch(`${API}/devices/:id`, async ({ request, params }) => {
-    const deny = unauthorized();
-    if (deny) return deny;
-    const d = ud.devices.find((x) => x.id === params["id"]);
-    if (!d) return unauthorized() ?? fail(404, "not_found");
-    const b = DevicePatch.safeParse(await json(request));
-    if (!b.success) return fail(400, "internal");
-    d.name = b.data.name;
-    return unauthorized() ?? HttpResponse.json(d);
-  }),
-  http.post(`${API}/devices/:id/revoke`, ({ params }) => {
-    const deny = unauthorized();
-    if (deny) return deny;
-    const d = ud.devices.find((x) => x.id === params["id"]);
-    if (!d) return unauthorized() ?? fail(404, "not_found");
-    d.revoked = true;
-    d.level = "blocked";
-    refreshVaults();
-    return unauthorized() ?? HttpResponse.json(d);
   }),
   http.post(`${API}/vaults/:id/pairings`, ({ params }) => {
     const deny = unauthorized();

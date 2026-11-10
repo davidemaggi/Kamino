@@ -16,6 +16,34 @@ declare module "fastify" {
   }
 }
 
+/** The device behind a token, with its user's status (shared by REST and WebSocket). */
+export async function findDeviceByToken(
+  db: Db,
+  token: string,
+): Promise<{ d: Device; status: string } | undefined> {
+  return (
+    await db
+      .select({ d: devices, status: users.status })
+      .from(devices)
+      .innerJoin(users, eq(users.id, devices.userId))
+      .where(eq(devices.tokenHash, hashToken(token)))
+  )[0];
+}
+
+/** The same, by device id (the WebSocket re-checks revocation and blocking at each heartbeat). */
+export async function findDeviceById(
+  db: Db,
+  id: string,
+): Promise<{ d: Device; status: string } | undefined> {
+  return (
+    await db
+      .select({ d: devices, status: users.status })
+      .from(devices)
+      .innerJoin(users, eq(users.id, devices.userId))
+      .where(eq(devices.id, id))
+  )[0];
+}
+
 /** Bearer device token → its device; revoked 401, blocked user 403, wrong protocol 426. */
 export function deviceGuard(db: Db, now: () => number = Date.now) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
@@ -25,13 +53,7 @@ export function deviceGuard(db: Db, now: () => number = Date.now) {
     const auth = req.headers.authorization;
     const token = auth?.startsWith("Bearer ") ? auth.slice(7) : undefined;
     if (!token) return fail(reply, 401, "unauthorized");
-    const row = (
-      await db
-        .select({ d: devices, status: users.status })
-        .from(devices)
-        .innerJoin(users, eq(users.id, devices.userId))
-        .where(eq(devices.tokenHash, hashToken(token)))
-    )[0];
+    const row = await findDeviceByToken(db, token);
     if (!row) return fail(reply, 401, "unauthorized");
     if (row.d.revokedAt) return fail(reply, 401, "device_revoked");
     if (row.status !== "active") return fail(reply, 403, "user_blocked");

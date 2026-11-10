@@ -1,6 +1,6 @@
 import { PLUGIN_ID, PRODUCT_SLUG } from "@kamino/brand";
 import { describe, expect, it } from "vitest";
-import { classify, DEFAULT_SETTINGS, globMatch, mergeSettings } from "./exclusions.js";
+import { ALL_CONFIG, classify, DEFAULT_SETTINGS, globMatch, mergeSettings } from "./exclusions.js";
 
 describe("globMatch", () => {
   it("*, **, ?, classes", () => {
@@ -27,6 +27,15 @@ describe("globMatch", () => {
 });
 
 describe("classify", () => {
+  it("S-10: by default no configuration category is synced", () => {
+    for (const p of ["{config}/app.json", "{config}/hotkeys.json", "{config}/plugins/x/main.js"])
+      expect(classify(p, DEFAULT_SETTINGS)).toEqual({ excluded: true, reason: "category" });
+    expect(classify("notes/a.md", DEFAULT_SETTINGS)).toEqual({
+      excluded: false,
+      category: "vault",
+    });
+  });
+
   it("always excluded, whatever the settings", () => {
     const all = { ...DEFAULT_SETTINGS, patterns: [] };
     for (const p of [
@@ -42,7 +51,7 @@ describe("classify", () => {
 
   it("config categories (03 §11)", () => {
     const s = mergeSettings(DEFAULT_SETTINGS, {
-      config: { ...DEFAULT_SETTINGS.config, plugins: false },
+      config: { ...ALL_CONFIG, plugins: false },
     });
     expect(classify("{config}/app.json", s)).toEqual({ excluded: false, category: "base" });
     expect(classify("{config}/themes/x/theme.css", s)).toEqual({

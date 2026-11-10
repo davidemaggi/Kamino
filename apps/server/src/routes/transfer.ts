@@ -118,11 +118,9 @@ export function transferRoutes(
         const range = parseRange(req.headers.range, row.size);
         if (req.headers.range !== undefined && !range && row.size > 0) {
           void reply.header("content-range", `bytes */${row.size}`);
-          return reply
-            .code(416)
-            .send({
-              error: { code: "invalid_request", message: "invalid_request", retryable: false },
-            });
+          return reply.code(416).send({
+            error: { code: "invalid_request", message: "invalid_request", retryable: false },
+          });
         }
         const { start, end } = range ?? { start: 0, end: row.size };
         void reply

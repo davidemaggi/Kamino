@@ -21,6 +21,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@kamino/brand": "workspace:*",
     "@kamino/protocol": "workspace:*",
     "@kamino/status": "workspace:*",
     "@kamino/sync-core": "workspace:*",

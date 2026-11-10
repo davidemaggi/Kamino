@@ -313,6 +313,9 @@ importers:
 
   packages/sync-engine:
     dependencies:
+      '@kamino/brand':
+        specifier: workspace:*
+        version: link:../brand
       '@kamino/protocol':
         specifier: workspace:*
         version: link:../protocol

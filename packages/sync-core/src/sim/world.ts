@@ -7,7 +7,7 @@ import {
   type Durable,
   type Effect,
 } from "../client.js";
-import { classify, DEFAULT_SETTINGS, type SyncSettings } from "../exclusions.js";
+import { ALL_CONFIG, classify, DEFAULT_SETTINGS, type SyncSettings } from "../exclusions.js";
 import { collisionKey, isRepresentable, normalizePath, type Platform } from "../paths.js";
 import { checkInvariants, MemoryStore } from "../store.js";
 
@@ -89,7 +89,8 @@ export class World {
     this.clients = specs.map((spec, i) => {
       const deviceId = `dev-${i}`;
       const settings: SyncSettings = {
-        ...DEFAULT_SETTINGS,
+        // Every category on: the simulation covers configuration files too.
+        config: ALL_CONFIG,
         patterns: spec.patterns ?? DEFAULT_SETTINGS.patterns,
       };
       const state = initialState({

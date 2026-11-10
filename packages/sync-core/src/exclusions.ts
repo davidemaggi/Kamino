@@ -1,33 +1,25 @@
 import { PLUGIN_ID, PRODUCT_SLUG } from "@kamino/brand";
+import { DEFAULT_SYNC_SETTINGS, type ConfigCategory, type SyncSettings } from "@kamino/protocol";
 import { CONFIG_PREFIX, collisionKey } from "./paths.js";
 
-/** Categories of the configuration folder (03 §11). */
-export const CONFIG_CATEGORIES = [
-  "base",
-  "appearance",
-  "hotkeys",
-  "pluginList",
-  "plugins",
-] as const;
-export type ConfigCategory = (typeof CONFIG_CATEGORIES)[number];
+/** Categories, settings and defaults are the contract's (03 §11, S-10). */
+export {
+  CONFIG_CATEGORIES,
+  DEFAULT_PATTERNS,
+  type ConfigCategory,
+  type SyncSettings,
+} from "@kamino/protocol";
 
-export interface SyncSettings {
-  config: Record<ConfigCategory, boolean>;
-  /** Glob patterns on canonical paths (S-09). */
-  patterns: string[];
-}
+/** S-10: by default only notes and attachments, no configuration category. */
+export const DEFAULT_SETTINGS: SyncSettings = DEFAULT_SYNC_SETTINGS;
 
-/** Default exclusions outside the configuration folder (editable). */
-export const DEFAULT_PATTERNS = [
-  ".trash/**",
-  ".git/**",
-  "**/.DS_Store",
-  "**/Thumbs.db",
-  "**/desktop.ini",
-];
-export const DEFAULT_SETTINGS: SyncSettings = {
-  config: { base: true, appearance: true, hotkeys: true, pluginList: true, plugins: true },
-  patterns: DEFAULT_PATTERNS,
+/** Every configuration category on (tests, simulator, devices that opt in to everything). */
+export const ALL_CONFIG: SyncSettings["config"] = {
+  base: true,
+  appearance: true,
+  hotkeys: true,
+  pluginList: true,
+  plugins: true,
 };
 
 /** Never synced, not even if the settings say so. */

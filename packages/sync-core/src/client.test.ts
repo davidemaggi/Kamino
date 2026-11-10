@@ -8,7 +8,7 @@ import {
   type ClientState,
   type Effect,
 } from "./client.js";
-import { DEFAULT_SETTINGS } from "./exclusions.js";
+import { ALL_CONFIG, DEFAULT_SETTINGS } from "./exclusions.js";
 import { MemoryStore } from "./store.js";
 
 let n = 0;
@@ -22,7 +22,7 @@ function client(platform: "linux" | "windows" = "linux"): ClientState {
     deviceId: "dev",
     platform,
     configDir: ".obsidian",
-    settings: DEFAULT_SETTINGS,
+    settings: { ...DEFAULT_SETTINGS, config: ALL_CONFIG },
     batchSize: 500,
   });
 }

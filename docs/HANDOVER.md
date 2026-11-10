@@ -152,6 +152,21 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 
 Trovati e corretti durante M1c: l'oracolo con le dimensioni piccole di fast-check passava senza provare nulla; con `size: "max"` ha trovato un **bug dell'arbitro** (resurrezione e ripristino di cartella: il file tornava vivo prima di cambiare path, violando l'unicità; ora la mutazione `path` precede `head`/`undelete`, con test di regressione). `file_versions` non salvava la base dichiarata (vincolo [V] di 05 §5): ora `base_version_id` c'è, anche per i candidati di conflitto. Il test "cifrato a riposo" confrontava JSON (che nasconde i byte): ora legge i byte come testo.
 
+Revisione finale (0 critici, 5 importanti, 7 minori). Corretti, con test che falliscono sul codice precedente:
+- `complete` rileggeva i chunk dopo la verifica e un chunk poteva cambiare nel mezzo. Ora la sessione passa da `open` a `completing` a `done` con una presa atomica, e un solo passaggio verifica l'hash e scrive gli stessi byte.
+- `complete` riscriveva un blob esistente. Ora c'è un lock per blob, e un blob già presente non si tocca.
+- Due `complete` concorrenti si rompevano a vicenda. Ora le ripetizioni restituiscono il risultato.
+- Il livello del vault era "al sicuro" anche con modifiche in coda, senza dispositivi o con dispositivi mai sincronizzati.
+- Un admin senza TOTP poteva collegare dispositivi.
+- Minori: token di iscrizione validi per un utente bloccato; `uploadId` malformato → 500; un chunk rinviato con byte diversi (stesso nonce); staging orfano mai ripulito; limiti di `status`.
+
+Rinviati:
+- spazio di staging senza limite (con le quote, M5);
+- esenzione CSRF per qualunque `Bearer` (sicura per via del preflight CORS);
+- una query per file in `snapshot` e per vault in `/vaults` (prestazioni).
+
+Nota per M1d: `POST /devices/login` può rispondere `403 totp_mandatory`.
+
 ### Decisioni di M1b (crittografia + autenticazione web)
 
 | # | Decisione |

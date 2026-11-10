@@ -170,7 +170,7 @@ Le tabelle di §3–6 esistono dalla terza migrazione. Dove l'implementazione si
 - **`file_versions`:** solo versioni di contenuto (le eliminazioni sono `files.deleted` più la voce di journal). `base_version_id` è sempre salvato **[V]**. `blob_id` è `HMAC(k_blobid, contentHash)` in esadecimale. `mtime` è in millisecondi (bigint). `seq` e `retained_until` arrivano con lo storico (M3).
 - **`journal`:** contiene anche `op_id`, `kind`, `size`, `mtime` e `content_hash_enc`, così `changes` non deve fare join.
 - **`blobs`:** `(vault_id, blob_id)` con `size` (chiaro) e `stored_size` (cifrato). La chiave nello storage è derivata (`vaultId/blobId`), non salvata. `last_referenced_at` e la GC arrivano con M3.
-- **`upload_sessions`:** i pezzi ricevuti non sono in tabella: sono i file presenti nello staging (`KAMINO_STAGING_DIR/<id>/<indice>`), già cifrati come segmenti STREAM con il `salt` della sessione. `reserved_bytes` arriva con le quote (M5).
+- **`upload_sessions`:** i pezzi ricevuti non sono in tabella: sono i file presenti nello staging (`KAMINO_STAGING_DIR/<id>/<indice>`), già cifrati come segmenti STREAM con il `salt` della sessione. `state` (`open` → `completing` → `done`) e `claimed_at` fanno sì che un solo `complete` lavori sulla sessione; dopo, i chunk non cambiano più. `reserved_bytes` arriva con le quote (M5).
 - **`conflicts`:** `head_version_id` è la corrente all'apertura. `resolution` e i campi di risoluzione arrivano con M2.
 - **Non ancora presenti:** `vaults.settings`, `devices.settings_override`, `pairings` (M6), `quotas`/`quota_usage` (M5).
 

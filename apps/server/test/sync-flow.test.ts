@@ -141,12 +141,14 @@ describe.skipIf(dockerUnavailable)("sync flow: two devices", () => {
   it("a cursor below the journal floor gets 410 cursor_too_old; commits notify", async () => {
     const a = await linkDevice(t, await user(t, "mario"));
     const base = `/vaults/${a.vaultId}`;
-    await t.db.$client`update vaults set journal_floor = 5 where id = ${a.vaultId}`;
+    await t.db.$client`update vaults set journal_floor = 5, head_seq = 5 where id = ${a.vaultId}`;
     const old = await a.call("GET", `${base}/changes?after=4`);
     expect(old.statusCode).toBe(410);
     expect(old.json().error.code).toBe("cursor_too_old");
     expect((await a.call("GET", `${base}/changes?after=5`)).statusCode).toBe(200);
-    await t.db.$client`update vaults set journal_floor = 0 where id = ${a.vaultId}`;
+    await t.db.$client`update vaults set journal_floor = 0, head_seq = 0 where id = ${a.vaultId}`;
+    // Beyond the head is not in the journal either (e.g. a server restored from a backup).
+    expect((await a.call("GET", `${base}/changes?after=1`)).statusCode).toBe(410);
 
     const heard: string[] = [];
     const sub = await t.db.$client.listen("kamino_vault", (p) => heard.push(p));

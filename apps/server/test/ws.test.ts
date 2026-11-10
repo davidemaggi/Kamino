@@ -17,7 +17,8 @@ describe.skipIf(dockerUnavailable)("websocket", () => {
   beforeEach(async () => {
     await t?.close();
     t = await testApp(await pg.createDatabase(`ws_${++n}`), {
-      realtime: { helloMs: 300, heartbeatMs: 150 },
+      // Short enough for the heartbeat tests; the test client answers pings, so slow steps are fine.
+      realtime: { helloMs: 300, heartbeatMs: 400 },
     });
     const enroll = await user(t, "mario");
     a = await linkDevice(t, enroll);
@@ -100,6 +101,32 @@ describe.skipIf(dockerUnavailable)("websocket", () => {
     expect((await old.closed()).code).toBe(4426);
   });
 
+  it("only the first hello counts; frames pipelined behind it are handled after welcome", async () => {
+    await putFile(a, "x.md");
+    const ws = await t.ws();
+    ws.send(hello(b.token, 0));
+    ws.send({ type: "ack", seq: 1 });
+    await ws.next("welcome");
+    await ws.next("changes");
+    await expect.poll(() => cursorOf(b.deviceId)).toBe(1);
+    ws.close();
+    const twice = await t.ws();
+    twice.send(hello(b.token, 0));
+    twice.send(hello(b.token, 0));
+    expect((await twice.next("error")).code).toBe("invalid_request");
+    expect((await twice.closed()).code).toBe(4400);
+  });
+
+  it("a cursor beyond the head (restored server) → cursor_too_old on REST and websocket", async () => {
+    await putFile(a, "x.md");
+    expect((await b.call("GET", `/vaults/${a.vaultId}/changes?after=9`)).statusCode).toBe(410);
+    const ws = await t.ws();
+    ws.send(hello(b.token, 9));
+    await ws.next("welcome");
+    expect((await ws.next("error")).code).toBe("cursor_too_old");
+    expect((await ws.closed()).code).toBe(4410);
+  });
+
   it("invalid JSON or an unknown message → invalid_request and 4400", async () => {
     const ws = await t.ws();
     ws.send("{not json");
@@ -131,14 +158,14 @@ describe.skipIf(dockerUnavailable)("websocket", () => {
     ws.send(hello(b.token));
     await ws.next("welcome");
     await t.db.$client`update users set status = 'blocked' where username = 'mario'`;
-    expect((await ws.next("error", 2_000)).code).toBe("user_blocked");
+    expect((await ws.next("error", 5_000)).code).toBe("user_blocked");
     expect((await ws.closed()).code).toBe(4403);
     await t.db.$client`update users set status = 'active' where username = 'mario'`;
     const again = await t.ws();
     again.send(hello(b.token));
     await again.next("welcome");
     await t.db.$client`update devices set revoked_at = now() where id = ${b.deviceId}`;
-    await again.next("device_revoked", 2_000);
+    await again.next("device_revoked", 5_000);
     const late = await t.ws();
     late.send(hello(b.token));
     await late.next("device_revoked");

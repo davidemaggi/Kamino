@@ -18,7 +18,8 @@ type Step =
   | { kind: "delete"; client: number; pick: number }
   | { kind: "repeat"; client: number }
   | { kind: "drop" | "connect" | "pull" | "away"; client: number }
-  | { kind: "compact" };
+  | { kind: "compact" }
+  | { kind: "settings"; client: number; base: boolean };
 
 const client = fc.nat(2);
 const step: fc.Arbitrary<Step> = fc.oneof(
@@ -64,6 +65,10 @@ const step: fc.Arbitrary<Step> = fc.oneof(
     }),
   },
   { weight: 2, arbitrary: fc.record({ kind: fc.constant("compact" as const) }) },
+  {
+    weight: 1,
+    arbitrary: fc.record({ kind: fc.constant("settings" as const), client, base: fc.boolean() }),
+  },
 );
 
 describe.skipIf(dockerUnavailable)("multi-client protocol convergence", () => {
@@ -165,6 +170,21 @@ describe.skipIf(dockerUnavailable)("multi-client protocol convergence", () => {
               fileId,
               baseVersionId: c.state.get(fileId)!.versionId,
             });
+            break;
+          }
+          case "settings": {
+            // Vault defaults change between commits: same lock, same sequence.
+            const r = await c.device.call("PUT", "/vault/settings", {
+              config: {
+                base: s.base,
+                appearance: false,
+                hotkeys: false,
+                pluginList: false,
+                plugins: false,
+              },
+              patterns: [],
+            });
+            c.check(r.statusCode, "settings");
             break;
           }
           case "repeat":

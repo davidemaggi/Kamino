@@ -29,7 +29,7 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 /** 02 §110: one notification per journal entry, `<vaultId>:<seq>`, sent only if the commit lands. */
 export const NOTIFY_CHANNEL = `${PRODUCT_SLUG}_vault`;
 
-/** The cursor points into compacted journal: the device must start again from the snapshot. */
+/** The cursor is not in the journal (compacted, or beyond the head): start again from the snapshot. */
 export class CursorTooOld extends Error {
   constructor() {
     super("cursor_too_old");
@@ -346,7 +346,9 @@ export class SyncService {
           .select({ head: vaults.headSeq, floor: vaults.journalFloor })
           .from(vaults)
           .where(eq(vaults.id, v));
-        if (after < (h?.floor ?? 0)) throw new CursorTooOld();
+        // Below the floor: compacted away. Above the head: the server's journal is not the one the
+        // device knew (e.g. restored from a backup); skipping reused seqs would lose changes.
+        if (after < (h?.floor ?? 0) || after > (h?.head ?? 0)) throw new CursorTooOld();
         const rows = await tx
           .select()
           .from(journal)

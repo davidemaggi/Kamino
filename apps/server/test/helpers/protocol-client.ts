@@ -90,10 +90,14 @@ export class ProtocolClient {
     const ws = await this.t.app.injectWS("/api/v1/ws");
     this.ws = ws;
     let tooOld = false;
+    let welcomed = false;
     ws.on("message", (data) => {
       const m = ServerMessage.parse(JSON.parse(String(data)));
       // Messages are handled in order, one at a time.
       this.busy = this.busy.then(async () => {
+        if (!welcomed && m.type !== "welcome" && m.type !== "error")
+          this.violations.push(`${this.name}: ${m.type} before welcome`);
+        if (m.type === "welcome") welcomed = true;
         if (m.type === "changes") {
           this.stats.pushes++;
           this.apply(m.entries);

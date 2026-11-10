@@ -56,6 +56,14 @@ describe.skipIf(dockerUnavailable)("sync settings", () => {
     ws.close();
   });
 
+  it("the same settings again add no journal entry", async () => {
+    await a.call("PUT", "/vault/settings", custom);
+    await a.call("PUT", "/vault/settings", custom);
+    const ch = (await b.call("GET", `/vaults/${a.vaultId}/changes?after=0`)).json();
+    expect(ch.head).toBe(1);
+    expect(ch.entries).toHaveLength(1);
+  });
+
   it("a device override wins until it is cleared", async () => {
     const mine: SyncSettings = { ...DEFAULT_SYNC_SETTINGS, patterns: ["big/**"] };
     const set = await b.call("PUT", "/device/settings", { override: mine });

@@ -42,7 +42,10 @@ export class SettingsService {
     deviceId: string,
     s: SyncSettings,
   ): Promise<{ seq: number }> {
-    const { vc } = await this.crypto(vaultId);
+    const { v, vc } = await this.crypto(vaultId);
+    // Same settings again: no journal entry, so devices don't look busy for nothing.
+    if (JSON.stringify(await this.vaultSettings(vaultId)) === JSON.stringify(SyncSettings.parse(s)))
+      return { seq: v.headSeq };
     return this.db.transaction(async (tx) => {
       // Same lock and sequence as commits: the entry gets the next seq.
       const [locked] = await tx

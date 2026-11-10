@@ -1,13 +1,17 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   customType,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -39,6 +43,7 @@ export const tokenKind = pgEnum("token_kind", [
   "setup",
   "export_download",
   "email_change",
+  "device_enrollment",
 ]);
 
 export const users = pgTable("users", {
@@ -129,3 +134,203 @@ export const auditLog = pgTable("audit_log", {
     .notNull()
     .default(sql`now()`),
 });
+
+export const vaultStatus = pgEnum("vault_status", ["active", "deleted"]);
+export const devicePlatform = pgEnum("device_platform", [
+  "windows",
+  "macos",
+  "linux",
+  "ios",
+  "android",
+  "unknown",
+]);
+
+export const vaults = pgTable("vaults", {
+  id: uuid("id").primaryKey(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** Encrypted with the vault's k_meta, AAD vaults ‖ name ‖ id. */
+  nameEnc: bytea("name_enc").notNull(),
+  dekWrapped: bytea("dek_wrapped").notNull(),
+  kekId: text("kek_id").notNull(),
+  dekVersion: integer("dek_version").notNull().default(1),
+  headSeq: bigint("head_seq", { mode: "number" }).notNull().default(0),
+  retentionDays: integer("retention_days").notNull().default(30),
+  status: vaultStatus("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const devices = pgTable("devices", {
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  vaultId: uuid("vault_id")
+    .notNull()
+    .references(() => vaults.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  platform: devicePlatform("platform").notNull(),
+  pluginVersion: text("plugin_version").notNull(),
+  protocolVersion: integer("protocol_version").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  isOrigin: boolean("is_origin").notNull().default(false),
+  cursorSeq: bigint("cursor_seq", { mode: "number" }).notNull().default(0),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+  lastAckAt: timestamp("last_ack_at", { withTimezone: true }),
+  pendingOps: integer("pending_ops").notNull().default(0),
+  pendingBytes: bigint("pending_bytes", { mode: "number" }).notNull().default(0),
+  deferredFiles: integer("deferred_files").notNull().default(0),
+  lastErrorCode: text("last_error_code"),
+  lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+  lastIp: text("last_ip"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+export const files = pgTable(
+  "files",
+  {
+    vaultId: uuid("vault_id")
+      .notNull()
+      .references(() => vaults.id, { onDelete: "cascade" }),
+    id: text("id").notNull(),
+    kind: text("kind").notNull(),
+    pathEnc: bytea("path_enc").notNull(),
+    pathMac: bytea("path_mac").notNull(),
+    headVersionId: text("head_version_id"),
+    size: bigint("size", { mode: "number" }).notNull().default(0),
+    mtime: bigint("mtime", { mode: "number" }).notNull().default(0),
+    deleted: boolean("deleted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.vaultId, t.id] }),
+    uniqueIndex("files_live_path")
+      .on(t.vaultId, t.pathMac)
+      .where(sql`not ${t.deleted}`),
+  ],
+);
+
+export const fileVersions = pgTable(
+  "file_versions",
+  {
+    vaultId: uuid("vault_id")
+      .notNull()
+      .references(() => vaults.id, { onDelete: "cascade" }),
+    id: text("id").notNull(),
+    fileId: text("file_id").notNull(),
+    baseVersionId: text("base_version_id"),
+    contentHashEnc: bytea("content_hash_enc").notNull(),
+    blobId: text("blob_id").notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
+    mtime: bigint("mtime", { mode: "number" }).notNull(),
+    deviceId: uuid("device_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.vaultId, t.id] })],
+);
+
+export const journal = pgTable(
+  "journal",
+  {
+    vaultId: uuid("vault_id")
+      .notNull()
+      .references(() => vaults.id, { onDelete: "cascade" }),
+    seq: bigint("seq", { mode: "number" }).notNull(),
+    type: text("type").notNull(),
+    fileId: text("file_id").notNull(),
+    kind: text("kind").notNull(),
+    opId: text("op_id"),
+    versionId: text("version_id"),
+    /** AAD journal ‖ path ‖ vaultId:seq. */
+    pathEnc: bytea("path_enc").notNull(),
+    contentHashEnc: bytea("content_hash_enc"),
+    size: bigint("size", { mode: "number" }),
+    mtime: bigint("mtime", { mode: "number" }),
+    conflictId: text("conflict_id"),
+    deviceId: uuid("device_id").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.vaultId, t.seq] })],
+);
+
+export const appliedOps = pgTable(
+  "applied_ops",
+  {
+    vaultId: uuid("vault_id")
+      .notNull()
+      .references(() => vaults.id, { onDelete: "cascade" }),
+    opId: text("op_id").notNull(),
+    result: jsonb("result").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.vaultId, t.opId] })],
+);
+
+export const blobs = pgTable(
+  "blobs",
+  {
+    vaultId: uuid("vault_id")
+      .notNull()
+      .references(() => vaults.id, { onDelete: "cascade" }),
+    blobId: text("blob_id").notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
+    storedSize: bigint("stored_size", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.vaultId, t.blobId] })],
+);
+
+export const uploadSessions = pgTable("upload_sessions", {
+  id: uuid("id").primaryKey(),
+  vaultId: uuid("vault_id")
+    .notNull()
+    .references(() => vaults.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").notNull(),
+  /** AAD upload_sessions ‖ content_hash ‖ id. */
+  contentHashEnc: bytea("content_hash_enc").notNull(),
+  blobId: text("blob_id").notNull(),
+  size: bigint("size", { mode: "number" }).notNull(),
+  chunkSize: integer("chunk_size").notNull(),
+  salt: bytea("salt").notNull(),
+  /** open → completing (claimed by one `complete`) → done (kept until expiry, for repeated calls). */
+  state: text("state").notNull().default("open"),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const conflicts = pgTable(
+  "conflicts",
+  {
+    vaultId: uuid("vault_id")
+      .notNull()
+      .references(() => vaults.id, { onDelete: "cascade" }),
+    id: text("id").notNull(),
+    fileId: text("file_id").notNull(),
+    kind: text("kind").notNull(),
+    baseVersionId: text("base_version_id"),
+    headVersionId: text("head_version_id").notNull(),
+    status: text("status").notNull().default("open"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.vaultId, t.id] })],
+);
+
+export const conflictCandidates = pgTable(
+  "conflict_candidates",
+  {
+    vaultId: uuid("vault_id")
+      .notNull()
+      .references(() => vaults.id, { onDelete: "cascade" }),
+    conflictId: text("conflict_id").notNull(),
+    versionId: text("version_id").notNull(),
+    deviceId: uuid("device_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.vaultId, t.conflictId, t.versionId] })],
+);

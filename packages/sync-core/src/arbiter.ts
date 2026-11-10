@@ -66,6 +66,8 @@ export type Mutation =
       type: "version";
       fileId: string;
       versionId: string;
+      /** The declared base, always kept (05 §5: enables a future three-way merge). */
+      baseVersionId: string | null;
       hash: string;
       size: number;
       mtime: number;
@@ -158,6 +160,7 @@ function versionOf(fileId: string, op: PutOp): Mutation {
     type: "version",
     fileId,
     versionId: op.versionId,
+    baseVersionId: op.baseVersionId,
     hash: op.contentHash,
     size: op.size,
     mtime: op.mtime,
@@ -278,9 +281,11 @@ function decidePut(view: ArbiterView, op: PutOp, ctx: ArbiterCtx): Decision {
     // C-06: an edit wins over a deletion. Restored at its path, or next to it if taken meanwhile.
     const other = view.liveAt(collisionKey(f.path));
     const path = other && other.fileId !== f.fileId ? freeSibling(view, f.path, f.fileId) : f.path;
-    const mutations: Mutation[] = [versionOf(f.fileId, op), headOf(f.fileId, op)];
+    // Path first, then alive: a restored file is never live, even for a moment, at a taken path
+    // (the server enforces it with a unique index on live paths).
+    const mutations: Mutation[] = [versionOf(f.fileId, op)];
     if (path !== f.path) mutations.push({ type: "path", fileId: f.fileId, path });
-    mutations.push(putJournal("file_restored", f.fileId, path, op));
+    mutations.push(headOf(f.fileId, op), putJournal("file_restored", f.fileId, path, op));
     return accept(f.fileId, path, mutations, op.versionId);
   }
   if (op.baseVersionId === f.headVersionId)
@@ -351,8 +356,10 @@ function decideMkdir(view: ArbiterView, op: MkdirOp): Decision {
     entry: { type: "folder_created", fileId: op.fileId, kind: "folder", path: op.path },
   };
   if (f) {
-    const mutations: Mutation[] = [{ type: "undelete", fileId: f.fileId }];
+    // Same rule as resurrection: move first, then alive.
+    const mutations: Mutation[] = [];
     if (f.path !== op.path) mutations.push({ type: "path", fileId: f.fileId, path: op.path });
+    mutations.push({ type: "undelete", fileId: f.fileId });
     return accept(f.fileId, op.path, [...mutations, journal]);
   }
   const folder: FileRecord = {

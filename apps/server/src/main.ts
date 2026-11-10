@@ -1,6 +1,8 @@
 import { PRODUCT_NAME } from "@kamino/brand";
 import { buildApp } from "./app.js";
 import { AuthService } from "./auth/service.js";
+import { createBlobStore } from "./blobs/store.js";
+import { UploadService } from "./blobs/uploads.js";
 import { buildInfo } from "./build-info.js";
 import { ConfigError, loadConfig } from "./config/load.js";
 import { ensureKeyCheck } from "./crypto/key-check.js";
@@ -78,6 +80,16 @@ async function main(): Promise<void> {
   };
   process.once("SIGTERM", () => void shutdown());
   process.once("SIGINT", () => void shutdown());
+
+  // C10: expired upload sessions and their (encrypted) staging are cleaned up every hour.
+  const uploads = new UploadService(
+    db,
+    createBlobStore(config.storage),
+    config.stagingDir,
+    config.maxFileBytes,
+  );
+  const sweeper = setInterval(() => void uploads.sweep().catch(() => undefined), 3_600_000);
+  sweeper.unref();
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
 }

@@ -18,6 +18,37 @@ function issuesOf(fn: () => unknown): string[] {
 }
 
 describe("loadConfig", () => {
+  it("storage: fs by default; s3 needs bucket, key id and secret (also from a file)", () => {
+    const c = loadConfig(minimal).config;
+    expect(c.storage).toEqual({ kind: "fs", dir: "/data/blobs" });
+    expect(c.stagingDir).toBe("/data/staging");
+    expect(c.maxFileBytes).toBe(500 * 1024 * 1024);
+    expect(() => loadConfig({ ...minimal, KAMINO_STORAGE: "s3" })).toThrow(ConfigError);
+    const s3 = loadConfig(
+      {
+        ...minimal,
+        KAMINO_STORAGE: "s3",
+        KAMINO_S3_BUCKET: "b",
+        KAMINO_S3_ACCESS_KEY_ID: "id",
+        KAMINO_S3_SECRET_ACCESS_KEY_FILE: "/run/secrets/s3",
+        KAMINO_S3_ENDPOINT: "http://minio:9000",
+        KAMINO_S3_FORCE_PATH_STYLE: "true",
+      },
+      () => "s3-secret\n",
+    ).config.storage;
+    expect(s3).toEqual({
+      kind: "s3",
+      bucket: "b",
+      accessKeyId: "id",
+      secretAccessKey: "s3-secret",
+      region: "us-east-1",
+      forcePathStyle: true,
+      endpoint: "http://minio:9000",
+    });
+    expect(() => loadConfig({ ...minimal, KAMINO_STORAGE: "ftp" })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...minimal, KAMINO_MAX_FILE_BYTES: "lots" })).toThrow(ConfigError);
+  });
+
   it("KAMINO_TRUST_PROXY: absent by default, hop count or IP/CIDR list, nothing else", () => {
     expect(loadConfig(minimal).config.trustProxy).toBeUndefined();
     expect(loadConfig({ ...minimal, KAMINO_TRUST_PROXY: "" }).config.trustProxy).toBeUndefined();

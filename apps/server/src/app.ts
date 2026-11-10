@@ -9,6 +9,14 @@ import type { Db } from "./db/client.js";
 import type { Logger } from "./observability/logger.js";
 import { accountRoutes } from "./routes/account.js";
 import { authRoutes } from "./routes/auth.js";
+import { enrollRoutes } from "./routes/enroll.js";
+import { transferRoutes } from "./routes/transfer.js";
+import { syncRoutes } from "./routes/sync.js";
+import { vaultRoutes } from "./routes/vaults.js";
+import { SyncService } from "./sync/commit.js";
+import { createBlobStore, type BlobStore } from "./blobs/store.js";
+import { UploadService } from "./blobs/uploads.js";
+import { VaultService } from "./vaults/service.js";
 import { healthRoutes } from "./routes/health.js";
 import { versionRoutes } from "./routes/version.js";
 import { webRoutes } from "./web.js";
@@ -21,6 +29,10 @@ export type AppDeps = {
   kek: Kek;
   /** Injected by tests (fake clock); built from db + kek otherwise. */
   auth?: AuthService | undefined;
+  vaults?: VaultService | undefined;
+  blobStore?: BlobStore | undefined;
+  uploads?: UploadService | undefined;
+  sync?: SyncService | undefined;
   /** Directory with the web build; when absent or missing, no static routes are served. */
   webRoot?: string | undefined;
 };
@@ -45,6 +57,16 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const secure = deps.config.publicUrl.startsWith("https:");
   await app.register(authRoutes(auth, secure), { prefix: "/api/v1" });
   await app.register(accountRoutes(auth), { prefix: "/api/v1" });
+  const vaultsSvc = deps.vaults ?? new VaultService(deps.db, deps.kek);
+  await app.register(enrollRoutes(deps.db, auth, vaultsSvc), { prefix: "/api/v1" });
+  const blobStore = deps.blobStore ?? createBlobStore(deps.config.storage);
+  const uploads =
+    deps.uploads ??
+    new UploadService(deps.db, blobStore, deps.config.stagingDir, deps.config.maxFileBytes);
+  await app.register(transferRoutes(deps.db, vaultsSvc, uploads, blobStore), { prefix: "/api/v1" });
+  const sync = deps.sync ?? new SyncService(deps.db);
+  await app.register(syncRoutes(deps.db, vaultsSvc, sync), { prefix: "/api/v1" });
+  await app.register(vaultRoutes(deps.db, vaultsSvc), { prefix: "/api/v1" });
   healthRoutes(app, deps.db);
   versionRoutes(app, deps.buildInfo);
   webRoutes(app, deps.webRoot);

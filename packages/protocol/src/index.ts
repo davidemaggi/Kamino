@@ -9,3 +9,4 @@ export * from "./conflicts.js";
 export * from "./history.js";
 export * from "./admin.js";
 export * from "./sync.js";
+export * from "./devices-auth.js";

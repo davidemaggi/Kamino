@@ -15,7 +15,26 @@ export type Config = {
    * client address is the TCP peer, so a client can't spoof its IP to dodge rate limits.
    */
   trustProxy?: number | string[];
+  /** Where encrypted blobs live (C2). */
+  storage:
+    | { kind: "fs"; dir: string }
+    | {
+        kind: "s3";
+        endpoint?: string;
+        bucket: string;
+        region: string;
+        accessKeyId: string;
+        secretAccessKey: string;
+        forcePathStyle: boolean;
+      };
+  /** Local directory for upload chunks, already encrypted (C6). */
+  stagingDir: string;
+  maxFileBytes: number;
 };
+
+export const DEFAULT_STORAGE_DIR = "/data/blobs";
+export const DEFAULT_STAGING_DIR = "/data/staging";
+export const DEFAULT_MAX_FILE_BYTES = 500 * 1024 * 1024;
 
 export const DEFAULT_PORT = 8080;
 export const DEFAULT_LOG_LEVEL: LogLevel = "info";

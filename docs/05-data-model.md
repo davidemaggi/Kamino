@@ -160,6 +160,20 @@ Con `dek_wrapped` distrutto (crypto-shredding) la riga può restare come tombsto
 
 **[V]** le versioni referenziate da conflitti aperti non sono mai eliminate dalla retention.
 
+### Implementazione in M1c (migrazione `0002`)
+
+Le tabelle di §3–6 esistono dalla terza migrazione. Dove l'implementazione si discosta dal modello logico:
+
+- **Chiavi composte per vault.** `files`, `file_versions`, `journal`, `applied_ops`, `blobs`, `conflicts` e `conflict_candidates` hanno chiave primaria `(vault_id, …)`. Gli id di file, versioni e conflitti sono generati dal client (`text`, non `uuid`), e due vault non possono collidere. Tutte referenziano `vaults` con `ON DELETE CASCADE`.
+- **Colonne cifrate** con suffisso `_enc` (`vaults.name_enc`, `files.path_enc`, `file_versions.content_hash_enc`, `journal.path_enc` e `content_hash_enc`, `upload_sessions.content_hash_enc`). L'AAD è `tabella ‖ colonna ‖ riga`, con riga = `vaultId:id` (per il journal `vaultId:seq`).
+- **`files`:** `deleted` boolean al posto di `deleted_at`; `size` e `mtime` della versione corrente sono copiati sulla riga. L'indice unico parziale è `files_live_path (vault_id, path_mac) WHERE NOT deleted`.
+- **`file_versions`:** solo versioni di contenuto (le eliminazioni sono `files.deleted` più la voce di journal). `base_version_id` è sempre salvato **[V]**. `blob_id` è `HMAC(k_blobid, contentHash)` in esadecimale. `mtime` è in millisecondi (bigint). `seq` e `retained_until` arrivano con lo storico (M3).
+- **`journal`:** contiene anche `op_id`, `kind`, `size`, `mtime` e `content_hash_enc`, così `changes` non deve fare join.
+- **`blobs`:** `(vault_id, blob_id)` con `size` (chiaro) e `stored_size` (cifrato). La chiave nello storage è derivata (`vaultId/blobId`), non salvata. `last_referenced_at` e la GC arrivano con M3.
+- **`upload_sessions`:** i pezzi ricevuti non sono in tabella: sono i file presenti nello staging (`KAMINO_STAGING_DIR/<id>/<indice>`), già cifrati come segmenti STREAM con il `salt` della sessione. `state` (`open` → `completing` → `done`) e `claimed_at` fanno sì che un solo `complete` lavori sulla sessione; dopo, i chunk non cambiano più. `reserved_bytes` arriva con le quote (M5).
+- **`conflicts`:** `head_version_id` è la corrente all'apertura. `resolution` e i campi di risoluzione arrivano con M2.
+- **Non ancora presenti:** `vaults.settings`, `devices.settings_override`, `pairings` (M6), `quotas`/`quota_usage` (M5).
+
 ## 7. Sistema
 
 ### `system_settings`

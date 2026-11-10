@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { envName } from "@kamino/brand";
 import {
   DEFAULT_LOG_LEVEL,
+  DEFAULT_MAX_FILE_BYTES,
+  DEFAULT_STAGING_DIR,
+  DEFAULT_STORAGE_DIR,
   DEFAULT_PORT,
   LOG_LEVELS,
   type Config,
@@ -127,6 +130,38 @@ export function loadConfig(
       );
   }
 
+  const storageKind = read(env, envName("STORAGE")) ?? "fs";
+  let storage: Config["storage"] = {
+    kind: "fs",
+    dir: read(env, envName("STORAGE_DIR")) ?? DEFAULT_STORAGE_DIR,
+  };
+  if (storageKind === "s3") {
+    const bucket = read(env, envName("S3_BUCKET"));
+    const accessKeyId = read(env, envName("S3_ACCESS_KEY_ID"));
+    const secret = readSecret(env, "S3_SECRET_ACCESS_KEY", readFile, issues);
+    if (!bucket) issues.push(`${envName("S3_BUCKET")} is required with ${envName("STORAGE")}=s3`);
+    if (!accessKeyId)
+      issues.push(`${envName("S3_ACCESS_KEY_ID")} is required with ${envName("STORAGE")}=s3`);
+    const endpoint = read(env, envName("S3_ENDPOINT"));
+    if (bucket && accessKeyId && secret)
+      storage = {
+        kind: "s3",
+        bucket,
+        accessKeyId,
+        secretAccessKey: secret.value,
+        region: read(env, envName("S3_REGION")) ?? "us-east-1",
+        forcePathStyle: read(env, envName("S3_FORCE_PATH_STYLE")) === "true",
+        ...(endpoint ? { endpoint } : {}),
+      };
+  } else if (storageKind !== "fs") issues.push(`${envName("STORAGE")} must be fs or s3`);
+  const stagingDir = read(env, envName("STAGING_DIR")) ?? DEFAULT_STAGING_DIR;
+  const maxRaw = read(env, envName("MAX_FILE_BYTES"));
+  let maxFileBytes = DEFAULT_MAX_FILE_BYTES;
+  if (maxRaw !== undefined) {
+    if (/^\d+$/.test(maxRaw) && Number(maxRaw) >= 1) maxFileBytes = Number(maxRaw);
+    else issues.push(`${envName("MAX_FILE_BYTES")} must be a positive integer (bytes)`);
+  }
+
   const databaseUrl = readSecret(env, "DATABASE_URL", readFile, issues);
   const masterKey = readSecret(env, "MASTER_KEY", readFile, issues);
 
@@ -140,6 +175,9 @@ export function loadConfig(
       masterKey: masterKey.value,
       logLevel,
       ...(trustProxy !== undefined ? { trustProxy } : {}),
+      storage,
+      stagingDir,
+      maxFileBytes,
     },
     sources: {
       publicUrl: "env",
@@ -148,6 +186,10 @@ export function loadConfig(
       masterKey: masterKey.source,
       logLevel: levelRaw === undefined ? "default" : "env",
       trustProxy: proxyRaw === undefined ? "default" : "env",
+      storage:
+        storageKind === "s3" || read(env, envName("STORAGE_DIR")) !== undefined ? "env" : "default",
+      stagingDir: read(env, envName("STAGING_DIR")) === undefined ? "default" : "env",
+      maxFileBytes: maxRaw === undefined ? "default" : "env",
     },
   };
 }

@@ -26,6 +26,8 @@ services:
       - kamino_master_key
     ports:
       - "8080:8080"
+    volumes:
+      - kamino-data:/data
 
   postgres:
     image: postgres:17-alpine
@@ -47,4 +49,5 @@ secrets:
     file: ./secrets/kamino_master_key
 
 volumes:
+  kamino-data:
   postgres-data:

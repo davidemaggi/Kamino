@@ -15,6 +15,13 @@
       "when": 1794242426191,
       "tag": "0001_quick_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794300446523,
+      "tag": "0002_flippant_scalphunter",
+      "breakpoints": true
     }
   ]
 }

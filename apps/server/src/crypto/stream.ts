@@ -37,7 +37,7 @@ export function encryptSegment(
   return Buffer.concat([c.update(data), c.final(), c.getAuthTag()]);
 }
 
-function decryptSegment(
+export function decryptSegment(
   key: Uint8Array,
   ids: BlobIds,
   index: number,

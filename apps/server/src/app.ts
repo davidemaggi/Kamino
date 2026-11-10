@@ -20,6 +20,8 @@ import { keepListening } from "./realtime/listener.js";
 import { wsRoutes } from "./routes/ws.js";
 import { deviceRoutes } from "./routes/devices.js";
 import { DeviceService } from "./devices/service.js";
+import { settingsRoutes } from "./routes/settings.js";
+import { SettingsService } from "./vaults/settings.js";
 import { createBlobStore, type BlobStore } from "./blobs/store.js";
 import { UploadService } from "./blobs/uploads.js";
 import { VaultService } from "./vaults/service.js";
@@ -73,6 +75,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const devicesSvc = new DeviceService(deps.db, vaultsSvc, hub, deps.now ?? Date.now);
   await app.register(enrollRoutes(deps.db, auth, vaultsSvc, devicesSvc), { prefix: "/api/v1" });
   await app.register(deviceRoutes(deps.db, devicesSvc), { prefix: "/api/v1" });
+  const settings = new SettingsService(deps.db, vaultsSvc, deps.now ?? Date.now);
+  await app.register(settingsRoutes(deps.db, settings), { prefix: "/api/v1" });
   const blobStore = deps.blobStore ?? createBlobStore(deps.config.storage);
   const uploads =
     deps.uploads ??
@@ -90,6 +94,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       sync,
       vaults: vaultsSvc,
       buildInfo: deps.buildInfo,
+      settingsOf: (vaultId) => settings.vaultSettings(vaultId),
       helloMs: deps.realtime?.helloMs ?? 5_000,
       heartbeatMs: deps.realtime?.heartbeatMs ?? 30_000,
       now: deps.now ?? Date.now,

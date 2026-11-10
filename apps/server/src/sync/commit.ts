@@ -371,6 +371,8 @@ export class SyncService {
           ...(r.size !== null ? { size: r.size } : {}),
           ...(r.mtime !== null ? { mtime: r.mtime } : {}),
           ...(r.conflictId ? { conflictId: r.conflictId } : {}),
+          // Entries about the vault, not a file: clients that don't know them skip them (03 §13).
+          ...(r.type === "vault_settings_changed" ? { ignorable: true } : {}),
         }));
         return { entries, head: h?.head ?? 0, hasMore: rows.length > limit };
       },

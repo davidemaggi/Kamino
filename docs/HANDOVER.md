@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1d in corso: Blocco A (`sync-engine`, Task 1–4) completato e pushato; prossimo il Blocco B (Task 5, cartelle in `sync-core`). Branch `m1d-plugin-engine`.
+**Ultimo aggiornamento:** 2026-11-10 — M1d in corso: Blocchi A (`sync-engine`, Task 1–4) e B (cartelle in `sync-core`, Task 5) completati e pushati; prossimo il Blocco C (Task 6, file grandi). Branch `m1d-plugin-engine`.
 
 ## Dove siamo
 
@@ -61,7 +61,12 @@ Decisioni prese eseguendo il Blocco A (registro completo in `.superpowers/sdd/�
 - `cursor_too_old`: per ora solo log e nuovo tentativo; la riconciliazione vera (snapshot su un indice esistente) richiede una modifica a `sync-core` e si fa con il Task 7.
 - Il commit si fa con `git commit` normale: `/tmp/kamino-tools/commit.sh` c'è solo sul Mac.
 
-**Blocchi rimanenti:** B (cartelle in `sync-core`, Z9), C (file grandi streaming), D (integrazione motore↔server vero), E (adattatori Obsidian, collegamento, watcher), F (impostazioni, build produzione), G (docs, verifica, revisione, PR).
+Blocco B — Task 5 (cartelle sul client, Z9) ✅ `8169f40`:
+- le cartelle vivono in `Durable.folders`, separate dall'indice dei file (la logica dei file, già provata dal simulatore, non cambia); effetti `mkdir`/`rmdir`, evento `folderDone`; l'evento `sync` porta `folders?` (assente = il guscio non riporta cartelle);
+- spostamento remoto di una cartella = `mkdir` del nuovo percorso + il vecchio rimosso quando è vuoto (i file seguono uno a uno); `d`/`D` su disco case-sensitive = "alias" che non invia nulla;
+- il simulatore ora crea, rimuove e sposta cartelle (anche non viste dal watcher) e controlla che convergano; durante lo sviluppo ha trovato 9 difetti, tutti corretti; `test:deep` (3000 scenari) verde. `SIM_NO_SHRINK=1` riporta un errore senza ridurlo (la riduzione di un caso che non si stabilizza è lentissima).
+
+**Blocchi rimanenti:** C (file grandi streaming), D (integrazione motore↔server vero), E (adattatori Obsidian, collegamento, watcher), F (impostazioni, build produzione), G (docs, verifica, revisione, PR).
 
 ## Prossimi passi
 

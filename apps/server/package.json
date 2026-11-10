@@ -29,6 +29,7 @@
     "@node-rs/argon2": "^2.2.2",
     "drizzle-orm": "^0.45.4",
     "fastify": "^5.12.8",
+    "pg-boss": "^12.38.1",
     "pino": "^10.4.0",
     "postgres": "^4.1.0",
     "zod": "^4.6.7"

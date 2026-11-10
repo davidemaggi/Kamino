@@ -9,6 +9,8 @@ import { ensureKeyCheck } from "./crypto/key-check.js";
 import { MasterKeyError, parseMasterKey, type Kek } from "./crypto/keyring.js";
 import { createDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
+import { startJobs } from "./jobs/boss.js";
+import { compactJournal } from "./jobs/compact.js";
 import { createLogger } from "./observability/logger.js";
 import { resolveWebRoot } from "./web.js";
 
@@ -70,9 +72,23 @@ async function main(): Promise<void> {
     webRoot: resolveWebRoot(),
   });
 
+  // ADR 0008: compaction (daily) and upload cleanup (hourly, C10), after the key check.
+  const uploads = new UploadService(
+    db,
+    createBlobStore(config.storage),
+    config.stagingDir,
+    config.maxFileBytes,
+  );
+  const jobs = await startJobs(
+    config.databaseUrl,
+    { compact: () => compactJournal(db, Date.now()), sweep: () => uploads.sweep() },
+    logger,
+  );
+
   const shutdown = async (): Promise<void> => {
     try {
       await app.close();
+      await jobs.stop();
       await db.$client.end({ timeout: 5 });
     } finally {
       process.exit(0);
@@ -80,16 +96,6 @@ async function main(): Promise<void> {
   };
   process.once("SIGTERM", () => void shutdown());
   process.once("SIGINT", () => void shutdown());
-
-  // C10: expired upload sessions and their (encrypted) staging are cleaned up every hour.
-  const uploads = new UploadService(
-    db,
-    createBlobStore(config.storage),
-    config.stagingDir,
-    config.maxFileBytes,
-  );
-  const sweeper = setInterval(() => void uploads.sweep().catch(() => undefined), 3_600_000);
-  sweeper.unref();
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
 }

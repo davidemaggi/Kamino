@@ -1,6 +1,6 @@
 # M2a — Tempo reale sul server: WebSocket, fan-out, compattazione, dispositivi, impostazioni
 
-> Stato: **approvata** · Data: 2026-11-10 · Branch: `m2a-realtime`
+> Stato: **implementata** · Data: 2026-11-10 · Branch: `m2a-realtime`
 > M2 è divisa in **M2a** (questa, solo server) e **M2b** (parte plugin, dopo M1d).
 > Riferimenti: [03 — protocollo](../../03-sync-protocol.md) §6.3, §7, §11, §12, §14; [02 — architettura](../../02-architecture.md) §110 (fan-out); ADR [0008](../../adr/0008-pg-boss.md), [0017](../../adr/0017-http-per-scritture-ws-per-push.md); requisiti D-06, S-06, S-10…S-13; spec M1c (C1–C10).
 
@@ -40,7 +40,7 @@ Nuovo in `devices-auth.ts` / `sync.ts`:
 | Rotta | Auth | Richiesta → Risposta |
 |---|---|---|
 | `GET /devices` · `GET /devices/:id` | sessione web | `DeviceList` · `Device` |
-| `PATCH /devices/:id` · `POST /devices/:id/revoke` | sessione web | `DevicePatch` → `Device` · `204` |
+| `PATCH /devices/:id` · `POST /devices/:id/revoke` | sessione web | `DevicePatch` → `Device` · `Device` (il client web legge il dispositivo aggiornato) |
 | `GET /device` | dispositivo | `Device` |
 | `GET /vault/devices` | dispositivo | `DeviceList` (solo il suo vault) |
 | `GET` / `PUT /vault/settings` | dispositivo | `SyncSettings` |
@@ -91,3 +91,9 @@ Il commit (`SyncService`) chiama `pg_notify` nella transazione; l'hub non conosc
 ## 7. Consegna
 
 Branch `m2a-realtime`; piano a blocchi: (A) contratto (messaggi WS, impostazioni, rotte dei dispositivi); (B) WebSocket e hub con `LISTEN`/`NOTIFY`; (C) pg-boss, compattazione e `cursor_too_old`; (D) dispositivi e livelli; (E) impostazioni; (F) test multi-client; (G) documenti, revisione, PR. Changeset per server e web.
+
+## 8. Scostamenti emersi durante l'implementazione
+
+- `POST /devices/:id/revoke` restituisce il `Device` aggiornato (non `204`): è il contratto già usato dal client web (`endpoints.ts`).
+- La connessione `LISTEN` parte in background quando l'app è pronta e riprova con backoff (1 s → 30 s). Il server serve la REST anche con il database irraggiungibile all'avvio, e appena il listener è attivo risveglia tutti i socket.
+- Il test multi-client usa un seed fisso (`MULTI_SEED`, default 20261110) e 40 giri (`MULTI_RUNS`), più uno scenario fisso con un dispositivo assente per mesi. Verifica di aver attraversato push, pull, compattazione e snapshot: con 15 giri casuali la compattazione non avveniva mai, quindi il test non provava nulla su `cursor_too_old`.

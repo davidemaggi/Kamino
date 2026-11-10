@@ -48,6 +48,11 @@ Nello scenario LAN `KAMINO_PUBLIC_URL` deve essere l'indirizzo IP o il nome host
 - I pezzi degli upload in corso stanno sempre su disco locale in `KAMINO_STAGING_DIR` (default `/data/staging`), già cifrati; gli upload abbandonati da più di 24 ore vengono ripuliti da soli.
 - `KAMINO_MAX_FILE_BYTES` limita la dimensione di un singolo file (default 500 MB); i file più grandi vengono rifiutati con `file_too_large` e il plugin li segnala.
 
+**Tempo reale e job.**
+- I dispositivi ricevono le modifiche su un WebSocket (`/api/v1/ws`). Un proxy davanti al server deve inoltrare l'upgrade WebSocket. Caddy, Cloudflare Tunnel e `tailscale serve` lo fanno da soli; con nginx servono `proxy_http_version 1.1` e le intestazioni `Upgrade`/`Connection`.
+- La compattazione del journal (ogni notte) e la pulizia degli upload (ogni ora) sono job in background salvati in Postgres (schema `pgboss`, creato da solo): non serve nessun servizio in più.
+- Più istanze del server sullo stesso database funzionano: le notifiche passano da Postgres (`LISTEN`/`NOTIFY`).
+
 ## 2. La master key
 
 La master key è una chiave di 32 byte codificata in base64. Protegge le chiavi di cifratura dei dati: **se la perdi, i dati nel database non sono più leggibili**; se la cambi, il server rifiuta di partire con l'errore `master key does not match this database`.

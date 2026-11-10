@@ -53,7 +53,7 @@ Nuovo in `devices-auth.ts` / `sync.ts`:
 
 - `vaults.journal_floor bigint not null default 0`, `vaults.settings_enc bytea null` (null = default di S-10).
 - `devices.settings_override_enc bytea null`.
-- La voce `vault_settings_changed` nel journal: `file_id` e `path_enc` diventano facoltativi (oggi `not null`).
+- La voce `vault_settings_changed` nel journal usa `fileId` e `path` riservati (`_vault`, costante `VAULT_EVENT_ID` in `@kamino/protocol`) e `ignorable: true`: lo schema della voce non cambia e il reducer di `sync-core` la tratta già come voce senza effetti sui file. Il client rilegge le impostazioni con `GET /vault/settings` (o le riceve nel messaggio WebSocket).
 - Schema `pgboss` gestito da pg-boss all'avvio, dopo la verifica della chiave.
 
 ## 4. Componenti
@@ -85,7 +85,7 @@ Il commit (`SyncService`) chiama `pg_notify` nella transazione; l'hub non conosc
 - WebSocket: `hello` tardivo o non valido, protocollo sbagliato, catch-up a pagine, push dal vivo tra due client, `ack`/`status`, revoca, utente bloccato, heartbeat (con orologio finto).
 - Fan-out con **due istanze del server** sullo stesso Postgres (N-08) e caduta della connessione `LISTEN`.
 - Compattazione: cosa viene eliminato e cosa no (cursori attivi, dispositivi inattivi, retention), `cursor_too_old` su REST e WebSocket.
-- **Test multi-client di protocollo** (03 §14): N client simulati con il reducer di `sync-core` su WebSocket e REST, rete che perde, duplica e riordina, crash; alla fine tutti convergono allo snapshot del server.
+- **Test multi-client di protocollo** (03 §14, metà server): N client di protocollo, ognuno ricostruisce lo stato del vault solo dalle voci ricevute (WebSocket o `changes`, snapshot dopo `cursor_too_old`); op casuali via REST con basi vecchie, commit ripetuti, connessioni che cadono e si riaprono dal proprio cursore, compattazioni nel mezzo. Alla fine: ogni client ha ricevuto ogni `seq` esattamente una volta dopo il suo ultimo snapshot e il suo stato coincide con lo snapshot del server. La convergenza con il reducer completo di `sync-core` su un file system finto arriva in M2b, insieme al motore di M1d.
 - Dispositivi e impostazioni: schemi zod, isolamento tra utenti, override `null` che segue il default, `vault_settings_changed` nel journal e sul WebSocket.
 
 ## 7. Consegna

@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1d in corso, Blocco A Task 2 (scanner) completato ma non ancora committato (sessione interrotta per token). Branch `m1d-plugin-engine`.
+**Ultimo aggiornamento:** 2026-11-10 — M1d in corso: Blocco A (`sync-engine`, Task 1–4) completato e pushato; prossimo il Blocco B (Task 5, cartelle in `sync-core`). Branch `m1d-plugin-engine`.
 
 ## Dove siamo
 
@@ -50,19 +50,18 @@ Piano: `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`, spec: `docs/sup
 | # | Task | Stato |
 |---|---|---|
 | 1 | Pacchetto, porte, `MemoryFs`, hash | ✅ committato `8c131cb` (`ports.ts`, `hash.ts`, `memory-fs.ts`, `memory-fs.test.ts`, `index.ts`; `docker/Dockerfile` e `.changeset/config.json` aggiornati) |
-| 2 | Scanner con cache degli stat | ✅ scritto e testato (7 test passano, typecheck ok) — **NON ancora committato** (`scanner.ts`, `scanner.test.ts`, `index.ts` modificato) |
-| 3 | API e trasferimenti | ⏳ prossimo |
-| 4 | Motore (`engine.ts`, `status.ts`) | ⏳ |
+| 2 | Scanner con cache degli stat | ✅ `d18c7b0` |
+| 3 | API e trasferimenti | ✅ `0fe2ab0` (`api.ts`, `transfers.ts`: upload a chunk in streaming con ripresa, download a pezzi `Range`) |
+| 4 | Motore (`engine.ts`, `status.ts`) | ✅ `b527445` (35 test, compreso il test di proprietà con crash del client; `src/testing/fake-server.ts` = server finto su `MemoryStore`) |
 
-**Per riprendere Task 2:** i file sono pronti in working tree. Committare con:
-```bash
-cd /Users/davide/Repos/Kamino
-pnpm exec prettier --write packages/sync-engine/src >/dev/null
-/tmp/kamino-tools/commit.sh "feat(sync-engine): scan the vault with a stat cache" packages/sync-engine pnpm-lock.yaml
-```
-Poi procedere con Task 3 (`src/api.ts`, `src/transfers.ts`, `src/api.test.ts`) seguendo il piano.
+Decisioni prese eseguendo il Blocco A (registro completo in `.superpowers/sdd/…/progress.md`, non versionato):
+- `Transfers` passa tutto da `Api` (errori mappati in un punto solo) e riceve le sessioni salvate; l'upload legge a pezzi già ora (anticipa una parte del Task 6).
+- Il download ricava la dimensione da `Content-Range`: l'effetto `write` di `sync-core` non la porta.
+- Il cestino ricalcola l'hash prima di spostare (la porta `trash` non ha `expect`).
+- `cursor_too_old`: per ora solo log e nuovo tentativo; la riconciliazione vera (snapshot su un indice esistente) richiede una modifica a `sync-core` e si fa con il Task 7.
+- Il commit si fa con `git commit` normale: `/tmp/kamino-tools/commit.sh` c'è solo sul Mac.
 
-**Blocchi rimanenti dopo A:** B (cartelle in `sync-core`, Z9), C (file grandi streaming), D (integrazione motore↔server vero), E (adattatori Obsidian, collegamento, watcher), F (impostazioni, build produzione), G (docs, verifica, revisione, PR).
+**Blocchi rimanenti:** B (cartelle in `sync-core`, Z9), C (file grandi streaming), D (integrazione motore↔server vero), E (adattatori Obsidian, collegamento, watcher), F (impostazioni, build produzione), G (docs, verifica, revisione, PR).
 
 ## Prossimi passi
 

@@ -1,11 +1,12 @@
 import { AckRequest, CommitRequest, DeviceStatusReport } from "@kamino/protocol";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { fail } from "../auth/http.js";
 import { AuthError } from "../auth/service.js";
 import type { Db } from "../db/client.js";
 import { devices } from "../db/schema.js";
 import { deviceGuard } from "../devices/auth.js";
-import type { SyncService } from "../sync/commit.js";
+import { CursorTooOld, type SyncService } from "../sync/commit.js";
 import type { VaultService } from "../vaults/service.js";
 import type { VaultCrypto } from "../vaults/vault-crypto.js";
 import { parse } from "./auth.js";
@@ -34,10 +35,16 @@ export function syncRoutes(db: Db, vaultsSvc: VaultService, sync: SyncService) {
     app.get<{ Params: VaultParams; Querystring: { after?: string; limit?: string } }>(
       "/vaults/:vaultId/changes",
       { preHandler: guard },
-      async (req) => {
+      async (req, reply) => {
         const after = Math.max(0, Math.floor(Number(req.query.after) || 0));
         const limit = Math.min(1000, Math.max(1, Math.floor(Number(req.query.limit) || 500)));
-        return sync.changes(await cryptoFor(req), after, limit);
+        try {
+          return await sync.changes(await cryptoFor(req), after, limit);
+        } catch (e) {
+          // 03 §6.3: start again from the snapshot (full reconciliation).
+          if (e instanceof CursorTooOld) return fail(reply, 410, "cursor_too_old");
+          throw e;
+        }
       },
     );
 

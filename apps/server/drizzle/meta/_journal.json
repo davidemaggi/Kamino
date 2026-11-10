@@ -22,6 +22,13 @@
       "when": 1794300446523,
       "tag": "0002_flippant_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794322807199,
+      "tag": "0003_lethal_ulik",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
   type FileRecord,
   type Mutation,
 } from "@kamino/sync-core";
+import { PRODUCT_SLUG } from "@kamino/brand";
 import { and, asc, eq, gt, sql } from "drizzle-orm";
 import { uuidv7 } from "../auth/tokens.js";
 import type { Db } from "../db/client.js";
@@ -24,6 +25,16 @@ import type { VaultCrypto } from "../vaults/vault-crypto.js";
 import { NeedData, PrefetchedView, type Need } from "./view.js";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/** 02 §110: one notification per journal entry, `<vaultId>:<seq>`, sent only if the commit lands. */
+export const NOTIFY_CHANNEL = `${PRODUCT_SLUG}_vault`;
+
+/** The cursor points into compacted journal: the device must start again from the snapshot. */
+export class CursorTooOld extends Error {
+  constructor() {
+    super("cursor_too_old");
+  }
+}
 
 export class SyncService {
   constructor(
@@ -76,8 +87,10 @@ export class SyncService {
         await this.insertJournal(tx, vc, deviceId, op.opId, seq, m.entry);
       } else await this.mutate(tx, vc, deviceId, m);
     }
-    if (head !== locked!.head)
+    if (head !== locked!.head) {
       await tx.update(vaults).set({ headSeq: head }).where(eq(vaults.id, vc.vaultId));
+      await tx.execute(sql`select pg_notify(${NOTIFY_CHANNEL}, ${`${vc.vaultId}:${head}`})`);
+    }
     const r = decision.result;
     if (r.status === "accepted") {
       const result: FinalResult = { ...r, seq };
@@ -320,37 +333,49 @@ export class SyncService {
     });
   }
 
+  /** Floor and entries in one consistent read, so compaction can't open a silent gap. */
   async changes(
     vc: VaultCrypto,
     after: number,
     limit: number,
   ): Promise<{ entries: JournalEntry[]; head: number; hasMore: boolean }> {
     const v = vc.vaultId;
-    const rows = await this.db
-      .select()
-      .from(journal)
-      .where(and(eq(journal.vaultId, v), gt(journal.seq, after)))
-      .orderBy(asc(journal.seq))
-      .limit(limit + 1);
-    const [h] = await this.db.select({ head: vaults.headSeq }).from(vaults).where(eq(vaults.id, v));
-    const entries = rows.slice(0, limit).map((r): JournalEntry => ({
-      seq: r.seq,
-      type: r.type,
-      fileId: r.fileId,
-      kind: r.kind as "file" | "folder",
-      path: vc.dec("journal", "path", `${v}:${r.seq}`, r.pathEnc),
-      deviceId: r.deviceId,
-      at: r.at.toISOString(),
-      ...(r.opId ? { opId: r.opId } : {}),
-      ...(r.versionId ? { versionId: r.versionId } : {}),
-      ...(r.contentHashEnc
-        ? { contentHash: vc.dec("journal", "content_hash", `${v}:${r.seq}`, r.contentHashEnc) }
-        : {}),
-      ...(r.size !== null ? { size: r.size } : {}),
-      ...(r.mtime !== null ? { mtime: r.mtime } : {}),
-      ...(r.conflictId ? { conflictId: r.conflictId } : {}),
-    }));
-    return { entries, head: h?.head ?? 0, hasMore: rows.length > limit };
+    return this.db.transaction(
+      async (tx) => {
+        const [h] = await tx
+          .select({ head: vaults.headSeq, floor: vaults.journalFloor })
+          .from(vaults)
+          .where(eq(vaults.id, v));
+        if (after < (h?.floor ?? 0)) throw new CursorTooOld();
+        const rows = await tx
+          .select()
+          .from(journal)
+          .where(and(eq(journal.vaultId, v), gt(journal.seq, after)))
+          .orderBy(asc(journal.seq))
+          .limit(limit + 1);
+        const entries = rows.slice(0, limit).map((r): JournalEntry => ({
+          seq: r.seq,
+          type: r.type,
+          fileId: r.fileId,
+          kind: r.kind as "file" | "folder",
+          path: vc.dec("journal", "path", `${v}:${r.seq}`, r.pathEnc),
+          deviceId: r.deviceId,
+          at: r.at.toISOString(),
+          ...(r.opId ? { opId: r.opId } : {}),
+          ...(r.versionId ? { versionId: r.versionId } : {}),
+          ...(r.contentHashEnc
+            ? {
+                contentHash: vc.dec("journal", "content_hash", `${v}:${r.seq}`, r.contentHashEnc),
+              }
+            : {}),
+          ...(r.size !== null ? { size: r.size } : {}),
+          ...(r.mtime !== null ? { mtime: r.mtime } : {}),
+          ...(r.conflictId ? { conflictId: r.conflictId } : {}),
+        }));
+        return { entries, head: h?.head ?? 0, hasMore: rows.length > limit };
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" },
+    );
   }
 
   /** One consistent read: the state is exactly the one at `head` (03 §6.2). */

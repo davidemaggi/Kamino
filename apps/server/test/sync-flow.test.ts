@@ -138,6 +138,39 @@ describe.skipIf(dockerUnavailable)("sync flow: two devices", () => {
     expect((await other.call("POST", `${base}/commits`, { ops: [put1] })).statusCode).toBe(404);
   });
 
+  it("a cursor below the journal floor gets 410 cursor_too_old; commits notify", async () => {
+    const a = await linkDevice(t, await user(t, "mario"));
+    const base = `/vaults/${a.vaultId}`;
+    await t.db.$client`update vaults set journal_floor = 5 where id = ${a.vaultId}`;
+    const old = await a.call("GET", `${base}/changes?after=4`);
+    expect(old.statusCode).toBe(410);
+    expect(old.json().error.code).toBe("cursor_too_old");
+    expect((await a.call("GET", `${base}/changes?after=5`)).statusCode).toBe(200);
+    await t.db.$client`update vaults set journal_floor = 0 where id = ${a.vaultId}`;
+
+    const heard: string[] = [];
+    const sub = await t.db.$client.listen("kamino_vault", (p) => heard.push(p));
+    const content = Buffer.from("x");
+    const h = await uploadContent(a, content);
+    await a.call("POST", `${base}/commits`, {
+      ops: [
+        {
+          type: "put",
+          opId: "o1",
+          fileId: "f1",
+          versionId: "v1",
+          path: "a.md",
+          baseVersionId: null,
+          contentHash: h,
+          size: 1,
+          mtime: 1,
+        },
+      ],
+    });
+    await expect.poll(() => heard).toEqual([`${a.vaultId}:1`]);
+    await sub.unlisten();
+  });
+
   it("paths and hashes are encrypted at rest", async () => {
     const a = await linkDevice(t, await user(t, "mario"));
     const content = Buffer.from("secret note");

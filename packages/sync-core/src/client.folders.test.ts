@@ -115,6 +115,25 @@ describe("client folders (Z9)", () => {
     expect(files.map((f) => f.path).sort()).toEqual(["x/a.md", "x/e/b.md"]);
   });
 
+  it("a watched folder rename moves its files even before the folder is tracked (regression)", () => {
+    const store = new MemoryStore();
+    let s = joined(store);
+    // A shell cycle without folders: only the files are known.
+    const r0 = run(s, { type: "sync", scan: [item("d/a.md", H1)] });
+    const p = ofType(r0.effects, "push")[0]!;
+    store.blobs.add(H1);
+    const res = store.commit(p.ops, "dev");
+    s = finishPulls(
+      run(r0.state, { type: "pushResult", requestId: p.requestId, ...res }),
+      store,
+    ).state;
+    s = run(s, { type: "localRename", from: "d", to: "x" }).state;
+    const r = cycle(s, store, [item("x/a.md", H1)], ["x"]);
+    expect(r.ops.filter((o) => o.type !== "mkdir")).toEqual([
+      expect.objectContaining({ type: "move", fromPath: "d/a.md", toPath: "x/a.md" }),
+    ]);
+  });
+
   it("a remote folder is created here; once done nothing more happens", () => {
     const store = new MemoryStore();
     store.commit([{ type: "mkdir", opId: "o1", fileId: "F", path: "d" }], "other");

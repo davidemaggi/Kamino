@@ -83,6 +83,7 @@ const actionArb = (clients: number): fc.Arbitrary<Action> => {
     { weight: 1, arbitrary: fc.record({ t: fc.constant("truncate" as const) }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("quota" as const), on: fc.boolean() }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("crash" as const), c }) },
+    { weight: 1, arbitrary: fc.record({ t: fc.constant("compact" as const) }) },
     { weight: 2, arbitrary: fc.record({ t: fc.constant("mkdir" as const), c, path: dir }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("rmdir" as const), c, pick: fc.nat(9) }) },
     {

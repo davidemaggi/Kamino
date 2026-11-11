@@ -74,7 +74,9 @@ export type Action =
   | { t: "truncate" }
   /** While on, the server refuses puts with quota_exceeded. */
   | { t: "quota"; on: boolean }
-  | { t: "crash"; c: number };
+  | { t: "crash"; c: number }
+  /** The server compacts its journal up to the head (03 §6.3): older cursors get cursor_too_old. */
+  | { t: "compact" };
 
 /** N clients, one server, a network that loses, duplicates and reorders, and crashes (02 §5). */
 export class World {
@@ -86,6 +88,8 @@ export class World {
   private writes = 0;
   private truncateNext = false;
   private quotaFull = false;
+  /** Journal floor: a pull after an older position is answered with `resync`. */
+  private floor = 0;
   private readonly env = { newId: () => `id-${++this.ids}` };
   /** Contents a user removed or overwrote somewhere: only these may leave the live state. */
   private readonly userRemoved = new Set<string>();
@@ -295,6 +299,9 @@ export class World {
         return;
       case "crash":
         this.crash(a.c);
+        return;
+      case "compact":
+        this.floor = this.store.head;
         return;
     }
   }
@@ -556,6 +563,8 @@ export class World {
         results = results.slice(0, 1);
       }
       event = { type: "pushResult", requestId: m.requestId, results, head: this.store.head };
+    } else if (m.kind === "pull" && m.after < this.floor) {
+      event = { type: "resync", requestId: m.requestId };
     } else if (m.kind === "pull") {
       const res = this.store.changes(m.after, 3);
       event = {

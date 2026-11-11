@@ -151,6 +151,8 @@ export type ClientEvent =
       hasMore: boolean;
     }
   | { type: "networkError"; requestId: string }
+  /** The pull's cursor is behind the compacted journal (03 §6.3): start again from the snapshot. */
+  | { type: "resync"; requestId: string }
   /** `hash` = the content of the write effect this completes. */
   | { type: "written"; fileId: string; hash: string; ok: boolean }
   | { type: "renamed"; fileId: string; to: string; ok: boolean }
@@ -244,6 +246,12 @@ export function step(
       break;
     case "networkError":
       if (event.requestId === s.vol.requestId) idle(s);
+      break;
+    case "resync":
+      if (event.requestId === s.vol.requestId && s.vol.phase === "pulling") {
+        idle(s);
+        startSnapshot(c);
+      }
       break;
     case "written":
       onWritten(c, event.fileId, event.hash, event.ok);
@@ -686,8 +694,8 @@ function onFolderDone(
 function renameFolderLocally(c: Ctx, from: string, to: string): void {
   const { s } = c;
   const key = diskKey(s, from);
-  const f = folderList(s).find((x) => x.onDisk && diskKey(s, x.path) === key);
-  if (!f) return;
+  // The files move with the folder even if this device doesn't track the folder itself yet.
+  const f = folderList(s).find((x) => x.onDisk && diskKey(s, x.path) === key) ?? null;
   const prefix = `${key}/`;
   const moved = (p: string) => to + p.slice(from.length);
   for (const e of entries(s))
@@ -818,8 +826,10 @@ function onFolderAccepted(
       f.seq = res.seq;
     }
   } else if (op.type === "delete") {
+    // Defensive, as for files: an older result never undoes a newer state already known.
+    if (res.seq < f.seq) return;
     f.deleted = true;
-    f.seq = Math.max(f.seq, res.seq);
+    f.seq = res.seq;
     if (!f.onDisk) f.materialized = false;
   }
 }
@@ -1461,13 +1471,110 @@ function onTrashed(c: Ctx, fileId: string, ok: boolean): void {
 
 // ---------- joining (D-07, V-05) ----------
 
+/**
+ * A device that already knows the vault, back after the journal it missed was compacted: the
+ * snapshot tells, for each file and folder it knows, what those entries would have said (same
+ * rules as the journal, at the snapshot's position).
+ */
+function reconcileKnown(c: Ctx, snap: Snapshot): void {
+  const { s } = c;
+  const live = new Map(snap.files.map((f) => [f.fileId, f]));
+  const at = { seq: snap.head, deviceId: "", at: new Date(0).toISOString() };
+  for (const e of entries(s)) {
+    if (!e.confirmed) {
+      // Its put reached the server but the journal entry saying so was compacted.
+      const r = live.get(e.fileId);
+      if (!r || r.kind !== "file" || r.versionId === null || r.contentHash === null) continue;
+      const mine = s.durable.sent.some(
+        (op) => op.type === "put" && op.fileId === e.fileId && op.versionId === r.versionId,
+      );
+      onRemotePut(c, {
+        ...at,
+        deviceId: mine ? s.config.deviceId : "",
+        type: "file_put",
+        fileId: e.fileId,
+        path: r.path,
+        versionId: r.versionId,
+        contentHash: r.contentHash,
+        size: r.size,
+        mtime: r.mtime,
+      });
+      if (e.localHash === null && e.base === null && !e.pendingWrite) {
+        // Gone from here with no known base: in doubt it comes back rather than being deleted.
+        e.materialized = false;
+        materialize(c, e);
+      }
+      continue;
+    }
+    const r = live.get(e.fileId);
+    if (r && r.kind === "file" && r.versionId !== null && r.contentHash !== null)
+      onRemotePut(c, {
+        ...at,
+        type: "file_put",
+        fileId: e.fileId,
+        path: r.path,
+        versionId: r.versionId,
+        contentHash: r.contentHash,
+        size: r.size,
+        mtime: r.mtime,
+      });
+    else if (!r) onRemoteDelete(c, { ...at, type: "file_deleted", fileId: e.fileId, path: e.path });
+  }
+  for (const f of folderList(s)) {
+    if (f.aliasOf) {
+      // Its twin moved or went while this device was away: a real folder again.
+      const twin = live.get(f.aliasOf);
+      if (!twin || twin.kind !== "folder" || collisionKey(twin.path) !== collisionKey(f.path)) {
+        f.aliasOf = null;
+        f.confirmed = false;
+        f.remotePath = null;
+      }
+      continue;
+    }
+    if (!f.confirmed) continue;
+    const r = live.get(f.fileId);
+    if (r && r.kind === "folder") {
+      // Brought back while this device was away.
+      if (f.deleted)
+        onRemoteFolder(c, {
+          ...at,
+          type: "folder_created",
+          kind: "folder",
+          fileId: f.fileId,
+          path: r.path,
+        });
+      else if (r.path !== f.remotePath)
+        onRemoteFolder(c, {
+          ...at,
+          type: "file_moved",
+          kind: "folder",
+          fileId: f.fileId,
+          path: r.path,
+        });
+    } else if (!r && !f.deleted)
+      onRemoteFolder(c, {
+        ...at,
+        type: "folder_deleted",
+        kind: "folder",
+        fileId: f.fileId,
+        path: f.path,
+      });
+  }
+}
+
 /** 03 §8.1 for a device without index: identical files align, different ones become conflicts, nothing is overwritten. */
 function onSnapshot(c: Ctx, snap: Snapshot): void {
   const { s } = c;
   idle(s);
+  reconcileKnown(c, snap);
   const remote = new Map<string, Snapshot["files"][number]>();
   for (const f of snap.files)
-    if (f.kind === "file" && f.versionId !== null && f.contentHash !== null)
+    if (
+      f.kind === "file" &&
+      f.versionId !== null &&
+      f.contentHash !== null &&
+      !s.durable.index[f.fileId]
+    )
       remote.set(diskKey(s, f.path), f);
   for (const e of entries(s)) {
     if (e.confirmed || e.localHash === null) continue;

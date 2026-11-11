@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-11 — **M2b completata sul branch `m2b-plugin-realtime`**: Task 1–12, revisione finale fatta e corretta (0 critici, 11 importanti corretti ognuno con test, 15 minori rinviati), verifica completa verde. **Prossimo passo: aprire la PR** (`gh` non autenticato su questo PC: dal Mac o dal sito) e attendere il merge; poi i test sui dispositivi D-1…D-7 (`docs/spikes/README.md`) e la settimana d'uso che chiude M2; poi il pacchetto M4+M5+M6.
+**Ultimo aggiornamento:** 2026-11-11 — **M2b mergiata su `main` (PR #13).** Sessione chiusa; si riprende **dal Mac** sul branch `m456-server-routes` (creato da `main` dopo il merge, contiene solo questo aggiornamento): prossimo il pacchetto **M4+M5+M6** (vedi "Prossimi passi").
 
 ## Dove siamo
 
@@ -22,7 +22,7 @@
 | M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ⏳ M2b |
 | M3…M7 | ⏳ |
 
-**Branch di lavoro:** `m2b-plugin-realtime` (da `main` dopo la PR #12; per ora solo l'aggiornamento di questo file).
+**Branch di lavoro:** `m456-server-routes` (da `main` dopo la PR #13; per ora solo l'aggiornamento di questo file).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -80,11 +80,10 @@ Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del disposit
 
 ## Prossimi passi
 
-1. **Prova del plugin in Obsidian desktop** con il server Docker (vault di prova `vault/kamino` con `pnpm --filter @kamino/plugin build:vault`; nella build di sviluppo il server vero si attiva con `localStorage["kamino-sync-dev-real-server"] = "1"` dalla console di Obsidian): collegamento, upload, modifica, stato.
-2. **Test sui dispositivi** D-1…D-4 (`docs/spikes/README.md`, "Test sui dispositivi dopo M1d"): file grandi su iPhone/Android, resume e cambio di rete, spostamento di una cartella da 2.000 file, una settimana d'uso. Nessuna release pubblica prima di questi.
-3. **M2b — parte plugin di M2** (WebSocket, modalità Live/Periodica/Manuale, D-07, allegati solo in Wi-Fi): brainstorming rapido → spec → piano → esecuzione. Includere i minori rinviati dalla revisione di M1d che toccano il motore.
-4. **Poi un unico pacchetto M4+M5+M6** (rotte del server dietro le schermate già fatte: area utente, admin/quote/email, pairing QR) con una sola spec e un solo piano.
-5. M3 (conflitti e storico) e M7 (hardening, release) restano milestone a sé.
+1. **Pacchetto M4+M5+M6** (un'unica spec leggera e un unico piano): le rotte del server dietro le schermate già fatte della web app e del plugin — area utente (dettaglio vault, dispositivi, conflitti in sola lettura, storico, cestino, download ZIP), admin (utenti, inviti, configurazione con fonte dei valori, salute, audit), quote, SMTP ed email, pairing con QR/magic link; poi spegnere MSW per le rotte coperte. Brainstorming rapido (solo le scelte vere), poi piano ed esecuzione senza checkpoint intermedi.
+2. **Test sui dispositivi** D-1…D-7 (`docs/spikes/README.md`) e la **settimana d'uso** con due desktop e un telefono, che chiude M2. Nessuna release pubblica prima.
+3. **M3** (conflitti e storico) e **M7** (hardening, release) restano milestone a sé.
+4. Minori rinviati dalle revisioni di M1d e M2b: elencati nelle rispettive sezioni qui sotto.
 
 **Accelerazioni decise dal committente (2026-11-11):** (1) M4, M5 e M6 in un unico pacchetto; (2) spec leggere per le parti a basso rischio (rotte, schermate), rigore pieno solo dove si possono perdere dati (M2b, M3); (3) la simulazione profonda (`test:deep`) gira in CI, non a ogni modifica in locale (in locale bastano i 150 scenari di `pnpm test`); (4) quando possibile lavorare dal Mac.
 

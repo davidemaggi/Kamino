@@ -1,6 +1,6 @@
 # M2b — Tempo reale nel plugin
 
-> Stato: **bozza** · Data: 2026-11-11 · Branch: `m2b-plugin-realtime`
+> Stato: **approvata** (2026-11-11) · Data: 2026-11-11 · Branch: `m2b-plugin-realtime`
 > M2 = M2a (server, fatta, PR #11) + **M2b** (questa). Base: motore di M1d (PR #12).
 > Riferimenti: [01 — requisiti](../../01-requirements.md) S-02, S-03, S-05, S-08, D-07; [03 — protocollo](../../03-sync-protocol.md) §7–8; spec M2a (D1–D8), spec M1d (E1–E10); revisione finale di M1d in `docs/HANDOVER.md`.
 > Spec "rigorosa" (accelerazioni del 2026-11-11): qui si possono perdere dati, quindi TDD, simulatore e revisione finale come in M1d.

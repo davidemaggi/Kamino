@@ -215,6 +215,17 @@ Confronto tra snapshot remoto e contenuto locale, per path:
 
 Per i casi con molti conflitti (es. ricostruzione del server, V-05) la UI offre la **risoluzione in blocco**: "tieni tutte le versioni del server" / "tieni tutte le mie" / "tieni entrambe per tutti". *(aggiunta del tech lead)*
 
+### 8.2 Note di implementazione del guscio (M1d)
+
+Il ciclo è eseguito da `packages/sync-engine` (spec M1d, E1–E10) attorno a `step()` di `sync-core`; il plugin fornisce gli adattatori Obsidian, i test del server usano lo stesso motore contro il server vero.
+
+- **Ogni ciclo fa una scansione completa** (contratto Z11), ma rilegge solo i file con dimensione o mtime cambiati (cache degli stat). Le cartelle sono riportate a parte (`folders` dell'evento `sync`). Il ciclo parte all'avvio, al ritorno in primo piano, dopo le modifiche locali (debounce 5 s / 1,5 s), su "Sincronizza ora" e con un **pull periodico ogni 60 s**, ponte fino al WebSocket di M2b.
+- **Write-ahead:** lo stato durevole è salvato (file temporaneo + rename) prima di qualunque altro effetto; gli effetti sui file avvengono in ordine, ognuno col suo evento.
+- **File grandi:** l'upload legge a pezzi e invia chunk della dimensione indicata dal server, riprendendo le sessioni salvate; il download chiede intervalli `Range` di 4 MiB e scrive su un file temporaneo, verificando l'hash prima di metterlo al suo posto. Dove lo streaming non è disponibile, i file oltre 100 MB restano **rimandati** e visibili, mai persi.
+- **Cartelle (Z9):** il server tiene i path piatti. Una cartella spostata dall'utente produce lo spostamento della cartella e di ogni file al suo interno; uno spostamento remoto crea la nuova cartella, i file seguono uno a uno e la vecchia è rimossa quando resta vuota. Una cartella cancellata altrove è rimossa qui solo se vuota: con dentro file di questo dispositivo torna sul server. Su un disco case-sensitive `d` e `D` restano due cartelle locali che per il server sono una (la seconda non invia nulla).
+- **Cursore troppo vecchio (§6.3):** il pull riceve `cursor_too_old`, il client chiede lo snapshot e lo **riconcilia con l'indice che già ha**: per ogni file e cartella noti ricava ciò che le voci di journal perse avrebbero detto (nuova versione, spostamento, cancellazione, resurrezione) e applica le stesse regole del journal. Con l'indice intatto non serve la tabella del §8.1: una cancellazione locale avvenuta nel frattempo è inviata normalmente; la tabella resta per il collegamento con contenuto locale e la perdita dello stato locale.
+- **Impostazioni (S-10…S-13):** prima del primo ciclo il motore legge le impostazioni effettive (senza rete: gli ultimi default del vault visti più le scelte del dispositivo), così un ciclo non gira mai con meno esclusioni di quelle impostate; la voce `vault_settings_changed` le fa rileggere.
+
 ## 9. Conflitti
 
 ### 9.1 Modello

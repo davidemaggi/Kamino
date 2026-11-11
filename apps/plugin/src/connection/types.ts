@@ -8,11 +8,23 @@ export interface Session {
   server: string;
   user: string;
   expiresAt: number;
+  /** Enrollment token of the real server (absent with the fake one). */
+  token?: string;
 }
 
 export type LoginResult =
   | { ok: true; session: Session }
-  | { ok: false; reason: "bad_credentials" | "totp_required" | "bad_totp" | "locked" };
+  | {
+      ok: false;
+      reason:
+        | "bad_credentials"
+        | "totp_required"
+        | "bad_totp"
+        | "locked"
+        | "totp_mandatory"
+        | "rate_limited"
+        | "unreachable";
+    };
 
 export interface VaultSummary {
   id: string;
@@ -62,6 +74,8 @@ export type ConnectionEvent =
   | { type: "device_renamed" };
 
 export interface ConnectionService {
+  /** false = QR pairing not available yet (M6): the UI says it is coming. */
+  readonly pairingAvailable: boolean;
   link(): LinkInfo | null;
   checkServer(url: string): Promise<ServerCheck>;
   login(server: string, user: string, password: string, totp?: string): Promise<LoginResult>;

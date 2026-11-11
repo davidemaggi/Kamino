@@ -1,15 +1,26 @@
-import { PROTOCOL_ACTION } from "@kamino/brand";
+import { PLUGIN_ID, PROTOCOL_ACTION } from "@kamino/brand";
+import type { DevicePlatform } from "@kamino/protocol";
 import { DEFAULT_THRESHOLDS, describeStatus } from "@kamino/status";
-import { getIconIds, Platform, Plugin } from "obsidian";
+import { getIconIds, Notice, Platform, Plugin } from "obsidian";
 import { APP_VERSION } from "./build-info.js";
 import { FakeServer } from "./connection/fake-server.js";
 import { handlePairingLink } from "./connection/handle-link.js";
 import { watchPairingEvents } from "./connection/pairing-notices.js";
+import { RealConnection } from "./connection/real-server.js";
+import { RealTransfer } from "./connection/real-transfer.js";
+import type { ConnectionService, InitialTransfer } from "./connection/types.js";
+import { EngineHost, type SyncPlatform } from "./engine/host.js";
+import { ObsidianFs } from "./engine/obsidian-fs.js";
+import { ObsidianHttp } from "./engine/obsidian-http.js";
+import { SettingsSync } from "./engine/settings-sync.js";
 import { registerDevCommands } from "./dev/commands.js";
 import { detectLanguage, t } from "./i18n/index.js";
 import { SettingsStore } from "./settings/store.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
+import { EngineState } from "./state/engine-state.js";
 import { FakeSyncState } from "./state/fake.js";
+import type { ConflictActions, SyncStateSource } from "./state/types.js";
+import { Watcher } from "./engine/watcher.js";
 import { AddDeviceModal } from "./ui/AddDeviceModal.js";
 import { BulkResolveModal } from "./ui/BulkResolveModal.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
@@ -41,7 +52,22 @@ function platformLabel(): string {
   return "Obsidian";
 }
 
+/** The platform as the server and sync-core name it. */
+function devicePlatform(): DevicePlatform & SyncPlatform {
+  if (Platform.isIosApp) return "ios";
+  if (Platform.isAndroidApp) return "android";
+  if (Platform.isMacOS) return "macos";
+  if (Platform.isWin) return "windows";
+  return "linux";
+}
+
 export default class SyncPlugin extends Plugin {
+  private host: EngineHost | null = null;
+
+  override onunload(): void {
+    void this.host?.stop();
+  }
+
   override async onload(): Promise<void> {
     const lang = detectLanguage();
     const m = t(lang);
@@ -50,34 +76,98 @@ export default class SyncPlugin extends Plugin {
 
     const settings = new SettingsStore(this, isMobile);
     await settings.load();
-    const server = new FakeServer({
-      isMobile,
-      clock: now,
-      delay: (ms) => new Promise((r) => window.setTimeout(r, ms)),
-      random: Math.random,
-      localFileCount: () => this.app.vault.getFiles().length,
-      pluginVersion: APP_VERSION,
-      platform: platformLabel(),
-      store: settings.linkStore,
-      autoRun: true,
-    });
-    const state = new FakeSyncState(
-      {
-        name: server.link()?.deviceName ?? m.panel.notLinked,
-        mode: "live",
-        server: server.link()?.host ?? m.panel.noServer,
-      },
-      now,
-    );
-    state.setLinked(server.link() !== null);
+    // The fake server only in development builds (E1), unless the developer asks for the real one.
+    // `__DEV__` is a build constant: in production esbuild drops this branch and the fake with it.
+    let server: ConnectionService;
+    let transfer: InitialTransfer;
+    let fake: FakeServer | null = null;
+    if (__DEV__ && window.localStorage.getItem(`${PLUGIN_ID}-dev-real-server`) !== "1") {
+      fake = new FakeServer({
+        isMobile,
+        clock: now,
+        delay: (ms) => new Promise((r) => window.setTimeout(r, ms)),
+        random: Math.random,
+        localFileCount: () => this.app.vault.getFiles().length,
+        pluginVersion: APP_VERSION,
+        platform: platformLabel(),
+        store: settings.linkStore,
+        autoRun: true,
+      });
+      server = fake;
+      transfer = fake.transfer;
+    } else {
+      const pluginDir = this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${PLUGIN_ID}`;
+      const real = new RealConnection({
+        isMobile,
+        store: settings.linkStore,
+        pluginVersion: APP_VERSION,
+        platform: devicePlatform(),
+        http: (url) => new ObsidianHttp(url),
+      });
+      const settingsSync = new SettingsSync({
+        local: () => settings.get(),
+        notice: (msg) => new Notice(msg),
+        reloadText: m.settings.reloadToApply,
+      });
+      const host = new EngineHost({
+        current: () => {
+          const link = real.link();
+          const cred = real.credentials();
+          return link && cred ? { server: link.server, vaultId: link.vaultId, ...cred } : null;
+        },
+        fs: (deviceId) =>
+          new ObsidianFs(this.app, pluginDir, { stateDir: `${pluginDir}/state/${deviceId}` }),
+        http: (url) => new ObsidianHttp(url),
+        platform: devicePlatform(),
+        configDir: this.app.vault.configDir,
+        clock: {
+          now,
+          sleep: (ms) => new Promise((r) => window.setTimeout(r, ms)),
+          random: Math.random,
+        },
+        newId: () => crypto.randomUUID(),
+        loadSettings: (api, fs) => settingsSync.load(api, fs),
+      });
+      this.host = host;
+      this.register(settings.onChange(() => void host.reloadSettings()));
+      this.register(real.onChange(() => void host.refresh()));
+      void host.refresh();
+      server = real;
+      transfer = new RealTransfer(() => host.engine());
+      // Vault events → debounced cycles (E4).
+      this.register(
+        new Watcher(this.app, () => host.engine()).attach((ref) => this.registerEvent(ref)),
+      );
+    }
+    const deviceInfo = () => {
+      const link = server.link();
+      return {
+        name: link?.deviceName ?? m.panel.notLinked,
+        mode: "live" as const,
+        server: link?.host ?? m.panel.noServer,
+      };
+    };
+    const useFake = fake !== null;
+    const fakeState = __DEV__ && useFake ? new FakeSyncState(deviceInfo(), now) : null;
+    fakeState?.setLinked(server.link() !== null);
+    const host = this.host;
+    const state: SyncStateSource & ConflictActions =
+      fakeState ??
+      new EngineState({
+        engine: () => host?.engine() ?? null,
+        onHostChange: (cb) => host?.onChange(cb) ?? (() => {}),
+        device: deviceInfo,
+        notice: (msg) => new Notice(msg),
+        comingSoon: m.conflict.comingSoon,
+      });
 
     const ctx: UiContext = {
       source: state,
       actions: state,
       connection: server,
-      transfer: server.transfer,
+      transfer,
       settings,
-      engineAvailable: false,
+      engineAvailable: !useFake,
       lang,
       isMobile,
       isIos: Platform.isIosApp,
@@ -93,8 +183,14 @@ export default class SyncPlugin extends Plugin {
       openWelcome: () => openWelcome(this.app),
       openTransfer: () => openTransfer(this.app),
       openConnect: (mode) => new ConnectModal(this.app, ctx, mode).open(),
-      openClaim: (link) => new PairingClaimModal(this.app, ctx, link).open(),
-      openAddDevice: (request) => new AddDeviceModal(this.app, ctx, request).open(),
+      openClaim: (link) => {
+        if (!server.pairingAvailable) new Notice(m.pairing.comingSoon);
+        else new PairingClaimModal(this.app, ctx, link).open();
+      },
+      openAddDevice: (request) => {
+        if (!server.pairingAvailable) new Notice(m.pairing.comingSoon);
+        else new AddDeviceModal(this.app, ctx, request).open();
+      },
       confirm: (opts) => confirmDialog(this.app, opts),
     };
 
@@ -115,22 +211,17 @@ export default class SyncPlugin extends Plugin {
     const refresh = () =>
       indicator.update(describeStatus(state.snapshot(), DEFAULT_THRESHOLDS, now()));
     this.register(state.onChange(refresh));
-    const deviceInfo = () => {
-      const link = server.link();
-      return {
-        name: link?.deviceName ?? m.panel.notLinked,
-        mode: "live" as const,
-        server: link?.host ?? m.panel.noServer,
-      };
-    };
-    this.register(
-      server.onChange((e) => {
-        if (e.type === "linked" || e.type === "unlinked") state.setLinked(e.type === "linked");
-        if (e.type === "linked" || e.type === "unlinked" || e.type === "device_renamed")
-          state.setDevice(deviceInfo());
-      }),
-    );
-    this.register(server.transfer.onChange(() => state.setTransfer(server.transfer.progress())));
+    if (fakeState) {
+      this.register(
+        server.onChange((e) => {
+          if (e.type === "linked" || e.type === "unlinked")
+            fakeState.setLinked(e.type === "linked");
+          if (e.type === "linked" || e.type === "unlinked" || e.type === "device_renamed")
+            fakeState.setDevice(deviceInfo());
+        }),
+      );
+      this.register(transfer.onChange(() => fakeState.setTransfer(transfer.progress())));
+    }
     refresh();
 
     this.addCommand({
@@ -163,6 +254,7 @@ export default class SyncPlugin extends Plugin {
       if (!server.link()) void ctx.openWelcome();
     });
 
-    if (__DEV__) registerDevCommands(this, { lang, now, state, ctx, server });
+    if (__DEV__ && fake && fakeState)
+      registerDevCommands(this, { lang, now, state: fakeState, ctx, server: fake });
   }
 }

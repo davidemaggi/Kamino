@@ -1,6 +1,7 @@
 import type { IconName, Level, StatusKey } from "./levels.js";
 
-export type BlockReason = "quota" | "revoked" | "auth" | "protocol";
+/** `deletions`: many files vanished from this device; nothing is deleted on the server until confirmed. */
+export type BlockReason = "quota" | "revoked" | "auth" | "protocol" | "deletions";
 
 /** Point-in-time sync state of one device. All times are epoch ms. */
 export interface SyncSnapshot {

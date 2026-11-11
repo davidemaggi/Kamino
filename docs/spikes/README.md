@@ -14,6 +14,18 @@ Prototipi usa-e-getta per i rischi tecnici di [`02-architecture.md` §10](../02-
 | [R-4](R-4.md)         | WebSocket in background/resume e al cambio di rete                    | iPhone, Android (+ desktop)  | PENDING (in attesa di dispositivi reali) |
 | [R-5](R-5.md)         | Eventi del vault durante operazioni massicce                          | desktop, iPhone, Android     | PENDING (in attesa di dispositivi reali) |
 
+## Test sui dispositivi dopo M1d (motore vero)
+
+M1d è stata fatta **senza gli esiti degli spike** (spec M1d §8). Con il plugin vero (build di produzione, server Docker raggiungibile in HTTPS dal telefono) vanno eseguiti questi test; ogni esito va riportato qui o nel documento dello spike.
+
+| # | Test | Dispositivi | Cosa misurare / criterio |
+|---|---|---|---|
+| D-1 (R-1) | Collegare un vault con un file da **50 MB**, poi **200 MB**, poi **500 MB**; poi scaricarli su un secondo dispositivo | iPhone, Android, desktop | Memoria del processo (picco), tempo di upload e download, esito. Verificare se lo streaming è attivo (le impostazioni non lo mostrano: si vede dal fatto che oltre 100 MB il file non resta "rimandato"). Criterio: nessun crash, file identici (hash), nessun file perso; se lo streaming manca, il file oltre 100 MB compare tra i rimandati. |
+| D-2 (R-4) | Modificare una nota sul telefono, mettere Obsidian in background, riaprirla; cambiare rete (Wi-Fi ↔ dati) durante un upload grande | iPhone, Android | Al ritorno in primo piano parte un ciclo; l'upload riprende dai chunk già inviati; lo stato passa da "non raggiungibile" a "al sicuro" senza intervento. |
+| D-3 (R-5) | Spostare dentro Obsidian una cartella con **2.000 file**; ripetere sull'altro dispositivo con una cartella diversa | desktop, iPhone, Android | Numero di op inviate (dovrebbero essere spostamenti, non cancellazioni + creazioni), tempo, stato finale: i due dispositivi uguali, nessun file perso o duplicato. |
+| D-4 | Una settimana d'uso reale con un desktop e un telefono sullo stesso vault | desktop + telefono | Annotare ogni stato diverso da "al sicuro" che non si spiega, ogni conflitto, ogni file mancante o duplicato. |
+| D-5 (R-2, R-3) | Si eseguono con M2b (solo Wi-Fi) e M3 (risoluzione dei conflitti) | — | — |
+
 ## Cosa c'è in `spikes/`
 
 ```

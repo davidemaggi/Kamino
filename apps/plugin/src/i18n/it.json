@@ -51,7 +51,8 @@
     "configNote": "Le modifiche in arrivo per questa cartella non si applicano subito: ti verrà proposto di riavviare Obsidian.",
     "about": "Informazioni",
     "cancel": "Annulla",
-    "confirmUnlink": "Scollega"
+    "confirmUnlink": "Scollega",
+    "reloadToApply": "La configurazione sincronizzata è cambiata: ricarica Obsidian per applicarla."
   },
   "dev": {
     "statusGallery": "Mostra galleria stati (sviluppo)",
@@ -81,7 +82,7 @@
     "pending": "Non ancora sul server · {count}",
     "pendingMeta": "{op} · {age}",
     "showAll": "Mostra tutte ({count})",
-    "deferred": "In attesa di Wi-Fi · {count}",
+    "deferred": "In attesa · {count}",
     "uploadNow": "Carica ora",
     "downloadNow": "Scarica ora",
     "device": "Questo dispositivo",
@@ -100,7 +101,11 @@
       "modify": "modificata",
       "delete": "eliminata",
       "rename": "rinominata"
-    }
+    },
+    "confirmDeletions": "Conferma le cancellazioni…",
+    "confirmDeletionsTitle": "Cancellare questi file ovunque?",
+    "confirmDeletionsText": "{count} file sono spariti insieme da questo dispositivo. Se li hai cancellati tu, finiranno nel cestino anche sugli altri dispositivi; le loro versioni restano sul server. Se sono spariti per errore (un disco non collegato, un permesso mancante), annulla e controlla prima.",
+    "confirmDeletionsYes": "Cancellali"
   },
   "conflict": {
     "viewTitle": "Conflitto: {name}",
@@ -135,7 +140,8 @@
     "noPreview": "Anteprima non disponibile",
     "unchangedLines": "$ righe invariate",
     "failed": "Non è stato possibile applicare la scelta. Riprova.",
-    "unsavedMerge": "La tua unione non è stata salvata: eccola, puoi copiarla."
+    "unsavedMerge": "La tua unione non è stata salvata: eccola, puoi copiarla.",
+    "comingSoon": "La risoluzione dei conflitti arriva in una prossima versione: intanto entrambe le versioni sono al sicuro."
   },
   "bulk": {
     "title": "Risolvi tutti i conflitti",
@@ -182,7 +188,8 @@
     "noticeJoined": "Nuovo dispositivo collegato: {name}.",
     "noticeReused": "Il link è stato usato da un secondo dispositivo ed è stato bloccato.",
     "requestGone": "Questa richiesta non è più valida: è scaduta o ha già avuto risposta.",
-    "answerFailed": "Non è stato possibile inviare la risposta. Riprova."
+    "answerFailed": "Non è stato possibile inviare la risposta. Riprova.",
+    "comingSoon": "L’abbinamento con QR arriva in una prossima versione: per ora collega questo dispositivo con nome utente e password."
   },
   "welcome": {
     "viewTitle": "Collega questo vault",
@@ -241,7 +248,9 @@
       "bad_credentials": "Nome utente o password non corretti.",
       "bad_totp": "Codice di verifica non corretto.",
       "locked": "Account bloccato: contatta l'amministratore.",
-      "required": "Compila questo campo."
+      "required": "Compila questo campo.",
+      "totp_mandatory": "Per gli amministratori la verifica in due passaggi è obbligatoria: attivala dalla web app (Account), poi riprova.",
+      "rate_limited": "Troppi tentativi: attendi qualche minuto e riprova."
     }
   },
   "transfer": {

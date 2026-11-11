@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1c mergiata (PR #10). **M2a (tempo reale sul server) implementata e rivista**, PR #11 aperta. M2b (parte plugin) dopo M1d.
+**Ultimo aggiornamento:** 2026-11-10 — M1d: **completata sul branch** — Task 1–13, revisione finale fatta e corretta (1 critico + 7 importanti, ognuno con test), verifica completa verde. **Prossimo passo: aprire la PR** (`gh` non è autenticato sul PC Windows: aprirla dal Mac o dal sito; testo pronto, vedi sotto) e attendere il merge; poi i test sui dispositivi (`docs/spikes/README.md`) e M2b. Branch `m1d-plugin-engine`.
 
 ## Dove siamo
 
@@ -18,11 +18,11 @@
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
-| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · ⏳ M1d |
-| M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): implementata e rivista, PR #11 aperta · ⏳ M2b |
+| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · 🔧 M1d (spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md`, piano `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`, branch `m1d-plugin-engine`, senza spike) |
+| M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ⏳ M2b |
 | M3…M7 | ⏳ |
 
-**Branch di lavoro:** `m1b-crypto-auth` (da `main` dopo la PR #8).
+**Branch di lavoro:** `m1d-plugin-engine` (da `main` dopo la PR #11).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -43,12 +43,45 @@
 | 12 | Spike R-1…R-5 | ✅ prototipi e istruzioni (`spikes/`, `docs/spikes/`); ⏳ esecuzione su dispositivi e chiusura |
 | — | Revisione finale dell'intero branch | ✅ 0 critici, 1 importante + 9 minori corretti in un giro, ricontrollati |
 
+### Task di M1d (Blocco A — `sync-engine`)
+
+Piano: `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`, spec: `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md` (E1–E10).
+
+| # | Task | Stato |
+|---|---|---|
+| 1 | Pacchetto, porte, `MemoryFs`, hash | ✅ committato `8c131cb` (`ports.ts`, `hash.ts`, `memory-fs.ts`, `memory-fs.test.ts`, `index.ts`; `docker/Dockerfile` e `.changeset/config.json` aggiornati) |
+| 2 | Scanner con cache degli stat | ✅ `d18c7b0` |
+| 3 | API e trasferimenti | ✅ `0fe2ab0` (`api.ts`, `transfers.ts`: upload a chunk in streaming con ripresa, download a pezzi `Range`) |
+| 4 | Motore (`engine.ts`, `status.ts`) | ✅ `b527445` (35 test, compreso il test di proprietà con crash del client; `src/testing/fake-server.ts` = server finto su `MemoryStore`) |
+
+Decisioni prese eseguendo il Blocco A (registro completo in `.superpowers/sdd/…/progress.md`, non versionato):
+- `Transfers` passa tutto da `Api` (errori mappati in un punto solo) e riceve le sessioni salvate; l'upload legge a pezzi già ora (anticipa una parte del Task 6).
+- Il download ricava la dimensione da `Content-Range`: l'effetto `write` di `sync-core` non la porta.
+- Il cestino ricalcola l'hash prima di spostare (la porta `trash` non ha `expect`).
+- `cursor_too_old`: per ora solo log e nuovo tentativo; la riconciliazione vera (snapshot su un indice esistente) richiede una modifica a `sync-core` e si fa con il Task 7.
+- Il commit si fa con `git commit` normale: `/tmp/kamino-tools/commit.sh` c'è solo sul Mac.
+
+Blocco B — Task 5 (cartelle sul client, Z9) ✅ `8169f40`:
+- le cartelle vivono in `Durable.folders`, separate dall'indice dei file (la logica dei file, già provata dal simulatore, non cambia); effetti `mkdir`/`rmdir`, evento `folderDone`; l'evento `sync` porta `folders?` (assente = il guscio non riporta cartelle);
+- spostamento remoto di una cartella = `mkdir` del nuovo percorso + il vecchio rimosso quando è vuoto (i file seguono uno a uno); `d`/`D` su disco case-sensitive = "alias" che non invia nulla;
+- il simulatore ora crea, rimuove e sposta cartelle (anche non viste dal watcher) e controlla che convergano; durante lo sviluppo ha trovato 9 difetti, tutti corretti; `test:deep` (3000 scenari) verde. `SIM_NO_SHRINK=1` riporta un errore senza ridurlo (la riduzione di un caso che non si stabilizza è lentissima).
+
+Blocco C — Task 6 ✅ `03e3cd2`: streaming verificato (20 MB con meno di 3 chunk in memoria, in entrambe le direzioni); senza streaming i file oltre `limits.maxInMemoryBytes` (100 MB) restano in `deferred()`, mai persi.
+
+Blocco E — Task 8 ✅ `2dddddd`: `ObsidianFs` (file temporaneo in `<pluginDir>/tmp`, `appendBinary` se c'è, hash verificato prima del `rename`, cestino di sistema con ripiego su `.trash`, stato atomico con recupero del `.tmp`) e `ObsidianHttp` su `requestUrl`; mock `MockAdapter` e `requestUrlMock` in `src/__mocks__/obsidian.ts`.
+
+Blocco E — Task 9 ✅ `1e101fd` (`RealConnection` sulle rotte di M1c, token del dispositivo in `data.json` accanto al collegamento, `EngineHost` = un motore per collegamento con stato in `<pluginDir>/state/<deviceId>`, `RealTransfer` dall'arretrato del motore; abbinamento QR → notice "in arrivo"; nelle build di sviluppo `FakeServer` salvo `localStorage["kamino-sync-dev-real-server"] = "1"`) e Task 10 ✅ `451d4e6` (`EngineState` dal motore, risoluzione dei conflitti → "in arrivo"; `Watcher` con debounce 5 s / 1,5 s, rinomine subito, ciclo al ritorno in primo piano). Trovato e corretto un difetto del motore: `kick()` poteva tenere una promessa già conclusa e far girare `syncNow` all'infinito (test di regressione nel Task 9).
+
+Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del dispositivo impostato dal plugin a ogni lettura, impostazioni lette prima del primo ciclo con ripiego offline, rilettura alla voce `vault_settings_changed`, notice "ricarica Obsidian" se cambiano le categorie) e Task 12 ✅ `e030132` (trovato e corretto: il bundle di produzione conteneva ancora il `FakeServer` e le credenziali `demo`; ora il ramo dipende direttamente da `__DEV__`). Su questa macchina i test del plugin vanno lanciati con `--maxWorkers=2` (sotto carico vitest non riesce ad avviare i worker).
+
+**Ordine cambiato:** il Task 7 si fa dopo il 12 (sul PC Windows Docker gira in WSL su `tcp://127.0.0.1:2375`, contesto `wsl`: lanciare i test del server con `DOCKER_HOST=tcp://127.0.0.1:2375`).
+
+**Blocchi rimanenti:** D (integrazione motore↔server vero), E (adattatori Obsidian, collegamento, watcher), F (impostazioni, build produzione), G (docs, verifica, revisione, PR).
+
 ## Prossimi passi
 
-1. **Chiudere M2a:** merge della PR #11 da parte del committente.
-2. Prova del committente (facoltativa): `docker compose … up`; web app in modalità ibrida (`VITE_KAMINO_API=hybrid`): login, account, elenco e riepilogo dei vault dal server vero.
-3. **M2b — parte plugin di M2** dopo M1d.
-4. **M1d — motore del plugin** (dopo gli spike R-1…R-5, rinviati dal committente insieme alla prova su telefono): guscio di `step()` con file system di Obsidian, `requestUrl`, persistenza; cartelle sul client (Z9).
+1. **M1d — motore del plugin** (spec approvata, senza spike per scelta del committente): piano a blocchi A–G, poi revisione e PR; alla fine, l'elenco dei test da eseguire sui dispositivi.
+2. **M2b — parte plugin di M2** dopo M1d.
 
 ## Come riprendere su un altro PC
 
@@ -135,6 +168,46 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di M1d (motore del plugin)
+
+Spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md` (E1–E10, senza spike per scelta del committente); note di implementazione in `docs/03-sync-protocol.md` §8.2.
+
+| # | Decisione |
+|---|---|
+| E1 | Guscio di `step()`, collegamento vero, stato vero, cartelle, impostazioni; QR (M6) e risoluzione conflitti (M3) visibili come "in arrivo"; `FakeServer` solo nelle build di sviluppo |
+| E2 | Pacchetto `packages/sync-engine` indipendente dalla piattaforma (porte `VaultFs`, `Http`); stesso motore nel plugin e nei test del server |
+| E3 | Streaming dove possibile (lettura dall'URL della risorsa, `appendBinary` su file temporaneo, hash verificato); senza streaming oltre 100 MB → rimandati |
+| E4 | Cache degli stat; watcher con debounce 5 s / 1,5 s; scansione completa a ogni ciclo |
+| E5 | Stato durevole atomico nella cartella del plugin, `persist` sempre per primo |
+| E6 | REST con `requestUrl`, retry 1 s → 5 min, pull periodico 60 s fino a M2b; revoca/blocco/protocollo fermano il motore |
+| E7 | Collegamento sulle rotte di M1c (TOTP nella stessa richiesta, `totp_mandatory` con messaggio); trasferimento iniziale con file, byte, pausa |
+| E8 | Stato dal motore, mai inventato; conflitti elencati, risoluzione in M3 |
+| E9 | Cartelle sul client in `sync-core`, simulazione profonda verde |
+| E10 | Impostazioni effettive dal server con mappa delle categorie; cambio di configurazione → "ricarica Obsidian" |
+
+Decisioni prese durante l'esecuzione (registro completo con il costo di ciascuna nel ledger `.superpowers/sdd/2026-11-10-m1d-plugin-engine/progress.md`, non versionato; le principali):
+- cartelle in `Durable.folders`, separate dai file; spostamento remoto = `mkdir` + vecchia cartella rimossa da vuota; alias `d`/`D` su disco case-sensitive; cartella spostata in area esclusa o su una cartella esistente = "cancellata qui" (le cartelle non hanno contenuto);
+- `cursor_too_old` → evento `resync` → snapshot riconciliato con l'indice esistente sintetizzando le voci di journal perse (il simulatore ora compatta il journal);
+- token del dispositivo in `data.json` accanto al collegamento (cartella del plugin, mai sincronizzata; revocabile dal web);
+- le impostazioni del plugin decidono l'override del dispositivo (un override cambiato dal web viene riportato alla scelta del dispositivo);
+- nelle build di sviluppo il server vero si attiva con `localStorage["kamino-sync-dev-real-server"] = "1"`.
+
+Trovati e corretti durante M1d (ognuno con il suo test): una decina di difetti delle cartelle e della riconciliazione trovati dal simulatore; `kick()` del motore che poteva far girare `syncNow` all'infinito; il bundle di produzione che conteneva ancora `FakeServer` e le credenziali `demo`.
+
+#### Revisione finale di M1d (2026-11-11) — corretta
+
+- **C1 (critico):** un file illeggibile durante la scansione (lock su Windows, file iCloud non scaricato, stream interrotto) risulta cancellato e la cancellazione va al server e agli altri dispositivi; `unreadableFiles()` non è mostrato da nessuna parte.
+- **I1:** un elenco vuoto o parziale (disco non montato, permesso revocato su Android, `list("")` diverso dal mock) cancellerebbe tutto: serve un freno (troppe sparizioni in un ciclo → stop e conferma).
+- **I2:** una rinomina durante la scansione diventa cancellazione + nuovo file.
+- **I3:** se il salvataggio dello stato fallisce, il motore resta bloccato fino al riavvio senza dirlo.
+- **I4:** sui dispositivi senza streaming la scansione (e i controlli di hash) leggono interi anche file enormi o esclusi → crash all'avvio.
+- **I5:** se fallisce solo una parte delle chiamate delle impostazioni, il motore parte con i default perdendo le esclusioni del vault.
+- **I6:** la pausa non ferma i download già in coda; scollegare durante il trasferimento iniziale aspetta tutti i download.
+- **I7:** il primo sync di un vault grande costa O(N²) (stato clonato e riscritto a ogni evento).
+- Minori rinviati (11): finestra rimuovi→rinomina, rinomine solo di maiuscole su Windows/macOS, cache degli stat con mtime grossolano, streaming disattivato dopo un fallimento, HTTPS su mobile controllato solo all'inizio, `Engine.open` fallito mai ritentato, messaggi d'errore del login, `onunload` che non attende lo stop, trasferimento mai "completato" con un file rimandato, finestra di applicazione delle impostazioni, test sul dispositivo per la scrittura remota sul file aperto nell'editor.
+- **Tutti i critici e gli importanti sono corretti**, ognuno con il test che falliva prima (commit da `db7ef08` a `2000c27`): file illeggibile = presente; freno sulle cancellazioni di massa (stato "Decisione", pulsante "Conferma le cancellazioni…", soglia: tutti i file con almeno 5, oppure più di 50 e più del 25%); rinomina durante la scansione; salvataggio dello stato fallito; motore in pausa finché non ha le impostazioni del vault; pausa che ferma i trasferimenti in coda; niente letture intere senza streaming; salvataggi raggruppati (200 download: da 203 a meno di 40 salvataggi).
+- Verifica completa verde (2026-11-11, PC Windows): build, typecheck, lint, format; test per pacchetto (brand 12, protocol 37, status 38, sync-core 74 + deep 3000, sync-engine 52, ui-diff 10, web 186, plugin 257, server 175). Sul PC lento: un pacchetto alla volta con `pnpm --filter <pkg> test -- --maxWorkers=2` e `DOCKER_HOST=tcp://127.0.0.1:2375`. Un fallimento di `test:deep` visto una volta non si è più riprodotto in ~30.000 scenari successivi.
 
 ### Decisioni di M2a (tempo reale sul server)
 
@@ -285,16 +358,16 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 - **Accessibilità delle schede (web e plugin):** navigazione con le frecce e `tabindex` mobile per le schede del vault, del Sistema admin e della vista conflitto su telefono; `aria-controls` sulle schede del conflitto su telefono nella web app.
 - **Web:** valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
 - **Web admin:** nella scheda Salute i controlli hanno solo il testo (la spec prevedeva icona + testo).
-- **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal; riconciliazione completa con indice esistente (`cursor_too_old`).
+- **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal. (La riconciliazione con indice esistente dopo `cursor_too_old` è fatta in M1d.)
 - **Dopo M1c:** `/vaults` e `/vaults/summary` esistono sul server; le altre rotte dell'area utente (dettaglio vault, dispositivi dal web, conflitti, storico, cestino) e quelle admin no: in produzione quelle schermate danno errore. Coperto dal vincolo "nessuna release pubblica prima della fine di M1".
 - **M1a, minori rinviati dalla revisione:** `mkdir` su cartella esistente restituisce `accepted` con l'altro `fileId` (03 dice `duplicate`: allineare il documento in M1c); cancellazione di cartella con discendenti vivi → `modified_since` (da documentare); nessun controllo su `put`/`move` sotto un path che è un file; `stopped` è volatile; MAX_PATH di Windows non modellato; su Linux un disco con forme NFC e NFD dello stesso nome (stesso path canonico): da definire nel contratto del guscio in M1d.
-- **M1d/M2b:** le impostazioni del plugin (`apps/plugin/src/settings/model.ts`) chiamano le categorie `core`, `enabledPlugins`, `installedPlugins`, mentre il contratto usa `base`, `pluginList`, `plugins`: mappare quando il plugin userà `/vault/settings` e `/device/settings`. Il client WebSocket del plugin deve gestire i codici di chiusura di 03 §7 (nota M2a) e `403 totp_mandatory` su `/devices/login`.
+- **M2b:** (la mappa delle categorie delle impostazioni è fatta in M1d, `apps/plugin/src/engine/settings-map.ts`). Il client WebSocket del plugin deve gestire i codici di chiusura di 03 §7 (nota M2a) e `403 totp_mandatory` su `/devices/login`.
 - **Multi-istanza:** la revoca chiude subito i socket dell'istanza che la riceve; le altre istanze se ne accorgono al battito successivo (entro 30 s).
-- **M1d:** cartelle sul client (`mkdir`, spostamento e cancellazione di cartelle; l'arbitro le gestisce già); `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client.
+- **Sempre:** `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client (cartelle sul client: fatte in M1d).
 - **M1+ (server):** implementare anche le rotte `admin` (utenti, configurazione con fonte dei valori, email di prova, salute, audit) e quelle di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.
 - **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.
 
-- **Vincolo di rilascio:** **nessuna release pubblica del plugin prima di M1.** Fino ad allora il plugin contiene il `FakeServer` (credenziali `demo`/`demo`) e il trasferimento finto segna come "sync confermato" dati mai caricati: in una build pubblica romperebbe la promessa "sai sempre se sei al sicuro".
+- **Vincolo di rilascio:** dal M1d la build di produzione non contiene più il `FakeServer` (verificato da `apps/plugin/test/manifest.test.ts`). Resta: **nessuna release pubblica prima dei test sui dispositivi** elencati in `docs/spikes/README.md` ("Test sui dispositivi dopo M1d").
 - **Notice cliccabile:** `Notice.noticeEl` è deprecato nei tipi di Obsidian 1.14 ma è quello giusto per `minAppVersion` 1.5.0; da rivedere quando si alza la versione minima (con gli esiti di R-1).
 
 Esito della revisione finale di M0: questi restano aperti di proposito.

@@ -71,6 +71,10 @@ type ViewCreator = (leaf: WorkspaceLeaf) => ItemView;
 export class Workspace {
   private handlers = new Map<string, Handler[]>();
   activeView: MarkdownView | null = null;
+  activeFile: { path: string } | null = null;
+  getActiveFile(): { path: string } | null {
+    return this.activeFile;
+  }
   creators = new Map<string, ViewCreator>();
   leaves: WorkspaceLeaf[] = [];
   revealed: WorkspaceLeaf[] = [];
@@ -171,9 +175,131 @@ export class ItemView {
   }
 }
 
+/** In-memory `DataAdapter` (paths relative to the vault, forward slashes). */
+export class MockAdapter {
+  files = new Map<string, { data: Uint8Array; mtime: number }>();
+  folders = new Set<string>();
+  trashed: string[] = [];
+  private tick = 1;
+  /** Set to undefined to simulate Obsidian < 1.12.3. */
+  appendBinary: ((path: string, data: ArrayBuffer) => Promise<void>) | undefined = async (
+    path,
+    data,
+  ) => {
+    const cur = this.files.get(path)?.data ?? new Uint8Array(0);
+    const next = new Uint8Array(cur.length + data.byteLength);
+    next.set(cur);
+    next.set(new Uint8Array(data), cur.length);
+    this.files.set(path, { data: next, mtime: this.tick++ });
+  };
+  private parents(path: string): void {
+    const segs = path.split("/");
+    for (let i = 1; i < segs.length; i++) this.folders.add(segs.slice(0, i).join("/"));
+  }
+  async exists(path: string): Promise<boolean> {
+    return this.files.has(path) || this.folders.has(path);
+  }
+  async stat(path: string) {
+    const f = this.files.get(path);
+    if (f) return { type: "file" as const, ctime: 0, mtime: f.mtime, size: f.data.length };
+    return this.folders.has(path) ? { type: "folder" as const, ctime: 0, mtime: 0, size: 0 } : null;
+  }
+  async list(path: string): Promise<{ files: string[]; folders: string[] }> {
+    const prefix = path === "" || path === "/" ? "" : `${path}/`;
+    const direct = (p: string) => p.startsWith(prefix) && !p.slice(prefix.length).includes("/");
+    return {
+      files: [...this.files.keys()].filter(direct),
+      folders: [...this.folders].filter(direct),
+    };
+  }
+  async read(path: string): Promise<string> {
+    return new TextDecoder().decode(await this.readBinary(path));
+  }
+  async readBinary(path: string): Promise<ArrayBuffer> {
+    const f = this.files.get(path);
+    if (!f) throw new Error("ENOENT");
+    return f.data.slice().buffer;
+  }
+  async write(path: string, data: string): Promise<void> {
+    await this.writeBinary(path, new TextEncoder().encode(data).buffer);
+  }
+  async writeBinary(path: string, data: ArrayBuffer): Promise<void> {
+    this.parents(path);
+    this.files.set(path, { data: new Uint8Array(data.slice(0)), mtime: this.tick++ });
+  }
+  async rename(from: string, to: string): Promise<void> {
+    if (this.files.has(to) || this.folders.has(to)) throw new Error("EEXIST");
+    const f = this.files.get(from);
+    if (!f) throw new Error("ENOENT");
+    this.files.delete(from);
+    this.parents(to);
+    this.files.set(to, f);
+  }
+  async remove(path: string): Promise<void> {
+    if (!this.files.delete(path)) throw new Error("ENOENT");
+  }
+  async mkdir(path: string): Promise<void> {
+    this.parents(path);
+    this.folders.add(path);
+  }
+  async rmdir(path: string, recursive: boolean): Promise<void> {
+    void recursive;
+    this.folders.delete(path);
+  }
+  async trashSystem(path: string): Promise<boolean> {
+    if (!this.files.delete(path)) return false;
+    this.trashed.push(path);
+    return true;
+  }
+  async trashLocal(path: string): Promise<void> {
+    if (!this.files.delete(path)) throw new Error("ENOENT");
+    this.trashed.push(path);
+  }
+  getResourcePath(path: string): string {
+    return `app://local/${path}`;
+  }
+}
+
+export interface RequestUrlParam {
+  url: string;
+  method?: string;
+  contentType?: string;
+  body?: string | ArrayBuffer;
+  headers?: Record<string, string>;
+  throw?: boolean;
+}
+export interface RequestUrlResponse {
+  status: number;
+  headers: Record<string, string>;
+  arrayBuffer: ArrayBuffer;
+  json: unknown;
+  text: string;
+}
+/** Tests set `requestUrlMock.handler`; it throws by default (no network). */
+export const requestUrlMock: {
+  handler: (p: RequestUrlParam) => Promise<RequestUrlResponse>;
+  calls: RequestUrlParam[];
+} = {
+  handler: () => Promise.reject(new Error("offline")),
+  calls: [],
+};
+export function requestUrl(p: RequestUrlParam): Promise<RequestUrlResponse> {
+  requestUrlMock.calls.push(p);
+  return requestUrlMock.handler(p);
+}
+
 export class Vault {
   configDir = ".obsidian";
+  adapter = new MockAdapter();
   files: Array<{ path: string }> = [];
+  private handlers = new Map<string, Handler[]>();
+  on(name: string, cb: Handler): { name: string } {
+    this.handlers.set(name, [...(this.handlers.get(name) ?? []), cb]);
+    return { name };
+  }
+  trigger(name: string, ...args: unknown[]): void {
+    for (const h of this.handlers.get(name) ?? []) h(...args);
+  }
   getFiles(): Array<{ path: string }> {
     return this.files;
   }

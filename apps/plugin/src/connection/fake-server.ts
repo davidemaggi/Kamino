@@ -70,6 +70,7 @@ const DEMO_VAULTS: VaultSummary[] = [
  * demo2fa/demo + TOTP 123456, locked. Hosts containing "unreachable"/"old" simulate errors.
  */
 export class FakeServer implements ConnectionService {
+  readonly pairingAvailable = true;
   readonly transfer: InitialTransfer;
   private current: LinkInfo | null;
   private readonly listeners = new Set<(e: ConnectionEvent) => void>();

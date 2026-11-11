@@ -31,6 +31,13 @@ describe("plugin build output", () => {
     manifest = JSON.parse(read("dist/manifest.json")) as Manifest;
   });
 
+  it("production bundle: no fake server, no demo credentials, real HTTP (E1)", () => {
+    const js = read("dist/main.js");
+    expect(js).not.toContain("FakeServer");
+    expect(js).not.toContain("demo2fa");
+    expect(js).toContain("requestUrl");
+  });
+
   it("takes id and name from brand", () => {
     expect(manifest.id).toBe(PLUGIN_ID);
     expect(manifest.name).toBe(PRODUCT_NAME);

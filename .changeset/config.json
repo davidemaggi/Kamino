@@ -13,6 +13,7 @@
     "@kamino/tsconfig",
     "@kamino/status",
     "@kamino/sync-core",
+    "@kamino/sync-engine",
     "@kamino/ui-diff"
   ],
   "privatePackages": {

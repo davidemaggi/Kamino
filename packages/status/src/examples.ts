@@ -95,6 +95,11 @@ export function exampleSnapshots(now: number): ExampleSnapshot[] {
       expected: { level: "blocked", key: "blocked.quota" },
     },
     {
+      id: "deletions",
+      snapshot: { ...synced, blocked: "deletions", queued: 120, oldestQueuedAt: now - 2 * MIN },
+      expected: { level: "decision", key: "decision.deletions" },
+    },
+    {
       id: "revoked",
       snapshot: { ...synced, blocked: "revoked" },
       expected: { level: "blocked", key: "blocked.revoked" },

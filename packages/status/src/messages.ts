@@ -30,6 +30,8 @@ export const STATUS_MESSAGES: Record<Lang, Record<StatusKey, Template>> = {
       one: "Spazio esaurito · 1 modifica non salvata",
       other: "Spazio esaurito · {count} modifiche non salvate",
     },
+    "decision.deletions":
+      "Molti file sono spariti da questo dispositivo: nessuna cancellazione è stata inviata, conferma prima di cancellarli dal server",
     "blocked.revoked": "Dispositivo revocato: il sync è fermo",
     "blocked.auth": "Accesso scaduto: accedi di nuovo",
     "blocked.protocol": "Aggiorna il plugin: versione non compatibile con il server",
@@ -57,6 +59,8 @@ export const STATUS_MESSAGES: Record<Lang, Record<StatusKey, Template>> = {
       one: "Storage full · 1 unsaved change",
       other: "Storage full · {count} unsaved changes",
     },
+    "decision.deletions":
+      "Many files disappeared from this device: no deletion was sent, confirm before deleting them from the server",
     "blocked.revoked": "Device revoked: sync is stopped",
     "blocked.auth": "Session expired: sign in again",
     "blocked.protocol": "Update the plugin: version not compatible with the server",

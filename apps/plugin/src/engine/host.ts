@@ -66,10 +66,16 @@ export class EngineHost {
       const http = this.o.http(link.server);
       const api = new Api(http, () => token);
       this.io = { api, fs };
-      // Never a cycle with fewer exclusions than the user set: settings first.
-      const settings = this.o.loadSettings
-        ? await this.o.loadSettings(api, fs)
-        : (this.o.settings?.() ?? DEFAULT_SYNC_SETTINGS);
+      // Never a cycle with fewer exclusions than the user set: settings first. Without them
+      // (never seen, server unreachable) the engine waits paused until they arrive (I5).
+      let settings = this.o.settings?.() ?? DEFAULT_SYNC_SETTINGS;
+      let known = true;
+      if (this.o.loadSettings)
+        try {
+          settings = await this.o.loadSettings(api, fs);
+        } catch {
+          known = false;
+        }
       const engine = await Engine.open({
         fs,
         http,
@@ -89,9 +95,28 @@ export class EngineHost {
       });
       this.current = engine;
       this.off = engine.onChange(() => this.emit());
+      if (!known) {
+        engine.pause();
+        void this.waitForSettings(engine);
+      }
       engine.start();
     }
     this.emit();
+  }
+
+  /** Retries the settings every 30 s; the engine starts once they arrive. */
+  private async waitForSettings(engine: Engine): Promise<void> {
+    while (this.current === engine) {
+      await this.o.clock.sleep(30_000);
+      if (this.current !== engine || !this.io || !this.o.loadSettings) return;
+      try {
+        engine.setSettings(await this.o.loadSettings(this.io.api, this.io.fs));
+        engine.resume();
+        return;
+      } catch {
+        this.o.log?.("settings_unavailable");
+      }
+    }
   }
 
   /** Reads the effective settings again and hands them to the engine. */

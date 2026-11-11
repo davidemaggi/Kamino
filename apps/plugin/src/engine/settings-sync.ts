@@ -24,27 +24,43 @@ export class SettingsSync {
   constructor(private readonly o: SettingsSyncOptions) {}
 
   async load(api: Api, fs: VaultFs): Promise<SyncSettings> {
-    let effective: SyncSettings;
+    let vault: SyncSettings | null = null;
+    let effective: SyncSettings | null = null;
     try {
-      const [vault, device] = await Promise.all([api.vaultSettings(), api.deviceSettings()]);
+      vault = await api.vaultSettings();
+      // I5 (review): saved at once, whatever happens to the device part.
+      await fs.saveState(STATE, JSON.stringify({ vault }));
+      const device = await api.deviceSettings();
       const want = toOverride(this.o.local(), vault);
       effective =
         JSON.stringify(want) === JSON.stringify(device.override)
           ? device.effective
           : (await api.setDeviceOverride(want)).effective;
-      await fs.saveState(STATE, JSON.stringify({ vault }));
     } catch {
-      let vault: SyncSettings | null;
-      try {
-        const raw = await fs.loadState(STATE);
-        vault = raw ? (JSON.parse(raw) as { vault: SyncSettings }).vault : null;
-      } catch {
-        vault = null;
-      }
+      vault ??= await this.cached(fs);
+      // Never the generic defaults: without the vault's own, the engine must wait.
+      if (!vault) throw new SettingsUnavailable();
       effective = effectiveLocally(this.o.local(), vault);
     }
     if (this.last && configChanged(this.last, effective)) this.o.notice(this.o.reloadText);
     this.last = effective;
     return effective;
+  }
+
+  private async cached(fs: VaultFs): Promise<SyncSettings | null> {
+    try {
+      const raw = await fs.loadState(STATE);
+      return raw ? (JSON.parse(raw) as { vault: SyncSettings }).vault : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** The vault's settings were never obtained: no cycle may run yet. */
+export class SettingsUnavailable extends Error {
+  constructor() {
+    super("settings_unavailable");
+    this.name = "SettingsUnavailable";
   }
 }

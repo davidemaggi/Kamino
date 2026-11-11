@@ -16,7 +16,10 @@ import { registerDevCommands } from "./dev/commands.js";
 import { detectLanguage, t } from "./i18n/index.js";
 import { SettingsStore } from "./settings/store.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
+import { EngineState } from "./state/engine-state.js";
 import { FakeSyncState } from "./state/fake.js";
+import type { ConflictActions, SyncStateSource } from "./state/types.js";
+import { Watcher } from "./engine/watcher.js";
 import { AddDeviceModal } from "./ui/AddDeviceModal.js";
 import { BulkResolveModal } from "./ui/BulkResolveModal.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
@@ -123,16 +126,31 @@ export default class SyncPlugin extends Plugin {
       void host.refresh();
       server = real;
       transfer = new RealTransfer(() => host.engine());
+      // Vault events → debounced cycles (E4).
+      this.register(
+        new Watcher(this.app, () => host.engine()).attach((ref) => this.registerEvent(ref)),
+      );
     }
-    const state = new FakeSyncState(
-      {
-        name: server.link()?.deviceName ?? m.panel.notLinked,
-        mode: "live",
-        server: server.link()?.host ?? m.panel.noServer,
-      },
-      now,
-    );
-    state.setLinked(server.link() !== null);
+    const deviceInfo = () => {
+      const link = server.link();
+      return {
+        name: link?.deviceName ?? m.panel.notLinked,
+        mode: "live" as const,
+        server: link?.host ?? m.panel.noServer,
+      };
+    };
+    const fakeState = useFake ? new FakeSyncState(deviceInfo(), now) : null;
+    fakeState?.setLinked(server.link() !== null);
+    const host = this.host;
+    const state: SyncStateSource & ConflictActions =
+      fakeState ??
+      new EngineState({
+        engine: () => host?.engine() ?? null,
+        onHostChange: (cb) => host?.onChange(cb) ?? (() => {}),
+        device: deviceInfo,
+        notice: (msg) => new Notice(msg),
+        comingSoon: m.conflict.comingSoon,
+      });
 
     const ctx: UiContext = {
       source: state,
@@ -184,22 +202,17 @@ export default class SyncPlugin extends Plugin {
     const refresh = () =>
       indicator.update(describeStatus(state.snapshot(), DEFAULT_THRESHOLDS, now()));
     this.register(state.onChange(refresh));
-    const deviceInfo = () => {
-      const link = server.link();
-      return {
-        name: link?.deviceName ?? m.panel.notLinked,
-        mode: "live" as const,
-        server: link?.host ?? m.panel.noServer,
-      };
-    };
-    this.register(
-      server.onChange((e) => {
-        if (e.type === "linked" || e.type === "unlinked") state.setLinked(e.type === "linked");
-        if (e.type === "linked" || e.type === "unlinked" || e.type === "device_renamed")
-          state.setDevice(deviceInfo());
-      }),
-    );
-    this.register(transfer.onChange(() => state.setTransfer(transfer.progress())));
+    if (fakeState) {
+      this.register(
+        server.onChange((e) => {
+          if (e.type === "linked" || e.type === "unlinked")
+            fakeState.setLinked(e.type === "linked");
+          if (e.type === "linked" || e.type === "unlinked" || e.type === "device_renamed")
+            fakeState.setDevice(deviceInfo());
+        }),
+      );
+      this.register(transfer.onChange(() => fakeState.setTransfer(transfer.progress())));
+    }
     refresh();
 
     this.addCommand({
@@ -232,6 +245,7 @@ export default class SyncPlugin extends Plugin {
       if (!server.link()) void ctx.openWelcome();
     });
 
-    if (__DEV__ && fake) registerDevCommands(this, { lang, now, state, ctx, server: fake });
+    if (__DEV__ && fake && fakeState)
+      registerDevCommands(this, { lang, now, state: fakeState, ctx, server: fake });
   }
 }

@@ -135,7 +135,8 @@
     "noPreview": "No preview available",
     "unchangedLines": "$ unchanged lines",
     "failed": "Could not apply your choice. Try again.",
-    "unsavedMerge": "Your merge was not saved: here it is, you can copy it."
+    "unsavedMerge": "Your merge was not saved: here it is, you can copy it.",
+    "comingSoon": "Resolving conflicts arrives in a next version: meanwhile both versions are safe."
   },
   "bulk": {
     "title": "Resolve all conflicts",

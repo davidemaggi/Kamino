@@ -249,10 +249,19 @@ export class Engine {
     return [...this.unreadable];
   }
 
-  conflicts(): { id: string; fileId: string }[] {
-    const out = new Map(this.openConflicts.map((c) => [c.id, c]));
-    for (const e of Object.values(this.st.durable.index))
-      if (e.conflictId) out.set(e.conflictId, { id: e.conflictId, fileId: e.fileId });
+  /** Open conflicts, with the local path when this device knows the file. */
+  conflicts(): { id: string; fileId: string; path: string | null }[] {
+    const index = this.st.durable.index;
+    const pathOf = (fileId: string) => {
+      const e = index[fileId];
+      return e ? localPath(e.path, this.d.config.configDir) : null;
+    };
+    const out = new Map(
+      this.openConflicts.map((c) => [c.id, { ...c, path: pathOf(c.fileId) }] as const),
+    );
+    for (const e of Object.values(index))
+      if (e.conflictId)
+        out.set(e.conflictId, { id: e.conflictId, fileId: e.fileId, path: pathOf(e.fileId) });
     return [...out.values()];
   }
 

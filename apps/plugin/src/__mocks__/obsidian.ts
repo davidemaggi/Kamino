@@ -71,6 +71,10 @@ type ViewCreator = (leaf: WorkspaceLeaf) => ItemView;
 export class Workspace {
   private handlers = new Map<string, Handler[]>();
   activeView: MarkdownView | null = null;
+  activeFile: { path: string } | null = null;
+  getActiveFile(): { path: string } | null {
+    return this.activeFile;
+  }
   creators = new Map<string, ViewCreator>();
   leaves: WorkspaceLeaf[] = [];
   revealed: WorkspaceLeaf[] = [];
@@ -288,6 +292,14 @@ export class Vault {
   configDir = ".obsidian";
   adapter = new MockAdapter();
   files: Array<{ path: string }> = [];
+  private handlers = new Map<string, Handler[]>();
+  on(name: string, cb: Handler): { name: string } {
+    this.handlers.set(name, [...(this.handlers.get(name) ?? []), cb]);
+    return { name };
+  }
+  trigger(name: string, ...args: unknown[]): void {
+    for (const h of this.handlers.get(name) ?? []) h(...args);
+  }
   getFiles(): Array<{ path: string }> {
     return this.files;
   }

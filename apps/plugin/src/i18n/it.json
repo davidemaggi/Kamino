@@ -135,7 +135,8 @@
     "noPreview": "Anteprima non disponibile",
     "unchangedLines": "$ righe invariate",
     "failed": "Non è stato possibile applicare la scelta. Riprova.",
-    "unsavedMerge": "La tua unione non è stata salvata: eccola, puoi copiarla."
+    "unsavedMerge": "La tua unione non è stata salvata: eccola, puoi copiarla.",
+    "comingSoon": "La risoluzione dei conflitti arriva in una prossima versione: intanto entrambe le versioni sono al sicuro."
   },
   "bulk": {
     "title": "Risolvi tutti i conflitti",

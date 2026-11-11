@@ -19,6 +19,7 @@ import {
 } from "@kamino/sync-core";
 import { Api, ApiError } from "./api.js";
 import { Realtime, type RealtimeEvent, type SocketFactory } from "./socket.js";
+import { EchoGuard } from "./echo.js";
 import { sha256Hex } from "./hash.js";
 import type { Clock, Http, VaultFs } from "./ports.js";
 import { Scanner, type StatCache } from "./scanner.js";
@@ -160,6 +161,8 @@ export class Engine {
   /** I1 (review): files that vanished in one scan, held until the user confirms. */
   private heldDeletions: number | null = null;
   private realtime: Realtime | null = null;
+  /** F4: what the engine just did to the vault, to tell its own events apart. */
+  private readonly echo: EchoGuard;
   /** I7: the state has changes not saved yet (outcomes of file effects only). */
   private unsaved = false;
   private notifyQueued = false;
@@ -192,6 +195,7 @@ export class Engine {
       d.fs.saveState(STATE_FILES.uploads, JSON.stringify(s)),
     );
     this.lastConfirmedAt = meta.lastConfirmedAt ?? null;
+    this.echo = new EchoGuard(() => d.clock.now());
     this.mode = d.mode?.mode ?? "live";
     this.periodicMinutes = d.mode?.periodicMinutes ?? 15;
   }
@@ -226,6 +230,34 @@ export class Engine {
 
   backlog(): Backlog {
     return backlogOf(this.st);
+  }
+
+  /** A vault event that only reflects what the engine itself just did (F4). */
+  isEcho(path: string, stat: { size: number; mtime: number } | null): boolean {
+    return this.echo.isEcho(path, stat);
+  }
+
+  /** Remembers what a completed file effect left on disk. */
+  private async noteEcho(fx: FileEffect, ok: boolean): Promise<void> {
+    if (!ok) return;
+    const st = async (p: string) => {
+      const s = await this.d.fs.stat(p).catch(() => null);
+      return s ? { size: s.size, mtime: s.mtime } : null;
+    };
+    switch (fx.type) {
+      case "write":
+      case "mkdir":
+        this.echo.record(fx.path, await st(fx.path));
+        return;
+      case "rename":
+        this.echo.record(fx.from, null);
+        this.echo.record(fx.to, await st(fx.to));
+        return;
+      case "trash":
+      case "rmdir":
+        this.echo.record(fx.path, null);
+        return;
+    }
   }
 
   get realtimeConnected(): boolean {
@@ -856,6 +888,7 @@ export class Engine {
       }
     }
     if (this.stopReason) return;
+    await this.noteEcho(fx, "ok" in ev && ev.ok);
     await this.dispatch(ev);
   }
 

@@ -73,4 +73,34 @@ describe("Watcher", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     expect(t.syncs).toBe(1);
   });
+  it("ignores events caused by the engine itself (F4), not the user's", async () => {
+    const t = target();
+    const echoes = new Set(["engine.md"]);
+    t.isEcho = (path) => echoes.has(path);
+    start(t);
+    app.vault.trigger("modify", { path: "engine.md" });
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    vi.advanceTimersByTime(2_000);
+    expect(t.changes).toBe(0);
+    app.vault.trigger("modify", { path: "user.md" });
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    vi.advanceTimersByTime(2_000);
+    expect(t.changes).toBe(1);
+  });
+
+  it("uses the configured debounce for the open file", async () => {
+    const t = target();
+    new Watcher(
+      app as never,
+      () => t,
+      () => 12_000,
+    ).attach(() => {});
+    app.workspace.activeFile = { path: "open.md" };
+    app.vault.trigger("modify", { path: "open.md" });
+    await Promise.resolve();
+    vi.advanceTimersByTime(11_000);
+    expect(t.changes).toBe(0);
+    vi.advanceTimersByTime(1_500);
+    expect(t.changes).toBe(1);
+  });
 });

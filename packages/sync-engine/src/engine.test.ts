@@ -202,6 +202,26 @@ describe("engine", () => {
     expect(e.backlog().up).toEqual({ files: 1, bytes: 3 });
   });
 
+  it("tells its host when the vault settings change", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    let told = 0;
+    const e = await Engine.open({ ...deps(server, fs), onSettingsChanged: () => told++ });
+    await e.syncNow();
+    expect(told).toBe(0);
+    server.store.journal.push({
+      seq: ++server.store.head,
+      type: "vault_settings_changed",
+      fileId: "_vault",
+      path: "_vault",
+      deviceId: "dev-b",
+      at: new Date(0).toISOString(),
+      ignorable: true,
+    });
+    await e.syncNow();
+    expect(told).toBe(1);
+  });
+
   it("resumes from the saved state after a restart", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

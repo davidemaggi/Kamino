@@ -51,7 +51,8 @@
     "configNote": "Incoming changes to this folder are not applied right away: you will be offered to restart Obsidian.",
     "about": "About",
     "cancel": "Cancel",
-    "confirmUnlink": "Unlink"
+    "confirmUnlink": "Unlink",
+    "reloadToApply": "Synced configuration changed: reload Obsidian to apply it."
   },
   "dev": {
     "statusGallery": "Show status gallery (development)",

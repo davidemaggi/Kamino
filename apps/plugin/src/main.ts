@@ -12,6 +12,7 @@ import type { ConnectionService, InitialTransfer } from "./connection/types.js";
 import { EngineHost, type SyncPlatform } from "./engine/host.js";
 import { ObsidianFs } from "./engine/obsidian-fs.js";
 import { ObsidianHttp } from "./engine/obsidian-http.js";
+import { SettingsSync } from "./engine/settings-sync.js";
 import { registerDevCommands } from "./dev/commands.js";
 import { detectLanguage, t } from "./i18n/index.js";
 import { SettingsStore } from "./settings/store.js";
@@ -103,6 +104,11 @@ export default class SyncPlugin extends Plugin {
         platform: devicePlatform(),
         http: (url) => new ObsidianHttp(url),
       });
+      const settingsSync = new SettingsSync({
+        local: () => settings.get(),
+        notice: (msg) => new Notice(msg),
+        reloadText: m.settings.reloadToApply,
+      });
       const host = new EngineHost({
         current: () => {
           const link = real.link();
@@ -120,8 +126,10 @@ export default class SyncPlugin extends Plugin {
           random: Math.random,
         },
         newId: () => crypto.randomUUID(),
+        loadSettings: (api, fs) => settingsSync.load(api, fs),
       });
       this.host = host;
+      this.register(settings.onChange(() => void host.reloadSettings()));
       this.register(real.onChange(() => void host.refresh()));
       void host.refresh();
       server = real;

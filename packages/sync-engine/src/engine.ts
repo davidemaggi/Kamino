@@ -37,6 +37,8 @@ export interface EngineDeps {
   token: () => string | null;
   /** Codes only: never paths, names, contents or tokens. */
   log?: (code: string) => void;
+  /** A `vault_settings_changed` entry arrived: the host reads the settings again (E10). */
+  onSettingsChanged?: () => void;
   /** Without streaming (`fs.streaming === false`), files over this size wait (E3, 100 MB). */
   limits?: { maxInMemoryBytes?: number };
 }
@@ -416,6 +418,8 @@ export class Engine {
         this.track(
           this.net(fx.requestId, async () => {
             const r = await api.changes(vaultId, fx.after);
+            if (r.entries.some((e) => e.type === "vault_settings_changed"))
+              this.d.onSettingsChanged?.();
             this.lastConfirmedAt = this.d.clock.now();
             return { type: "pullResult", requestId: fx.requestId, ...r };
           }),

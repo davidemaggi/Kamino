@@ -51,7 +51,8 @@
     "configNote": "Le modifiche in arrivo per questa cartella non si applicano subito: ti verrà proposto di riavviare Obsidian.",
     "about": "Informazioni",
     "cancel": "Annulla",
-    "confirmUnlink": "Scollega"
+    "confirmUnlink": "Scollega",
+    "reloadToApply": "La configurazione sincronizzata è cambiata: ricarica Obsidian per applicarla."
   },
   "dev": {
     "statusGallery": "Mostra galleria stati (sviluppo)",

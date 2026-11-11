@@ -1,5 +1,12 @@
 import { DEFAULT_SYNC_SETTINGS, type SyncSettings } from "@kamino/protocol";
-import { Engine, type Clock, type EngineDeps, type Http, type VaultFs } from "@kamino/sync-engine";
+import {
+  Api,
+  Engine,
+  type Clock,
+  type EngineDeps,
+  type Http,
+  type VaultFs,
+} from "@kamino/sync-engine";
 
 export type SyncPlatform = EngineDeps["config"]["platform"];
 
@@ -14,6 +21,8 @@ export interface EngineHostOptions {
   clock: Clock;
   newId: () => string;
   settings?: () => SyncSettings;
+  /** Effective settings before the first cycle and on every change (E10). */
+  loadSettings?: (api: Api, fs: VaultFs) => Promise<SyncSettings>;
   /** Codes only. */
   log?: (code: string) => void;
 }
@@ -25,6 +34,7 @@ export class EngineHost {
   private chain: Promise<void> = Promise.resolve();
   private readonly listeners = new Set<() => void>();
   private off: (() => void) | null = null;
+  private io: { api: Api; fs: VaultFs } | null = null;
 
   constructor(private readonly o: EngineHostOptions) {}
 
@@ -52,9 +62,18 @@ export class EngineHost {
     this.key = key;
     if (link) {
       const token = link.deviceToken;
+      const fs = this.o.fs(link.deviceId);
+      const http = this.o.http(link.server);
+      const api = new Api(http, () => token);
+      this.io = { api, fs };
+      // Never a cycle with fewer exclusions than the user set: settings first.
+      const settings = this.o.loadSettings
+        ? await this.o.loadSettings(api, fs)
+        : (this.o.settings?.() ?? DEFAULT_SYNC_SETTINGS);
       const engine = await Engine.open({
-        fs: this.o.fs(link.deviceId),
-        http: this.o.http(link.server),
+        fs,
+        http,
+        onSettingsChanged: () => void this.reloadSettings(),
         clock: this.o.clock,
         newId: this.o.newId,
         vaultId: link.vaultId,
@@ -63,7 +82,7 @@ export class EngineHost {
           deviceId: link.deviceId,
           platform: this.o.platform,
           configDir: this.o.configDir,
-          settings: this.o.settings?.() ?? DEFAULT_SYNC_SETTINGS,
+          settings,
           batchSize: 200,
         },
         ...(this.o.log ? { log: this.o.log } : {}),
@@ -73,6 +92,17 @@ export class EngineHost {
       engine.start();
     }
     this.emit();
+  }
+
+  /** Reads the effective settings again and hands them to the engine. */
+  reloadSettings(): Promise<void> {
+    this.chain = this.chain
+      .then(async () => {
+        if (!this.current || !this.io || !this.o.loadSettings) return;
+        this.current.setSettings(await this.o.loadSettings(this.io.api, this.io.fs));
+      })
+      .catch(() => this.o.log?.("settings_load_failed"));
+    return this.chain;
   }
 
   async stop(): Promise<void> {

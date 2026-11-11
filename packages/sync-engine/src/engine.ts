@@ -204,6 +204,7 @@ export class Engine {
     this.scanner = new Scanner(d.fs, d.config.configDir, cache, {
       settings: () => this.st.config.settings,
       caseInsensitive: d.config.platform !== "linux",
+      now: () => d.clock.now(),
       maxHashBytes: () =>
         d.fs.streaming ? Infinity : (d.limits?.maxInMemoryBytes ?? DEFAULT_MAX_IN_MEMORY_BYTES),
     });
@@ -913,7 +914,10 @@ export class Engine {
               if (this.tooBig(total)) throw new TooLarge(total);
             },
           );
-          ok = (await fs.write(fx.path, parts, fx.expect, fx.hash)) === "ok";
+          const out = await fs.write(fx.path, parts, fx.expect, fx.hash);
+          ok = out === "ok";
+          // M3: the file isn't what the cache says: hash it again at the next scan.
+          if (out === "changed") delete this.scanner.cache[fx.path];
         } catch (e) {
           if (e instanceof Held) {
             // already recorded as waiting
@@ -944,6 +948,7 @@ export class Engine {
           st && known && known.size === st.size && known.mtime === st.mtime
             ? known.hash
             : await sha256Hex(fs.read(fx.path)).catch(() => null);
+        if (cur !== fx.expect) delete this.scanner.cache[fx.path]; // M3
         const ok = cur === fx.expect && (await fs.trash(fx.path).catch(() => false));
         ev = { type: "trashed", fileId: fx.fileId, ok };
         break;

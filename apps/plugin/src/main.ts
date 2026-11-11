@@ -64,12 +64,16 @@ function devicePlatform(): DevicePlatform & SyncPlatform {
 
 export default class SyncPlugin extends Plugin {
   private host: EngineHost | null = null;
+  /** M8: a reload waits for the previous engine to stop writing its state. */
+  private static stopping: Promise<void> | null = null;
 
   override onunload(): void {
-    void this.host?.stop();
+    SyncPlugin.stopping = this.host?.stop() ?? null;
   }
 
   override async onload(): Promise<void> {
+    await SyncPlugin.stopping?.catch(() => {});
+    SyncPlugin.stopping = null;
     const lang = detectLanguage();
     const m = t(lang);
     const now = () => Date.now();
@@ -130,7 +134,14 @@ export default class SyncPlugin extends Plugin {
         loadSettings: (api, fs) => settingsSync.load(api, fs),
       });
       this.host = host;
-      this.register(settings.onChange(() => void host.reloadSettings()));
+      this.register(
+        settings.onChange(() => {
+          // M10: the device's choice applies at once, the server confirms it.
+          const quick = settingsSync.quick();
+          if (quick) host.engine()?.setSettings(quick);
+          void host.reloadSettings();
+        }),
+      );
       this.register(real.onChange(() => void host.refresh()));
       void host.refresh();
       server = real;

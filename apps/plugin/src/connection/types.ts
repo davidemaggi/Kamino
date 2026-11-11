@@ -23,7 +23,8 @@ export type LoginResult =
         | "locked"
         | "totp_mandatory"
         | "rate_limited"
-        | "unreachable";
+        | "unreachable"
+        | "update_required";
     };
 
 export interface VaultSummary {
@@ -100,6 +101,8 @@ export interface TransferProgress {
   phase: "running" | "paused" | "interrupted" | "failed" | "done";
   files: { done: number; total: number };
   bytes: { done: number; total: number };
+  /** M9: files left waiting (Wi-Fi, size, unreadable) when the rest is done. */
+  waiting?: number;
 }
 
 export interface InitialTransfer {

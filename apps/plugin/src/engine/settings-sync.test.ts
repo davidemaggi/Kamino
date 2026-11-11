@@ -96,4 +96,13 @@ describe("SettingsSync", () => {
     });
     await expect(sync.load(api, new MemoryFs())).rejects.toBeInstanceOf(SettingsUnavailable);
   });
+  it("applies this device's change at once over the last vault defaults (M10)", async () => {
+    const { api } = server();
+    let local = defaultSettings(false);
+    const sync = new SettingsSync({ local: () => local, notice: () => {}, reloadText: "" });
+    expect(sync.quick()).toBeNull();
+    await sync.load(api, new MemoryFs());
+    local = { ...local, exclusions: ["private/**"] };
+    expect(sync.quick()?.patterns).toEqual([".trash/**", "private/**"]);
+  });
 });

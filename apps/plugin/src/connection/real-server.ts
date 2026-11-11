@@ -123,7 +123,9 @@ export class RealConnection implements ConnectionService {
       if (!(e instanceof ApiError) || e.kind === "network")
         return { ok: false, reason: "unreachable" };
       if (e.kind === "blocked") return { ok: false, reason: "locked" };
-      if (e.kind === "protocol") return { ok: false, reason: "unreachable" };
+      if (e.kind === "protocol") return { ok: false, reason: "update_required" };
+      // M7: a server error or a wrong address is not a wrong password.
+      if ((e.status ?? 0) >= 500 || e.status === 404) return { ok: false, reason: "unreachable" };
       switch (e.code) {
         case "totp_invalid":
           return { ok: false, reason: "bad_totp" };

@@ -90,6 +90,7 @@ export class TransferView extends ItemView {
         break;
       case "done":
         h(root, "p", { text: fmt(m.done, { count: p.files.total }) });
+        if (p.waiting) h(root, "p", { text: fmt(m.doneWaiting, { count: p.waiting }) });
         button(m.openStatus, () => void this.ctx.openStatusPanel(), true);
         break;
     }

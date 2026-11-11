@@ -5,6 +5,9 @@ import {
   type Clock,
   type EngineDeps,
   type Http,
+  type Network,
+  type SocketFactory,
+  type SyncMode,
   type VaultFs,
 } from "@kamino/sync-engine";
 
@@ -25,6 +28,12 @@ export interface EngineHostOptions {
   loadSettings?: (api: Api, fs: VaultFs) => Promise<SyncSettings>;
   /** Codes only. */
   log?: (code: string) => void;
+  /** M2b: realtime doorbell for a server URL, network, Wi-Fi option, mode. */
+  socket?: (server: string) => SocketFactory;
+  client?: { pluginVersion: string; platform: string };
+  network?: Network;
+  wifiOnly?: () => { enabled: boolean; thresholdBytes: number };
+  mode?: () => { mode: SyncMode; periodicMinutes: number };
 }
 
 /** One engine per link: opened when the device is linked, stopped when it is unlinked. */
@@ -76,23 +85,17 @@ export class EngineHost {
         } catch {
           known = false;
         }
-      const engine = await Engine.open({
-        fs,
-        http,
-        onSettingsChanged: () => void this.reloadSettings(),
-        clock: this.o.clock,
-        newId: this.o.newId,
-        vaultId: link.vaultId,
-        token: () => token,
-        config: {
-          deviceId: link.deviceId,
-          platform: this.o.platform,
-          configDir: this.o.configDir,
-          settings,
-          batchSize: 200,
-        },
-        ...(this.o.log ? { log: this.o.log } : {}),
-      });
+      let engine: Engine;
+      try {
+        engine = await this.openEngine(fs, http, link, settings, token);
+      } catch {
+        // M6: never stuck without an engine: try again in a while.
+        this.key = null;
+        this.o.log?.("engine_open_failed");
+        void this.o.clock.sleep(30_000).then(() => this.refresh());
+        return;
+      }
+      this.current = engine;
       this.current = engine;
       this.off = engine.onChange(() => this.emit());
       if (!known) {
@@ -102,6 +105,38 @@ export class EngineHost {
       engine.start();
     }
     this.emit();
+  }
+
+  private openEngine(
+    fs: VaultFs,
+    http: Http,
+    link: { server: string; vaultId: string; deviceId: string },
+    settings: SyncSettings,
+    token: string,
+  ): Promise<Engine> {
+    const o = this.o;
+    return Engine.open({
+      fs,
+      http,
+      onSettingsChanged: () => void this.reloadSettings(),
+      clock: o.clock,
+      newId: o.newId,
+      vaultId: link.vaultId,
+      token: () => token,
+      config: {
+        deviceId: link.deviceId,
+        platform: o.platform,
+        configDir: o.configDir,
+        settings,
+        batchSize: 200,
+      },
+      ...(o.log ? { log: o.log } : {}),
+      ...(o.socket ? { socket: o.socket(link.server) } : {}),
+      ...(o.client ? { client: o.client } : {}),
+      ...(o.network ? { network: o.network } : {}),
+      ...(o.wifiOnly ? { wifiOnly: o.wifiOnly } : {}),
+      ...(o.mode ? { mode: o.mode() } : {}),
+    });
   }
 
   /** Retries the settings every 30 s; the engine starts once they arrive. */

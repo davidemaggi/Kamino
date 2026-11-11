@@ -250,7 +250,8 @@
       "locked": "Account bloccato: contatta l'amministratore.",
       "required": "Compila questo campo.",
       "totp_mandatory": "Per gli amministratori la verifica in due passaggi è obbligatoria: attivala dalla web app (Account), poi riprova.",
-      "rate_limited": "Troppi tentativi: attendi qualche minuto e riprova."
+      "rate_limited": "Troppi tentativi: attendi qualche minuto e riprova.",
+      "update_required": "Questo plugin è troppo vecchio per il server: aggiornalo, poi riprova."
     }
   },
   "transfer": {
@@ -267,7 +268,8 @@
     "failed": "Il trasferimento si è fermato per un errore.",
     "retry": "Riprova",
     "done": "Fatto: {count} file sincronizzati.",
-    "openStatus": "Apri lo stato sync"
+    "openStatus": "Apri lo stato sync",
+    "doneWaiting": "{count} file in attesa (Wi-Fi, dimensione o non leggibili): vedi lo stato del sync."
   },
   "metered": {
     "title": "Usare la rete mobile?",

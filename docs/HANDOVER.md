@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1d in corso: Task 1–6 e 8–10 completati e pushati; prossimo il Task 11 (impostazioni), poi il 12, poi il Task 7 (integrazione col server vero, serve Docker), poi il 13. Branch `m1d-plugin-engine`.
+**Ultimo aggiornamento:** 2026-11-10 — M1d in corso: Task 1–6 e 8–12 completati e pushati; prossimo il Task 7 (integrazione col server vero, serve Docker), poi il 13. Branch `m1d-plugin-engine`.
 
 ## Dove siamo
 
@@ -71,6 +71,8 @@ Blocco C — Task 6 ✅ `03e3cd2`: streaming verificato (20 MB con meno di 3 chu
 Blocco E — Task 8 ✅ `2dddddd`: `ObsidianFs` (file temporaneo in `<pluginDir>/tmp`, `appendBinary` se c'è, hash verificato prima del `rename`, cestino di sistema con ripiego su `.trash`, stato atomico con recupero del `.tmp`) e `ObsidianHttp` su `requestUrl`; mock `MockAdapter` e `requestUrlMock` in `src/__mocks__/obsidian.ts`.
 
 Blocco E — Task 9 ✅ `1e101fd` (`RealConnection` sulle rotte di M1c, token del dispositivo in `data.json` accanto al collegamento, `EngineHost` = un motore per collegamento con stato in `<pluginDir>/state/<deviceId>`, `RealTransfer` dall'arretrato del motore; abbinamento QR → notice "in arrivo"; nelle build di sviluppo `FakeServer` salvo `localStorage["kamino-sync-dev-real-server"] = "1"`) e Task 10 ✅ `451d4e6` (`EngineState` dal motore, risoluzione dei conflitti → "in arrivo"; `Watcher` con debounce 5 s / 1,5 s, rinomine subito, ciclo al ritorno in primo piano). Trovato e corretto un difetto del motore: `kick()` poteva tenere una promessa già conclusa e far girare `syncNow` all'infinito (test di regressione nel Task 9).
+
+Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del dispositivo impostato dal plugin a ogni lettura, impostazioni lette prima del primo ciclo con ripiego offline, rilettura alla voce `vault_settings_changed`, notice "ricarica Obsidian" se cambiano le categorie) e Task 12 ✅ `e030132` (trovato e corretto: il bundle di produzione conteneva ancora il `FakeServer` e le credenziali `demo`; ora il ramo dipende direttamente da `__DEV__`). Su questa macchina i test del plugin vanno lanciati con `--maxWorkers=2` (sotto carico vitest non riesce ad avviare i worker).
 
 **Ordine cambiato:** il Task 7 si fa dopo il 12 (sul PC Windows Docker gira in WSL su `tcp://127.0.0.1:2375`, contesto `wsl`: lanciare i test del server con `DOCKER_HOST=tcp://127.0.0.1:2375`).
 

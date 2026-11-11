@@ -12,6 +12,9 @@ import type { ConnectionService, InitialTransfer } from "./connection/types.js";
 import { EngineHost, type SyncPlatform } from "./engine/host.js";
 import { ObsidianFs } from "./engine/obsidian-fs.js";
 import { ObsidianHttp } from "./engine/obsidian-http.js";
+import { ObsidianNetwork } from "./engine/obsidian-network.js";
+import { obsidianSocket } from "./engine/obsidian-socket.js";
+import { askMetered } from "./ui/MeteredModal.js";
 import { SettingsSync } from "./engine/settings-sync.js";
 import { registerDevCommands } from "./dev/commands.js";
 import { detectLanguage, t } from "./i18n/index.js";
@@ -132,6 +135,25 @@ export default class SyncPlugin extends Plugin {
         },
         newId: () => crypto.randomUUID(),
         loadSettings: (api, fs) => settingsSync.load(api, fs),
+        // M2b: realtime doorbell, network, Wi-Fi option and mode (S-02, S-08).
+        socket: (url) => obsidianSocket(url, { mobile: isMobile }),
+        client: { pluginVersion: APP_VERSION, platform: devicePlatform() },
+        network: new ObsidianNetwork({
+          isMobile,
+          isIos: Platform.isIosApp,
+          connection: () =>
+            (navigator as unknown as { connection?: { type?: string; saveData?: boolean } })
+              .connection,
+          confirm: () => askMetered(this.app, lang),
+        }),
+        wifiOnly: () => {
+          const s = settings.get().largeFiles;
+          return { enabled: s.wifiOnly, thresholdBytes: s.thresholdMb * 1024 * 1024 };
+        },
+        mode: () => {
+          const s = settings.get().sync;
+          return { mode: s.mode, periodicMinutes: s.periodicMinutes };
+        },
       });
       this.host = host;
       this.register(
@@ -139,6 +161,8 @@ export default class SyncPlugin extends Plugin {
           // M10: the device's choice applies at once, the server confirms it.
           const quick = settingsSync.quick();
           if (quick) host.engine()?.setSettings(quick);
+          const s = settings.get().sync;
+          host.engine()?.setMode(s.mode, s.periodicMinutes);
           void host.reloadSettings();
         }),
       );
@@ -148,7 +172,11 @@ export default class SyncPlugin extends Plugin {
       transfer = new RealTransfer(() => host.engine());
       // Vault events → debounced cycles (E4).
       this.register(
-        new Watcher(this.app, () => host.engine()).attach((ref) => this.registerEvent(ref)),
+        new Watcher(
+          this.app,
+          () => host.engine(),
+          () => settings.get().sync.liveDebounceSec * 1000,
+        ).attach((ref) => this.registerEvent(ref)),
       );
     }
     const deviceInfo = () => {

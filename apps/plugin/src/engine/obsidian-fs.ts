@@ -38,6 +38,7 @@ export class ObsidianFs implements VaultFs {
     opts: { fetch?: FetchLike | undefined; stateDir?: string } = {},
   ) {
     this.adapter = app.vault.adapter as Adapter;
+    this.app = app;
     this.fetchFn =
       "fetch" in opts
         ? opts.fetch
@@ -48,6 +49,18 @@ export class ObsidianFs implements VaultFs {
   }
 
   private readonly stateDir: string;
+  private readonly app: App;
+
+  /** F5: a note open in the editor whose buffer differs from the disk has unsaved edits. */
+  private async dirtyInEditor(path: string): Promise<boolean> {
+    const open = this.app.workspace
+      .getLeavesOfType("markdown")
+      .map((l) => l.view as unknown as { file?: { path: string }; editor?: { getValue(): string } })
+      .filter((v) => v.file?.path === path && v.editor);
+    if (open.length === 0) return false;
+    const disk = await this.adapter.read(path).catch(() => null);
+    return open.some((v) => v.editor!.getValue() !== disk);
+  }
 
   get streaming(): boolean {
     return (
@@ -127,6 +140,8 @@ export class ObsidianFs implements VaultFs {
     want: string,
   ): Promise<WriteOutcome> {
     if ((await this.hashOrNull(path)) !== expect) return "changed";
+    // F5: never under the user's unsaved edits; the next cycle starts from their content.
+    if (expect !== null && (await this.dirtyInEditor(path))) return "changed";
     const tmpDir = `${this.pluginDir}/tmp`;
     await this.ensureDir(tmpDir);
     const tmp = `${tmpDir}/${Date.now()}-${++this.tmpN}.part`;
@@ -152,7 +167,10 @@ export class ObsidianFs implements VaultFs {
         return "corrupt";
       }
       // Checked again after the (long) download: the user may have changed the file meanwhile.
-      if ((await this.hashOrNull(path)) !== expect) {
+      if (
+        (await this.hashOrNull(path)) !== expect ||
+        (expect !== null && (await this.dirtyInEditor(path)))
+      ) {
         await this.adapter.remove(tmp);
         return "changed";
       }

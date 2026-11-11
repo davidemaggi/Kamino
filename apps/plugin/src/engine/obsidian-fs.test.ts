@@ -101,4 +101,24 @@ describe("ObsidianFs", () => {
     await adapter.write(`${PLUGIN_DIR}/state/cache.json.tmp`, "three");
     expect(await fs.loadState("cache")).toBe("three");
   });
+  it("never overwrites a note open with unsaved edits (F5)", async () => {
+    await adapter.write("open.md", "on disk");
+    let buffer = "typing…";
+    app.workspace.leaves.push({
+      view: {
+        getViewType: () => "markdown",
+        file: { path: "open.md" },
+        editor: { getValue: () => buffer },
+      },
+    } as never);
+    const want = await hashOf("remote");
+    expect(await fs.write("open.md", parts("remote"), await hashOf("on disk"), want)).toBe(
+      "changed",
+    );
+    expect(text(adapter, "open.md")).toBe("on disk");
+    // Buffer saved (same as disk): the remote version goes in.
+    buffer = "on disk";
+    expect(await fs.write("open.md", parts("remote"), await hashOf("on disk"), want)).toBe("ok");
+    expect(text(adapter, "open.md")).toBe("remote");
+  });
 });

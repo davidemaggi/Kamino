@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1d in corso: Task 1–6 e 8–12 completati e pushati; prossimo il Task 7 (integrazione col server vero, serve Docker), poi il 13. Branch `m1d-plugin-engine`.
+**Ultimo aggiornamento:** 2026-11-10 — M1d: Task 1–12 completati e pushati; Task 13 in corso (documenti fatti, verifica completa e revisione finale del branch in corso, poi PR). Branch `m1d-plugin-engine`.
 
 ## Dove siamo
 
@@ -169,6 +169,32 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
 
+### Decisioni di M1d (motore del plugin)
+
+Spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md` (E1–E10, senza spike per scelta del committente); note di implementazione in `docs/03-sync-protocol.md` §8.2.
+
+| # | Decisione |
+|---|---|
+| E1 | Guscio di `step()`, collegamento vero, stato vero, cartelle, impostazioni; QR (M6) e risoluzione conflitti (M3) visibili come "in arrivo"; `FakeServer` solo nelle build di sviluppo |
+| E2 | Pacchetto `packages/sync-engine` indipendente dalla piattaforma (porte `VaultFs`, `Http`); stesso motore nel plugin e nei test del server |
+| E3 | Streaming dove possibile (lettura dall'URL della risorsa, `appendBinary` su file temporaneo, hash verificato); senza streaming oltre 100 MB → rimandati |
+| E4 | Cache degli stat; watcher con debounce 5 s / 1,5 s; scansione completa a ogni ciclo |
+| E5 | Stato durevole atomico nella cartella del plugin, `persist` sempre per primo |
+| E6 | REST con `requestUrl`, retry 1 s → 5 min, pull periodico 60 s fino a M2b; revoca/blocco/protocollo fermano il motore |
+| E7 | Collegamento sulle rotte di M1c (TOTP nella stessa richiesta, `totp_mandatory` con messaggio); trasferimento iniziale con file, byte, pausa |
+| E8 | Stato dal motore, mai inventato; conflitti elencati, risoluzione in M3 |
+| E9 | Cartelle sul client in `sync-core`, simulazione profonda verde |
+| E10 | Impostazioni effettive dal server con mappa delle categorie; cambio di configurazione → "ricarica Obsidian" |
+
+Decisioni prese durante l'esecuzione (registro completo con il costo di ciascuna nel ledger `.superpowers/sdd/2026-11-10-m1d-plugin-engine/progress.md`, non versionato; le principali):
+- cartelle in `Durable.folders`, separate dai file; spostamento remoto = `mkdir` + vecchia cartella rimossa da vuota; alias `d`/`D` su disco case-sensitive; cartella spostata in area esclusa o su una cartella esistente = "cancellata qui" (le cartelle non hanno contenuto);
+- `cursor_too_old` → evento `resync` → snapshot riconciliato con l'indice esistente sintetizzando le voci di journal perse (il simulatore ora compatta il journal);
+- token del dispositivo in `data.json` accanto al collegamento (cartella del plugin, mai sincronizzata; revocabile dal web);
+- le impostazioni del plugin decidono l'override del dispositivo (un override cambiato dal web viene riportato alla scelta del dispositivo);
+- nelle build di sviluppo il server vero si attiva con `localStorage["kamino-sync-dev-real-server"] = "1"`.
+
+Trovati e corretti durante M1d (ognuno con il suo test): una decina di difetti delle cartelle e della riconciliazione trovati dal simulatore; `kick()` del motore che poteva far girare `syncNow` all'infinito; il bundle di produzione che conteneva ancora `FakeServer` e le credenziali `demo`.
+
 ### Decisioni di M2a (tempo reale sul server)
 
 | # | Decisione |
@@ -318,16 +344,16 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 - **Accessibilità delle schede (web e plugin):** navigazione con le frecce e `tabindex` mobile per le schede del vault, del Sistema admin e della vista conflitto su telefono; `aria-controls` sulle schede del conflitto su telefono nella web app.
 - **Web:** valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
 - **Web admin:** nella scheda Salute i controlli hanno solo il testo (la spec prevedeva icona + testo).
-- **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal; riconciliazione completa con indice esistente (`cursor_too_old`).
+- **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal. (La riconciliazione con indice esistente dopo `cursor_too_old` è fatta in M1d.)
 - **Dopo M1c:** `/vaults` e `/vaults/summary` esistono sul server; le altre rotte dell'area utente (dettaglio vault, dispositivi dal web, conflitti, storico, cestino) e quelle admin no: in produzione quelle schermate danno errore. Coperto dal vincolo "nessuna release pubblica prima della fine di M1".
 - **M1a, minori rinviati dalla revisione:** `mkdir` su cartella esistente restituisce `accepted` con l'altro `fileId` (03 dice `duplicate`: allineare il documento in M1c); cancellazione di cartella con discendenti vivi → `modified_since` (da documentare); nessun controllo su `put`/`move` sotto un path che è un file; `stopped` è volatile; MAX_PATH di Windows non modellato; su Linux un disco con forme NFC e NFD dello stesso nome (stesso path canonico): da definire nel contratto del guscio in M1d.
-- **M1d/M2b:** le impostazioni del plugin (`apps/plugin/src/settings/model.ts`) chiamano le categorie `core`, `enabledPlugins`, `installedPlugins`, mentre il contratto usa `base`, `pluginList`, `plugins`: mappare quando il plugin userà `/vault/settings` e `/device/settings`. Il client WebSocket del plugin deve gestire i codici di chiusura di 03 §7 (nota M2a) e `403 totp_mandatory` su `/devices/login`.
+- **M2b:** (la mappa delle categorie delle impostazioni è fatta in M1d, `apps/plugin/src/engine/settings-map.ts`). Il client WebSocket del plugin deve gestire i codici di chiusura di 03 §7 (nota M2a) e `403 totp_mandatory` su `/devices/login`.
 - **Multi-istanza:** la revoca chiude subito i socket dell'istanza che la riceve; le altre istanze se ne accorgono al battito successivo (entro 30 s).
-- **M1d:** cartelle sul client (`mkdir`, spostamento e cancellazione di cartelle; l'arbitro le gestisce già); `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client.
+- **Sempre:** `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client (cartelle sul client: fatte in M1d).
 - **M1+ (server):** implementare anche le rotte `admin` (utenti, configurazione con fonte dei valori, email di prova, salute, audit) e quelle di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.
 - **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.
 
-- **Vincolo di rilascio:** **nessuna release pubblica del plugin prima di M1.** Fino ad allora il plugin contiene il `FakeServer` (credenziali `demo`/`demo`) e il trasferimento finto segna come "sync confermato" dati mai caricati: in una build pubblica romperebbe la promessa "sai sempre se sei al sicuro".
+- **Vincolo di rilascio:** dal M1d la build di produzione non contiene più il `FakeServer` (verificato da `apps/plugin/test/manifest.test.ts`). Resta: **nessuna release pubblica prima dei test sui dispositivi** elencati in `docs/spikes/README.md` ("Test sui dispositivi dopo M1d").
 - **Notice cliccabile:** `Notice.noticeEl` è deprecato nei tipi di Obsidian 1.14 ma è quello giusto per `minAppVersion` 1.5.0; da rivedere quando si alza la versione minima (con gli esiti di R-1).
 
 Esito della revisione finale di M0: questi restano aperti di proposito.

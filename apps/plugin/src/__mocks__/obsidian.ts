@@ -178,6 +178,13 @@ export class ItemView {
 /** In-memory `DataAdapter` (paths relative to the vault, forward slashes). */
 export class MockAdapter {
   files = new Map<string, { data: Uint8Array; mtime: number }>();
+  /** Like Windows/macOS: names that differ only by case are the same file. */
+  caseInsensitive = false;
+  private key(path: string): string | undefined {
+    if (!this.caseInsensitive) return this.files.has(path) ? path : undefined;
+    const low = path.toLowerCase();
+    return [...this.files.keys()].find((k) => k.toLowerCase() === low);
+  }
   folders = new Set<string>();
   trashed: string[] = [];
   private tick = 1;
@@ -197,7 +204,7 @@ export class MockAdapter {
     for (let i = 1; i < segs.length; i++) this.folders.add(segs.slice(0, i).join("/"));
   }
   async exists(path: string): Promise<boolean> {
-    return this.files.has(path) || this.folders.has(path);
+    return this.key(path) !== undefined || this.folders.has(path);
   }
   async stat(path: string) {
     const f = this.files.get(path);
@@ -228,7 +235,7 @@ export class MockAdapter {
     this.files.set(path, { data: new Uint8Array(data.slice(0)), mtime: this.tick++ });
   }
   async rename(from: string, to: string): Promise<void> {
-    if (this.files.has(to) || this.folders.has(to)) throw new Error("EEXIST");
+    if (this.key(to) !== undefined || this.folders.has(to)) throw new Error("EEXIST");
     const f = this.files.get(from);
     if (!f) throw new Error("ENOENT");
     this.files.delete(from);

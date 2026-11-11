@@ -30,6 +30,11 @@ export class ObsidianFs implements VaultFs {
   private readonly fetchFn: FetchLike | undefined;
   /** null = not tried yet; false = the resource URL couldn't be streamed. */
   private readStreams: boolean | null = null;
+  /** M4: stream failures on existing files; streaming is given up after a few. */
+  private streamFailures = 0;
+  /** M4: files whose stream failed: read whole from now on. */
+  private readonly noStream = new Set<string>();
+  private recovered = false;
   private tmpN = 0;
 
   constructor(
@@ -74,7 +79,30 @@ export class ObsidianFs implements VaultFs {
     return path === this.pluginDir || path.startsWith(`${this.pluginDir}/`);
   }
 
+  /**
+   * M1/M8: after a crash, a file set aside during a replacement goes back if its place is empty;
+   * leftover downloads are removed.
+   */
+  private async recover(): Promise<void> {
+    this.recovered = true;
+    const tmpDir = `${this.pluginDir}/tmp`;
+    if (!(await this.adapter.exists(tmpDir))) return;
+    const { files } = await this.adapter.list(tmpDir);
+    for (const f of files) {
+      const name = f.slice(tmpDir.length + 1);
+      if (name.endsWith(".old")) {
+        const original = decodeURIComponent(name.slice(0, -4));
+        if (await this.adapter.exists(original)) await this.adapter.remove(f).catch(() => {});
+        else {
+          await this.ensureDir(parentOf(original));
+          await this.adapter.rename(f, original).catch(() => {});
+        }
+      } else if (name.endsWith(".part")) await this.adapter.remove(f).catch(() => {});
+    }
+  }
+
   async list(): Promise<FsEntry[]> {
+    if (!this.recovered) await this.recover();
     const out: FsEntry[] = [];
     const queue = [""];
     while (queue.length > 0) {
@@ -101,7 +129,7 @@ export class ObsidianFs implements VaultFs {
   }
 
   async *read(path: string): AsyncIterable<Uint8Array> {
-    if (this.fetchFn && this.readStreams !== false) {
+    if (this.fetchFn && this.readStreams !== false && !this.noStream.has(path)) {
       let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
       try {
         const res = await this.fetchFn(this.adapter.getResourcePath(path));
@@ -111,15 +139,30 @@ export class ObsidianFs implements VaultFs {
       }
       if (reader) {
         this.readStreams = true;
+        const size = (await this.adapter.stat(path))?.size;
+        let got = 0;
         for (;;) {
           const { done, value } = await reader.read();
-          if (done) return;
-          if (value) yield value;
+          if (done) break;
+          if (value) {
+            got += value.length;
+            yield value;
+          }
         }
+        if (size === undefined || got === size) return;
+        // M4: a short or long stream must never pass for the file: an error, then whole reads.
+        this.streamFailed(path);
+        throw new Error("stream_size_mismatch");
       }
-      this.readStreams = false; // detected once: whole files from now on
+      // M4: fall back for this file only; give streaming up after repeated failures.
+      if (await this.adapter.exists(path)) this.streamFailed(path);
     }
     yield new Uint8Array(await this.adapter.readBinary(path));
+  }
+
+  private streamFailed(path: string): void {
+    this.noStream.add(path);
+    if (++this.streamFailures >= 3) this.readStreams = false;
   }
 
   private async hashOrNull(path: string): Promise<string | null> {
@@ -175,8 +218,22 @@ export class ObsidianFs implements VaultFs {
         return "changed";
       }
       await this.ensureDir(parentOf(path));
-      if (expect !== null) await this.adapter.remove(path);
-      await this.adapter.rename(tmp, path);
+      if (expect === null) {
+        await this.adapter.rename(tmp, path);
+        return "ok";
+      }
+      // M1: the old file is set aside (never removed first), the new one takes its place, then
+      // the old one goes; a crash in between is recovered by `recover()`.
+      const aside = `${tmpDir}/${encodeURIComponent(path)}.old`;
+      if (await this.adapter.exists(aside)) await this.adapter.remove(aside);
+      await this.adapter.rename(path, aside);
+      try {
+        await this.adapter.rename(tmp, path);
+      } catch (e) {
+        await this.adapter.rename(aside, path).catch(() => {});
+        throw e;
+      }
+      await this.adapter.remove(aside).catch(() => {});
       return "ok";
     } catch (e) {
       if (await this.adapter.exists(tmp)) await this.adapter.remove(tmp).catch(() => {});
@@ -185,7 +242,15 @@ export class ObsidianFs implements VaultFs {
   }
 
   async rename(from: string, to: string): Promise<boolean> {
-    if (!(await this.adapter.exists(from)) || (await this.adapter.exists(to))) return false;
+    if (!(await this.adapter.exists(from))) return false;
+    // M2: only the case changes. On Windows/macOS `to` "exists" (same file): via a temporary name.
+    if (from !== to && from.toLowerCase() === to.toLowerCase()) {
+      const tmp = `${parentOf(from) ? `${parentOf(from)}/` : ""}.${Date.now()}-${++this.tmpN}.case`;
+      await this.adapter.rename(from, tmp);
+      await this.adapter.rename(tmp, to);
+      return true;
+    }
+    if (await this.adapter.exists(to)) return false;
     await this.ensureDir(parentOf(to));
     await this.adapter.rename(from, to);
     return true;

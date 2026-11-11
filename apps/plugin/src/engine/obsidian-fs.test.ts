@@ -121,4 +121,65 @@ describe("ObsidianFs", () => {
     expect(await fs.write("open.md", parts("remote"), await hashOf("on disk"), want)).toBe("ok");
     expect(text(adapter, "open.md")).toBe("remote");
   });
+  it("replacing a file never leaves it missing; a crash in the middle is recovered (M1, M8)", async () => {
+    await adapter.write("a.md", "old");
+    expect(await fs.write("a.md", parts("new"), await hashOf("old"), await hashOf("new"))).toBe(
+      "ok",
+    );
+    expect(text(adapter, "a.md")).toBe("new");
+    expect([...adapter.files.keys()].filter((p) => p.includes("/tmp/"))).toEqual([]);
+    // State after a crash between "old set aside" and "new in place", plus a stray download.
+    adapter.files.delete("b.md");
+    await adapter.write(`${PLUGIN_DIR}/tmp/${encodeURIComponent("b.md")}.old`, "b content");
+    await adapter.write(`${PLUGIN_DIR}/tmp/123-1.part`, "half");
+    const fresh = new ObsidianFs(app as never, PLUGIN_DIR, { fetch: undefined });
+    await fresh.list();
+    expect(text(adapter, "b.md")).toBe("b content");
+    expect([...adapter.files.keys()].filter((p) => p.includes("/tmp/"))).toEqual([]);
+  });
+
+  it("renames that only change the case work on case-insensitive disks (M2)", async () => {
+    adapter.caseInsensitive = true;
+    await adapter.write("note.md", "x");
+    expect(await fs.rename("note.md", "Note.md")).toBe(true);
+    expect([...adapter.files.keys()]).toContain("Note.md");
+    expect([...adapter.files.keys()]).not.toContain("note.md");
+  });
+
+  it("a failed stream falls back for that file only; streaming stops after repeated failures (M4)", async () => {
+    await adapter.write("a.md", "content");
+    await adapter.write("b.md", "b");
+    await adapter.write("c.md", "c");
+    let calls = 0;
+    const flaky = new ObsidianFs(app as never, PLUGIN_DIR, {
+      fetch: async () => {
+        calls++;
+        throw new Error("no stream");
+      },
+    });
+    expect(await sha256Hex(flaky.read("a.md"))).toBe(await hashOf("content"));
+    expect(flaky.streaming).toBe(true);
+    await sha256Hex(flaky.read("a.md")); // that file reads whole now: no new attempt
+    expect(calls).toBe(1);
+    await sha256Hex(flaky.read("b.md"));
+    await sha256Hex(flaky.read("c.md"));
+    expect(flaky.streaming).toBe(false);
+    expect(calls).toBe(3);
+  });
+
+  it("a stream shorter than the file is an error, not a wrong hash (M4)", async () => {
+    await adapter.write("a.md", "content");
+    const short = new ObsidianFs(app as never, PLUGIN_DIR, {
+      fetch: async () => ({
+        ok: true,
+        body: new ReadableStream<Uint8Array>({
+          start(c) {
+            c.enqueue(new TextEncoder().encode("cont"));
+            c.close();
+          },
+        }),
+      }),
+    });
+    await expect(sha256Hex(short.read("a.md"))).rejects.toThrow();
+  });
 });

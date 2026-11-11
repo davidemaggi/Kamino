@@ -103,7 +103,7 @@ export default class SyncPlugin extends Plugin {
         store: settings.linkStore,
         pluginVersion: APP_VERSION,
         platform: devicePlatform(),
-        http: (url) => new ObsidianHttp(url),
+        http: (url) => new ObsidianHttp(url, { mobile: isMobile }),
       });
       const settingsSync = new SettingsSync({
         local: () => settings.get(),
@@ -118,7 +118,7 @@ export default class SyncPlugin extends Plugin {
         },
         fs: (deviceId) =>
           new ObsidianFs(this.app, pluginDir, { stateDir: `${pluginDir}/state/${deviceId}` }),
-        http: (url) => new ObsidianHttp(url),
+        http: (url) => new ObsidianHttp(url, { mobile: isMobile }),
         platform: devicePlatform(),
         configDir: this.app.vault.configDir,
         clock: {

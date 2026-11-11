@@ -3,7 +3,7 @@ import { ECHO_MS, EchoGuard } from "./echo.js";
 
 describe("EchoGuard", () => {
   it("an event matching what the engine just wrote is an echo; a user edit is not", () => {
-    let now = 0;
+    const now = 0;
     const g = new EchoGuard(() => now);
     g.record("a.md", { size: 5, mtime: 100 });
     expect(g.isEcho("a.md", { size: 5, mtime: 100 })).toBe(true);

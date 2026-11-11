@@ -402,6 +402,38 @@ describe("engine", () => {
     expect(fs.files.size).toBe(30);
   });
 
+  it("the initial download doesn't rewrite the whole state for every file (review I7)", async () => {
+    const server = new FakeServer();
+    for (let i = 0; i < 200; i++)
+      await server.remotePut(
+        "dev-b",
+        {
+          opId: `o${i}`,
+          fileId: `f${i}`,
+          versionId: `v${i}`,
+          path: `r${i}.md`,
+          baseVersionId: null,
+          mtime: 1,
+        },
+        `remote ${i}`,
+      );
+    const fs = new MemoryFs();
+    let saves = 0;
+    const save = fs.saveState.bind(fs);
+    fs.saveState = async (name, data) => {
+      if (name === "durable") saves++;
+      return save(name, data);
+    };
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    expect(fs.files.size).toBe(200);
+    expect(saves).toBeLessThan(40);
+    // Nothing lost by coalescing: a fresh engine from the saved state has nothing to redo.
+    const again = await Engine.open(deps(server, fs));
+    await again.syncNow();
+    expect(again.backlog().down.files).toBe(0);
+  });
+
   it("resumes from the saved state after a restart", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

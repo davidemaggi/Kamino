@@ -19,6 +19,7 @@ import { Scanner, type StatCache } from "./scanner.js";
 import {
   backlogOf,
   pendingChanges,
+  pendingOps,
   type Backlog,
   snapshotOf,
   type DeferredFile,
@@ -140,6 +141,10 @@ export class Engine {
   private readonly waiting = new Map<string, DeferredFile>();
   /** I1 (review): files that vanished in one scan, held until the user confirms. */
   private heldDeletions: number | null = null;
+  /** I7: the state has changes not saved yet (outcomes of file effects only). */
+  private unsaved = false;
+  private notifyQueued = false;
+  private pendingMemo: { st: ClientState; count: number } | null = null;
   /** I2 (review): renames reported while a scan runs wait for it, then the vault is scanned again. */
   private scanning = false;
   private readonly queuedRenames: ClientEvent[] = [];
@@ -224,6 +229,21 @@ export class Engine {
     this.closed = true;
     await this.running;
     await this.settled();
+    await this.flush();
+  }
+
+  /** Saves what the coalesced steps changed (I7). */
+  private async flush(): Promise<void> {
+    if (!this.unsaved) return;
+    await (this.chain = this.chain.then(async () => {
+      if (!this.unsaved) return;
+      try {
+        await this.d.fs.saveState(STATE_FILES.durable, JSON.stringify(this.st.durable));
+        this.unsaved = false;
+      } catch {
+        this.log("persist_failed");
+      }
+    }));
   }
 
   /** Resolves when the cycle it asked for is over and idle. */
@@ -391,6 +411,7 @@ export class Engine {
     });
     await this.dispatch({ type: "sync", scan: scan.files, folders: scan.folders, unreadable });
     await this.settled();
+    await this.flush();
     if (this.stopReason) return;
     await this.report();
     if (this.netFailed) this.scheduleRetry();
@@ -497,6 +518,19 @@ export class Engine {
   private async apply(ev: ClientEvent): Promise<void> {
     if (this.stopReason) return;
     const { state, effects } = step(this.st, ev, { newId: this.d.newId });
+    // I7 (review): the outcome of a file effect with nothing to do next is saved with the next
+    // step that has effects or at the end of the cycle; lost in a crash, the scan recovers it.
+    const outcome =
+      ev.type === "written" ||
+      ev.type === "renamed" ||
+      ev.type === "trashed" ||
+      ev.type === "folderDone";
+    if (outcome && effects.every((fx) => fx.type === "persist")) {
+      this.st = state;
+      this.unsaved = true;
+      this.changed();
+      return;
+    }
     // E5: write-ahead. The new state exists only once saved; nothing else happens before.
     try {
       await this.d.fs.saveState(STATE_FILES.durable, JSON.stringify(state.durable));
@@ -510,6 +544,7 @@ export class Engine {
       return;
     }
     this.st = state;
+    this.unsaved = false;
     for (const fx of effects) if (fx.type !== "persist") this.perform(fx);
     if (state.vol.stopped) this.halt(state.vol.stopped);
     this.changed();
@@ -722,12 +757,25 @@ export class Engine {
     await this.dispatch(ev);
   }
 
+  /** Computed once per state (I7: it walks the whole index). */
   private queued(): number {
-    const n = pendingChanges(this.st, 0).length;
+    if (this.pendingMemo?.st !== this.st)
+      this.pendingMemo = { st: this.st, count: pendingOps(this.st).length };
+    const n = this.pendingMemo.count;
     return n > 0 ? n : this.dirty ? 1 : 0;
   }
 
+  /** Listeners are told once per burst of changes (I7). */
   private changed(): void {
+    if (this.notifyQueued) return;
+    this.notifyQueued = true;
+    queueMicrotask(() => {
+      this.notifyQueued = false;
+      this.notify();
+    });
+  }
+
+  private notify(): void {
     if (this.queued() > 0) this.oldestQueuedAt ??= this.d.clock.now();
     else this.oldestQueuedAt = null;
     for (const cb of this.listeners) {

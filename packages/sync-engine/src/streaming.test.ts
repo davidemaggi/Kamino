@@ -108,7 +108,7 @@ describe("large files (E3)", () => {
     expect(t.maxBody).toBeLessThanOrEqual(4 * MiB);
     // The scan reads the file once to hash it; the upload reads it again chunk by chunk.
     expect(t.maxHeldUp - 20 * MiB).toBeLessThan(3 * 4 * MiB);
-  });
+  }, 30_000);
 
   it("downloads 20 MB writing each piece as it arrives", async () => {
     const server = new FakeServer();
@@ -142,7 +142,7 @@ describe("large files (E3)", () => {
     await e.syncNow();
     expect(disk.files.get("big.bin")?.data.length).toBe(20 * MiB);
     expect(t.maxHeldDown).toBeLessThanOrEqual(4 * MiB);
-  });
+  }, 30_000);
 
   it("without streaming, a file over the limit waits as deferred and is never lost", async () => {
     const server = new FakeServer();

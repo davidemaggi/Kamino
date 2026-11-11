@@ -17,7 +17,9 @@ import { sha256Hex } from "./hash.js";
 import type { Clock, Http, VaultFs } from "./ports.js";
 import { Scanner, type StatCache } from "./scanner.js";
 import {
+  backlogOf,
   pendingChanges,
+  type Backlog,
   snapshotOf,
   type DeferredFile,
   type PendingChange,
@@ -92,6 +94,7 @@ export class Engine {
   private running: Promise<void> | null = null;
   private wanted = false;
   private closed = false;
+  private pausedFlag = false;
   private periodic = false;
   private retrying = false;
   private netFailed = false;
@@ -138,6 +141,26 @@ export class Engine {
     );
   }
 
+  /** Paused by the user (initial transfer): no cycle runs until `resume()`. */
+  get paused(): boolean {
+    return this.pausedFlag;
+  }
+
+  pause(): void {
+    this.pausedFlag = true;
+    this.changed();
+  }
+
+  resume(): void {
+    this.pausedFlag = false;
+    this.changed();
+    void this.kick();
+  }
+
+  backlog(): Backlog {
+    return backlogOf(this.st);
+  }
+
   get stopped(): StopReason | null {
     return this.stopReason;
   }
@@ -165,7 +188,7 @@ export class Engine {
   /** Resolves when the cycle it asked for is over and idle. */
   async syncNow(): Promise<void> {
     do await this.kick();
-    while (this.wanted && !this.closed && !this.stopReason);
+    while (this.wanted && !this.closed && !this.stopReason && !this.pausedFlag);
   }
 
   /** Something changed on disk (the caller debounces): a cycle with a full scan follows. */
@@ -243,21 +266,25 @@ export class Engine {
   private kick(): Promise<void> {
     this.wanted = true;
     if (this.running) return this.running;
-    const run = (async () => {
+    const ref: { run?: Promise<void> } = {};
+    const run: Promise<void> = (async () => {
+      // Yield first: `running` must be set before the loop can end (a paused engine ends at once).
+      await null;
       try {
-        while (this.wanted && !this.closed && !this.stopReason) {
+        while (this.wanted && !this.closed && !this.stopReason && !this.pausedFlag) {
           this.wanted = false;
           await this.cycle();
         }
       } finally {
-        this.running = null;
+        if (this.running === ref.run) this.running = null;
         this.changed();
       }
     })();
+    ref.run = run;
     this.running = run;
     // A change reported while the loop was ending gets its own cycle.
     void run.then(() => {
-      if (this.wanted && !this.closed && !this.stopReason) void this.kick();
+      if (this.wanted && !this.closed && !this.stopReason && !this.pausedFlag) void this.kick();
     });
     return run;
   }

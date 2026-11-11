@@ -175,6 +175,33 @@ describe("engine", () => {
     expect(live()).toEqual(["empty", "empty/inner", "remote"]);
   });
 
+  it("reports the transfer backlog and can pause", async () => {
+    const server = new FakeServer();
+    await server.remotePut(
+      "dev-b",
+      { opId: "o1", fileId: "f1", versionId: "v1", path: "r.md", baseVersionId: null, mtime: 5 },
+      "remote!",
+    );
+    server.down = true;
+    const fs = new MemoryFs();
+    fs.put("a.md", "12345");
+    const e = await Engine.open(deps(server, fs));
+    server.down = false;
+    e.pause();
+    await e.syncNow();
+    expect(server.requests).toBe(0); // paused: nothing happens
+    expect(e.paused).toBe(true);
+    e.resume();
+    await e.syncNow();
+    expect(e.backlog()).toEqual({ up: { files: 0, bytes: 0 }, down: { files: 0, bytes: 0 } });
+    expect(fs.text("r.md")).toBe("remote!");
+    // Before syncing, local changes count as upload backlog.
+    server.down = true;
+    fs.put("b.md", "123");
+    await e.syncNow();
+    expect(e.backlog().up).toEqual({ files: 1, bytes: 3 });
+  });
+
   it("resumes from the saved state after a restart", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

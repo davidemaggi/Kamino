@@ -1,4 +1,5 @@
 import type { BlockReason, SyncSnapshot } from "@kamino/status";
+import type { Op } from "@kamino/protocol";
 import { nextOps, type ClientState } from "@kamino/sync-core";
 
 export type StopReason = "revoked" | "blocked" | "protocol" | "update_required";
@@ -17,15 +18,50 @@ export interface DeferredFile {
   direction: "upload" | "download";
 }
 
-/** Every change the client would still send: the unconfirmed batch first, then the rest. */
-export function pendingChanges(s: ClientState, fallbackSince: number): PendingChange[] {
+/** Every op the client would still send: the unconfirmed batch first, then the rest. */
+export function pendingOps(s: ClientState): Op[] {
   const all = { ...s.config, batchSize: Number.MAX_SAFE_INTEGER };
   const sentIds = new Set(s.durable.sent.map((op) => op.fileId));
   const rest = nextOps(
     { ...s, config: all, durable: { ...s.durable, sent: [] } },
     { newId: () => "" },
   ).filter((op) => !sentIds.has(op.fileId));
-  return [...s.durable.sent, ...rest].map((op) => {
+  return [...s.durable.sent, ...rest];
+}
+
+export interface Backlog {
+  up: { files: number; bytes: number };
+  down: { files: number; bytes: number };
+}
+
+/** What is left to send and to receive (initial transfer, E7). */
+export function backlogOf(s: ClientState): Backlog {
+  const up = { files: 0, bytes: 0 };
+  for (const op of pendingOps(s))
+    if (op.type === "put") {
+      up.files++;
+      up.bytes += op.size;
+    }
+  const down = { files: 0, bytes: 0 };
+  for (const e of Object.values(s.durable.index))
+    if (
+      e.confirmed &&
+      !e.materialized &&
+      !e.headDeleted &&
+      e.head !== null &&
+      !e.unavailable &&
+      !e.ignored &&
+      !e.conflictId
+    ) {
+      down.files++;
+      down.bytes += e.size;
+    }
+  return { up, down };
+}
+
+/** Every change the client would still send, for the status panel. */
+export function pendingChanges(s: ClientState, fallbackSince: number): PendingChange[] {
+  return pendingOps(s).map((op) => {
     const e = s.durable.index[op.fileId];
     switch (op.type) {
       case "put":

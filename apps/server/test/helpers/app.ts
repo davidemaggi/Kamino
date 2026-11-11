@@ -46,6 +46,10 @@ export async function testApp(
     publicUrl?: string;
     log?: { write(line: string): void };
     realtime?: { helloMs?: number; heartbeatMs?: number; listen?: boolean };
+    /** Upload chunk size (default 8 bytes: small files span several STREAM segments). */
+    chunkSize?: number;
+    /** Reuse the blob and staging folders of a previous app (a server restart); kept on close. */
+    dirs?: { blobs: string; staging: string };
   } = {},
 ): Promise<TestApp> {
   const db = createDb(url);
@@ -55,11 +59,18 @@ export async function testApp(
   const clock = { now: Date.UTC(2026, 10, 9, 12) };
   const auth = new AuthService(db, kek, "Kamino", () => clock.now);
   const vaults = new VaultService(db, kek, () => clock.now);
-  const root = mkdtempSync(join(tmpdir(), "kamino-app-"));
-  const dirs = { blobs: join(root, "blobs"), staging: join(root, "staging") };
+  const root = opts.dirs ? null : mkdtempSync(join(tmpdir(), "kamino-app-"));
+  const dirs = opts.dirs ?? { blobs: join(root!, "blobs"), staging: join(root!, "staging") };
   const blobStore = new FsBlobStore(dirs.blobs);
   // 8-byte chunks: small files already span several STREAM segments.
-  const uploads = new UploadService(db, blobStore, dirs.staging, 1_000_000, () => clock.now, 8);
+  const uploads = new UploadService(
+    db,
+    blobStore,
+    dirs.staging,
+    1_000_000,
+    () => clock.now,
+    opts.chunkSize ?? 8,
+  );
   const sync = new SyncService(db, () => clock.now);
   const hub = new Hub();
   const app = await buildApp({
@@ -115,7 +126,7 @@ export async function testApp(
     async close() {
       await app.close();
       await db.$client.end();
-      rmSync(root, { recursive: true, force: true });
+      if (root) rmSync(root, { recursive: true, force: true });
     },
   };
 }

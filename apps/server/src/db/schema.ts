@@ -253,6 +253,8 @@ export const journal = pgTable(
     versionId: text("version_id"),
     /** AAD journal ‖ path ‖ vaultId:seq. */
     pathEnc: bytea("path_enc").notNull(),
+    /** Path before the entry when it changed it (moves, restores next to a taken path); AAD journal ‖ from_path ‖ vaultId:seq. */
+    fromPathEnc: bytea("from_path_enc"),
     contentHashEnc: bytea("content_hash_enc"),
     size: bigint("size", { mode: "number" }),
     mtime: bigint("mtime", { mode: "number" }),

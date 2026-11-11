@@ -1,0 +1,1 @@
+ALTER TABLE "journal" ADD COLUMN "from_path_enc" "bytea";

@@ -29,6 +29,13 @@
       "when": 1794322807199,
       "tag": "0003_lethal_ulik",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794430982192,
+      "tag": "0004_clever_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }

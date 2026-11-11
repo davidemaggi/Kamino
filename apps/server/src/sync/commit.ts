@@ -84,7 +84,10 @@ export class SyncService {
     for (const m of decision.mutations) {
       if (m.type === "journal") {
         seq = ++head;
-        await this.insertJournal(tx, vc, deviceId, op.opId, seq, m.entry);
+        // The path before the entry, from the record decide() read: lets history rebuild past trees.
+        const before = view.files.get(m.entry.fileId)?.path;
+        const fromPath = before !== undefined && before !== m.entry.path ? before : null;
+        await this.insertJournal(tx, vc, deviceId, op.opId, seq, m.entry, fromPath);
       } else await this.mutate(tx, vc, deviceId, m);
     }
     if (head !== locked!.head) {
@@ -246,6 +249,7 @@ export class SyncService {
           size: m.file.size,
           mtime: m.file.mtime,
           deleted: false,
+          createdAt: new Date(this.now()),
         });
         return;
       case "version":
@@ -259,6 +263,7 @@ export class SyncService {
           size: m.size,
           mtime: m.mtime,
           deviceId,
+          createdAt: new Date(this.now()),
         });
         return;
       case "head":
@@ -290,15 +295,24 @@ export class SyncService {
           kind: m.kind,
           baseVersionId: m.baseVersionId,
           headVersionId: m.headVersionId,
+          createdAt: new Date(this.now()),
         });
-        await tx
-          .insert(conflictCandidates)
-          .values({ vaultId: v, conflictId: m.conflictId, versionId: m.candidate, deviceId });
+        await tx.insert(conflictCandidates).values({
+          vaultId: v,
+          conflictId: m.conflictId,
+          versionId: m.candidate,
+          deviceId,
+          createdAt: new Date(this.now()),
+        });
         return;
       case "addCandidate":
-        await tx
-          .insert(conflictCandidates)
-          .values({ vaultId: v, conflictId: m.conflictId, versionId: m.versionId, deviceId });
+        await tx.insert(conflictCandidates).values({
+          vaultId: v,
+          conflictId: m.conflictId,
+          versionId: m.versionId,
+          deviceId,
+          createdAt: new Date(this.now()),
+        });
         return;
     }
   }
@@ -310,6 +324,7 @@ export class SyncService {
     opId: string,
     seq: number,
     e: Extract<Mutation, { type: "journal" }>["entry"],
+    fromPath: string | null,
   ): Promise<void> {
     const v = vc.vaultId;
     await tx.insert(journal).values({
@@ -321,6 +336,8 @@ export class SyncService {
       opId,
       versionId: e.versionId ?? null,
       pathEnc: vc.enc("journal", "path", `${v}:${seq}`, e.path),
+      fromPathEnc:
+        fromPath === null ? null : vc.enc("journal", "from_path", `${v}:${seq}`, fromPath),
       contentHashEnc:
         e.contentHash === undefined
           ? null

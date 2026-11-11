@@ -77,11 +77,11 @@ export default class SyncPlugin extends Plugin {
     const settings = new SettingsStore(this, isMobile);
     await settings.load();
     // The fake server only in development builds (E1), unless the developer asks for the real one.
-    const useFake = __DEV__ && window.localStorage.getItem(`${PLUGIN_ID}-dev-real-server`) !== "1";
+    // `__DEV__` is a build constant: in production esbuild drops this branch and the fake with it.
     let server: ConnectionService;
     let transfer: InitialTransfer;
     let fake: FakeServer | null = null;
-    if (useFake) {
+    if (__DEV__ && window.localStorage.getItem(`${PLUGIN_ID}-dev-real-server`) !== "1") {
       fake = new FakeServer({
         isMobile,
         clock: now,
@@ -147,7 +147,8 @@ export default class SyncPlugin extends Plugin {
         server: link?.host ?? m.panel.noServer,
       };
     };
-    const fakeState = useFake ? new FakeSyncState(deviceInfo(), now) : null;
+    const useFake = fake !== null;
+    const fakeState = __DEV__ && useFake ? new FakeSyncState(deviceInfo(), now) : null;
     fakeState?.setLinked(server.link() !== null);
     const host = this.host;
     const state: SyncStateSource & ConflictActions =

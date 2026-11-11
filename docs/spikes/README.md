@@ -24,7 +24,10 @@ M1d è stata fatta **senza gli esiti degli spike** (spec M1d §8). Con il plugin
 | D-2 (R-4) | Modificare una nota sul telefono, mettere Obsidian in background, riaprirla; cambiare rete (Wi-Fi ↔ dati) durante un upload grande | iPhone, Android | Al ritorno in primo piano parte un ciclo; l'upload riprende dai chunk già inviati; lo stato passa da "non raggiungibile" a "al sicuro" senza intervento. |
 | D-3 (R-5) | Spostare dentro Obsidian una cartella con **2.000 file**; ripetere sull'altro dispositivo con una cartella diversa | desktop, iPhone, Android | Numero di op inviate (dovrebbero essere spostamenti, non cancellazioni + creazioni), tempo, stato finale: i due dispositivi uguali, nessun file perso o duplicato. |
 | D-4 | Una settimana d'uso reale con un desktop e un telefono sullo stesso vault | desktop + telefono | Annotare ogni stato diverso da "al sicuro" che non si spiega, ogni conflitto, ogni file mancante o duplicato. |
-| D-5 (R-2, R-3) | Si eseguono con M2b (solo Wi-Fi) e M3 (risoluzione dei conflitti) | — | — |
+| D-5 (R-2) | Con il plugin di M2b: "allegati grossi solo in Wi-Fi" attivo, passare da Wi-Fi a dati mobili | Android, iPhone | Android: i file oltre soglia aspettano su dati mobili e partono in Wi-Fi; iPhone: la domanda compare una volta per ciclo e "non chiedere più" vale fino al riavvio. |
+| D-6 | Modifica remota di una nota **aperta nell'editor** (con e senza modifiche non salvate) | desktop, iPhone, Android | Con il buffer pulito Obsidian mostra il nuovo contenuto; con modifiche non salvate la nota non viene sovrascritta e, salvando, nasce un conflitto con entrambe le versioni. |
+| D-7 | Tempo reale: due dispositivi in Live, modifiche alternate per mezz'ora, poi Wi-Fi spento e riacceso su uno | desktop + telefono | Le modifiche arrivano in pochi secondi; dopo la riconnessione tutto converge; nessun file perso o duplicato. |
+| D-8 (R-3) | Si esegue con M3 (risoluzione dei conflitti) | — | — |
 
 ## Cosa c'è in `spikes/`
 

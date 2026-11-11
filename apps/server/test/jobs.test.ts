@@ -19,18 +19,24 @@ describe.skipIf(dockerUnavailable)("background jobs (pg-boss)", () => {
       {
         compact: async () => ran.push("compact"),
         sweep: async () => ran.push("sweep"),
+        purge: async () => ran.push("purge"),
       },
       pino({ level: "silent" }),
       { pollingIntervalSeconds: 0.5 },
     );
     await jobs.runNow("compact");
     await jobs.runNow("sweep");
-    expect(ran).toEqual(["compact", "sweep"]);
+    await jobs.runNow("purge");
+    expect(ran).toEqual(["compact", "sweep", "purge"]);
     const db = createDb(url);
     const schedules = await db.$client<
       { name: string }[]
     >`select name from pgboss.schedule order by name`;
-    expect(schedules.map((s) => s.name)).toEqual(["journal-compact", "upload-sweep"]);
+    expect(schedules.map((s) => s.name)).toEqual([
+      "journal-compact",
+      "upload-sweep",
+      "vault-purge",
+    ]);
     await db.$client.end();
     await jobs.stop();
   }, 60_000);

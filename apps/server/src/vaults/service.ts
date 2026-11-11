@@ -5,6 +5,7 @@ import type { Db } from "../db/client.js";
 import { devices, files, oneTimeTokens, users, vaults } from "../db/schema.js";
 import { AuthError } from "../auth/service.js";
 import { hashToken, randomToken, uuidv7 } from "../auth/tokens.js";
+import { notFound } from "../http/errors.js";
 import { VaultCrypto } from "./vault-crypto.js";
 
 export const ENROLL_TTL_MS = 10 * 60_000;
@@ -20,6 +21,10 @@ export class VaultService {
   ) {}
 
   cryptoOf(v: Vault): VaultCrypto {
+    if (!v.dekWrapped || v.status !== "active") {
+      this.crypto.delete(v.id);
+      throw notFound();
+    }
     let c = this.crypto.get(v.id);
     if (!c) {
       c = new VaultCrypto(v.id, this.kek, v.dekWrapped);
@@ -32,6 +37,11 @@ export class VaultService {
     return (await this.db.select().from(vaults).where(eq(vaults.id, id)))[0];
   }
 
+  /** Drops the cached keys of a deleted vault. */
+  forget(vaultId: string): void {
+    this.crypto.delete(vaultId);
+  }
+
   nameOf(v: Vault): string {
     return this.cryptoOf(v).dec("vaults", "name", v.id, v.nameEnc);
   }
@@ -39,7 +49,7 @@ export class VaultService {
   async create(ownerId: string, name: string): Promise<Vault> {
     const id = uuidv7();
     const dek = generateDek();
-    const draft = { id, dekWrapped: wrapDek(this.kek, id, dek) } as Vault;
+    const draft = { id, status: "active", dekWrapped: wrapDek(this.kek, id, dek) } as Vault;
     const nameEnc = this.cryptoOf(draft).enc("vaults", "name", id, name);
     const [v] = await this.db
       .insert(vaults)
@@ -47,7 +57,7 @@ export class VaultService {
         id,
         ownerId,
         nameEnc,
-        dekWrapped: draft.dekWrapped,
+        dekWrapped: draft.dekWrapped!,
         kekId: this.kek.id,
         createdAt: new Date(this.now()),
       })

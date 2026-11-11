@@ -152,7 +152,8 @@ export const vaults = pgTable("vaults", {
     .references(() => users.id, { onDelete: "cascade" }),
   /** Encrypted with the vault's k_meta, AAD vaults ‖ name ‖ id. */
   nameEnc: bytea("name_enc").notNull(),
-  dekWrapped: bytea("dek_wrapped").notNull(),
+  /** Null once the vault is deleted: the DEK is destroyed (crypto-shredding, F5). */
+  dekWrapped: bytea("dek_wrapped"),
   kekId: text("kek_id").notNull(),
   dekVersion: integer("dek_version").notNull().default(1),
   headSeq: bigint("head_seq", { mode: "number" }).notNull().default(0),

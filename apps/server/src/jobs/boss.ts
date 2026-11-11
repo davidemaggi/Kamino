@@ -2,12 +2,17 @@ import { PgBoss } from "pg-boss";
 import type { Logger } from "../observability/logger.js";
 
 /** Queues of the background jobs (ADR 0008). */
-export const JOBS = { compact: "journal-compact", sweep: "upload-sweep" } as const;
+export const JOBS = {
+  compact: "journal-compact",
+  sweep: "upload-sweep",
+  purge: "vault-purge",
+} as const;
 export type JobName = keyof typeof JOBS;
 
 const SCHEDULES: Record<JobName, string> = {
   compact: "17 3 * * *", // daily, at night
   sweep: "7 * * * *", // hourly (C10)
+  purge: "37 * * * *", // hourly: blobs of deleted vaults (F5)
 };
 
 export interface Jobs {

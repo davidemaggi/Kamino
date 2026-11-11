@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1d: **completata sul branch** — Task 1–13, revisione finale fatta e corretta (1 critico + 7 importanti, ognuno con test), verifica completa verde. **Prossimo passo: aprire la PR** (`gh` non è autenticato sul PC Windows: aprirla dal Mac o dal sito; testo pronto, vedi sotto) e attendere il merge; poi i test sui dispositivi (`docs/spikes/README.md`) e M2b. Branch `m1d-plugin-engine`.
+**Ultimo aggiornamento:** 2026-11-11 — **M2b completata sul branch `m2b-plugin-realtime`**: Task 1–12, revisione finale fatta e corretta (0 critici, 11 importanti corretti ognuno con test, 15 minori rinviati), verifica completa verde. **Prossimo passo: aprire la PR** (`gh` non autenticato su questo PC: dal Mac o dal sito) e attendere il merge; poi i test sui dispositivi D-1…D-7 (`docs/spikes/README.md`) e la settimana d'uso che chiude M2; poi il pacchetto M4+M5+M6.
 
 ## Dove siamo
 
@@ -18,11 +18,11 @@
 | Fase UI — sotto-fase 4a: web app, struttura e account (spec `docs/superpowers/specs/2026-11-08-ui-web-shell-account-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-shell-account.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti), provata dal committente; logo aggiunto; mergiata su `main` (PR #5) |
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
-| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · 🔧 M1d (spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md`, piano `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`, branch `m1d-plugin-engine`, senza spike) |
+| M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · ✅ M1d (spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md`, piano `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`): mergiata (PR #12) |
 | M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ⏳ M2b |
 | M3…M7 | ⏳ |
 
-**Branch di lavoro:** `m1d-plugin-engine` (da `main` dopo la PR #11).
+**Branch di lavoro:** `m2b-plugin-realtime` (da `main` dopo la PR #12; per ora solo l'aggiornamento di questo file).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -80,8 +80,13 @@ Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del disposit
 
 ## Prossimi passi
 
-1. **M1d — motore del plugin** (spec approvata, senza spike per scelta del committente): piano a blocchi A–G, poi revisione e PR; alla fine, l'elenco dei test da eseguire sui dispositivi.
-2. **M2b — parte plugin di M2** dopo M1d.
+1. **Prova del plugin in Obsidian desktop** con il server Docker (vault di prova `vault/kamino` con `pnpm --filter @kamino/plugin build:vault`; nella build di sviluppo il server vero si attiva con `localStorage["kamino-sync-dev-real-server"] = "1"` dalla console di Obsidian): collegamento, upload, modifica, stato.
+2. **Test sui dispositivi** D-1…D-4 (`docs/spikes/README.md`, "Test sui dispositivi dopo M1d"): file grandi su iPhone/Android, resume e cambio di rete, spostamento di una cartella da 2.000 file, una settimana d'uso. Nessuna release pubblica prima di questi.
+3. **M2b — parte plugin di M2** (WebSocket, modalità Live/Periodica/Manuale, D-07, allegati solo in Wi-Fi): brainstorming rapido → spec → piano → esecuzione. Includere i minori rinviati dalla revisione di M1d che toccano il motore.
+4. **Poi un unico pacchetto M4+M5+M6** (rotte del server dietro le schermate già fatte: area utente, admin/quote/email, pairing QR) con una sola spec e un solo piano.
+5. M3 (conflitti e storico) e M7 (hardening, release) restano milestone a sé.
+
+**Accelerazioni decise dal committente (2026-11-11):** (1) M4, M5 e M6 in un unico pacchetto; (2) spec leggere per le parti a basso rischio (rotte, schermate), rigore pieno solo dove si possono perdere dati (M2b, M3); (3) la simulazione profonda (`test:deep`) gira in CI, non a ogni modifica in locale (in locale bastano i 150 scenari di `pnpm test`); (4) quando possibile lavorare dal Mac.
 
 ## Come riprendere su un altro PC
 
@@ -168,6 +173,17 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di M2b (tempo reale nel plugin)
+
+Spec `docs/superpowers/specs/2026-11-11-m2b-plugin-realtime-design.md` (F1–F10, §6), piano `docs/superpowers/plans/2026-11-11-m2b-plugin-realtime.md`; note in `docs/03-sync-protocol.md` §8.2. Registro completo delle decisioni in `.superpowers/sdd/2026-11-11-m2b-plugin-realtime/progress.md` (non versionato).
+
+- WebSocket come campanello: le notifiche avviano cicli, i dati arrivano sempre via REST; ogni notifica fa un ciclo completo (scansione con cache), da ottimizzare solo se misurato.
+- Chiusure `4401`/`4403`/`4404`: prima una verifica REST su una rotta del vault, poi eventuale stop (`vault_gone` mostrato come "revocato"); l'attesa tra i tentativi si azzera solo dopo 60 s di connessione stabile.
+- Modalità nel motore (`setMode`), pull ogni 5 min in Live col socket giù; eco riconosciuta per path+dimensione+mtime (10 s); nota aperta con modifiche non salvate mai sovrascritta.
+- Rete a consumo: domanda su iOS mai bloccante, la risposta vale 30 minuti; "non chiedere più" è del plugin fino al riavvio; i file in attesa non contano come "al sicuro" ma non fanno scattare l'avviso orario; l'avviso per coda vecchia solo in Live.
+- `ObsidianFs`: sostituzione con copia messa da parte (nome corto + manifest) e recupero all'apertura (se differisce, resta "(recovered)"); rinomine di sole maiuscole senza mai sovrascrivere un altro file; streaming con ripiego per file e controllo dei byte.
+- Minori rinviati dalla revisione di M2b (15): ciclo in più dopo il proprio push, tempi dell'eco su FS con mtime grossolano, mtime nel futuro sempre "recenti", modifiche concorrenti contate come guasti di streaming, rimandati in download che lampeggiano "al sicuro" e manca la dicitura "in attesa del Wi-Fi", conteggio non memorizzato mentre ci sono file in attesa, socket lento a riprendersi al ritorno in primo piano, factory del socket che lancia, file temporaneo della rinomina di maiuscole non recuperato, timer disattivati ma non cancellati, Manuale che sincronizza al cambio impostazioni, riga duplicata nell'host, nessun ciclo quando la rete torna libera, copertura della protezione dell'editor (CRLF/BOM, canvas), nota per un attimo assente durante la sostituzione.
 
 ### Decisioni di M1d (motore del plugin)
 

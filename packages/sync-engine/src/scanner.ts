@@ -22,7 +22,12 @@ export interface ScannerOptions {
   caseInsensitive?: boolean;
   /** Files above this size are not hashed (adapters without streaming, I4). */
   maxHashBytes?: () => number;
+  /** M3: files modified this recently are rehashed (coarse mtimes hide quick edits). */
+  now?: () => number;
 }
+
+/** M3: FAT/exFAT and some tools keep a 2 s mtime granularity. */
+export const FRESH_MS = 2_000;
 
 /** Full scan for a sync cycle (03 §8), hashing only what changed (E4). */
 export class Scanner {
@@ -60,7 +65,9 @@ export class Scanner {
       }
       seen.add(e.path);
       const known = this.cache[e.path];
-      let hash = known && known.size === e.size && known.mtime === e.mtime ? known.hash : null;
+      const fresh = this.opts.now !== undefined && this.opts.now() - e.mtime < FRESH_MS;
+      let hash =
+        known && !fresh && known.size === e.size && known.mtime === e.mtime ? known.hash : null;
       if (hash === null && e.size > limit) {
         tooLarge.push({ path: e.path, size: e.size });
         continue;

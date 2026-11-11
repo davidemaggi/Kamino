@@ -1,9 +1,10 @@
-import type { Backlog, StopReason } from "@kamino/sync-engine";
+import type { Backlog, DeferredFile, StopReason } from "@kamino/sync-engine";
 import type { InitialTransfer, TransferProgress } from "./types.js";
 
 /** What the initial transfer needs from the engine. */
 export interface TransferEngine {
   backlog(): Backlog;
+  deferred(): DeferredFile[];
   pause(): void;
   resume(): void;
   syncNow(): Promise<void>;
@@ -61,10 +62,15 @@ export class RealTransfer implements InitialTransfer {
     if (e.stopped) phase = "failed";
     else if (e.paused) phase = "paused";
     else if (snap.unreachableSince !== null) phase = "interrupted";
-    else if (this.cycled && left.files === 0) phase = "done";
+    // M9: done when only files that wait are left (they don't block the rest).
+    const waiting = e.deferred().filter((f) => f.direction === this.direction).length;
+    // Waiting downloads stay in the download backlog, waiting uploads stay pending (review I6).
+    const waitingLeft = waiting;
+    if (phase === "running" && this.cycled && left.files <= waitingLeft) phase = "done";
     return {
       direction: this.direction,
       phase,
+      ...(waiting > 0 ? { waiting } : {}),
       files: { done: this.files - left.files, total: this.files },
       bytes: { done: this.bytes - left.bytes, total: this.bytes },
     };

@@ -6,3 +6,6 @@ export * from "./api.js";
 export * from "./transfers.js";
 export * from "./status.js";
 export * from "./engine.js";
+export * from "./socket.js";
+export * from "./echo.js";
+export * from "./network.js";

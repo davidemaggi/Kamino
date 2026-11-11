@@ -57,4 +57,10 @@ describe("ObsidianHttp", () => {
       new ObsidianHttp("https://s").request({ method: "GET", path: "/" }),
     ).rejects.toThrow();
   });
+  it("on mobile, refuses plain http (M5)", async () => {
+    requestUrlMock.handler = async () => response(200, {});
+    const http = new ObsidianHttp("http://nas.local", { mobile: true });
+    await expect(http.request({ method: "GET", path: "/version" })).rejects.toThrow();
+    expect(requestUrlMock.calls).toHaveLength(0);
+  });
 });

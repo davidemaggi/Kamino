@@ -88,6 +88,8 @@ describe("RealConnection", () => {
       [err(403, "totp_mandatory"), "totp_mandatory"],
       [err(429, "rate_limited"), "rate_limited"],
       [err(403, "user_blocked"), "locked"],
+      [{ status: 502 }, "unreachable"],
+      [err(426, "protocol_unsupported"), "update_required"],
     ];
     for (const [res, reason] of cases) {
       answer = res;

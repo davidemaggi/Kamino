@@ -20,6 +20,13 @@ export interface SettingsSyncOptions {
  */
 export class SettingsSync {
   private last: SyncSettings | null = null;
+  /** The vault defaults last seen (server or saved copy). */
+  private vault: SyncSettings | null = null;
+
+  /** M10: this device's choices over the last vault defaults, at once (the server confirms later). */
+  quick(): SyncSettings | null {
+    return this.vault ? effectiveLocally(this.o.local(), this.vault) : null;
+  }
 
   constructor(private readonly o: SettingsSyncOptions) {}
 
@@ -28,6 +35,7 @@ export class SettingsSync {
     let effective: SyncSettings;
     try {
       vault = await api.vaultSettings();
+      this.vault = vault;
       // I5 (review): saved at once, whatever happens to the device part.
       await fs.saveState(STATE, JSON.stringify({ vault }));
       const device = await api.deviceSettings();
@@ -38,6 +46,7 @@ export class SettingsSync {
           : (await api.setDeviceOverride(want)).effective;
     } catch {
       vault ??= await this.cached(fs);
+      this.vault = vault;
       // Never the generic defaults: without the vault's own, the engine must wait.
       if (!vault) throw new SettingsUnavailable();
       effective = effectiveLocally(this.o.local(), vault);

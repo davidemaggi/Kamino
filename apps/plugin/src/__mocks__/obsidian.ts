@@ -178,6 +178,13 @@ export class ItemView {
 /** In-memory `DataAdapter` (paths relative to the vault, forward slashes). */
 export class MockAdapter {
   files = new Map<string, { data: Uint8Array; mtime: number }>();
+  /** Like Windows/macOS: names that differ only by case are the same file. */
+  caseInsensitive = false;
+  private key(path: string): string | undefined {
+    if (!this.caseInsensitive) return this.files.has(path) ? path : undefined;
+    const low = path.toLowerCase();
+    return [...this.files.keys()].find((k) => k.toLowerCase() === low);
+  }
   folders = new Set<string>();
   trashed: string[] = [];
   private tick = 1;
@@ -192,12 +199,16 @@ export class MockAdapter {
     next.set(new Uint8Array(data), cur.length);
     this.files.set(path, { data: next, mtime: this.tick++ });
   };
+  /** Real file systems refuse a name component longer than 255 characters. */
+  private checkName(path: string): void {
+    if (path.split("/").some((s) => s.length > 255)) throw new Error("ENAMETOOLONG");
+  }
   private parents(path: string): void {
     const segs = path.split("/");
     for (let i = 1; i < segs.length; i++) this.folders.add(segs.slice(0, i).join("/"));
   }
   async exists(path: string): Promise<boolean> {
-    return this.files.has(path) || this.folders.has(path);
+    return this.key(path) !== undefined || this.folders.has(path);
   }
   async stat(path: string) {
     const f = this.files.get(path);
@@ -224,11 +235,13 @@ export class MockAdapter {
     await this.writeBinary(path, new TextEncoder().encode(data).buffer);
   }
   async writeBinary(path: string, data: ArrayBuffer): Promise<void> {
+    this.checkName(path);
     this.parents(path);
     this.files.set(path, { data: new Uint8Array(data.slice(0)), mtime: this.tick++ });
   }
   async rename(from: string, to: string): Promise<void> {
-    if (this.files.has(to) || this.folders.has(to)) throw new Error("EEXIST");
+    this.checkName(to);
+    if (this.key(to) !== undefined || this.folders.has(to)) throw new Error("EEXIST");
     const f = this.files.get(from);
     if (!f) throw new Error("ENOENT");
     this.files.delete(from);

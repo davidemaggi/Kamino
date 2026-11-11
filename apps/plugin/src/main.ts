@@ -12,12 +12,16 @@ import type { ConnectionService, InitialTransfer } from "./connection/types.js";
 import { EngineHost, type SyncPlatform } from "./engine/host.js";
 import { ObsidianFs } from "./engine/obsidian-fs.js";
 import { ObsidianHttp } from "./engine/obsidian-http.js";
+import { ObsidianNetwork } from "./engine/obsidian-network.js";
+import { obsidianSocket } from "./engine/obsidian-socket.js";
+import { askMetered } from "./ui/MeteredModal.js";
 import { SettingsSync } from "./engine/settings-sync.js";
 import { registerDevCommands } from "./dev/commands.js";
 import { detectLanguage, t } from "./i18n/index.js";
 import { SettingsStore } from "./settings/store.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
 import { EngineState } from "./state/engine-state.js";
+import { InsistentNotices } from "./state/insistent-notices.js";
 import { FakeSyncState } from "./state/fake.js";
 import type { ConflictActions, SyncStateSource } from "./state/types.js";
 import { Watcher } from "./engine/watcher.js";
@@ -63,12 +67,16 @@ function devicePlatform(): DevicePlatform & SyncPlatform {
 
 export default class SyncPlugin extends Plugin {
   private host: EngineHost | null = null;
+  /** M8: a reload waits for the previous engine to stop writing its state. */
+  private static stopping: Promise<void> | null = null;
 
   override onunload(): void {
-    void this.host?.stop();
+    SyncPlugin.stopping = this.host?.stop() ?? null;
   }
 
   override async onload(): Promise<void> {
+    await SyncPlugin.stopping?.catch(() => {});
+    SyncPlugin.stopping = null;
     const lang = detectLanguage();
     const m = t(lang);
     const now = () => Date.now();
@@ -102,7 +110,7 @@ export default class SyncPlugin extends Plugin {
         store: settings.linkStore,
         pluginVersion: APP_VERSION,
         platform: devicePlatform(),
-        http: (url) => new ObsidianHttp(url),
+        http: (url) => new ObsidianHttp(url, { mobile: isMobile }),
       });
       const settingsSync = new SettingsSync({
         local: () => settings.get(),
@@ -117,7 +125,7 @@ export default class SyncPlugin extends Plugin {
         },
         fs: (deviceId) =>
           new ObsidianFs(this.app, pluginDir, { stateDir: `${pluginDir}/state/${deviceId}` }),
-        http: (url) => new ObsidianHttp(url),
+        http: (url) => new ObsidianHttp(url, { mobile: isMobile }),
         platform: devicePlatform(),
         configDir: this.app.vault.configDir,
         clock: {
@@ -127,16 +135,48 @@ export default class SyncPlugin extends Plugin {
         },
         newId: () => crypto.randomUUID(),
         loadSettings: (api, fs) => settingsSync.load(api, fs),
+        // M2b: realtime doorbell, network, Wi-Fi option and mode (S-02, S-08).
+        socket: (url) => obsidianSocket(url, { mobile: isMobile }),
+        client: { pluginVersion: APP_VERSION, platform: devicePlatform() },
+        network: new ObsidianNetwork({
+          isMobile,
+          isIos: Platform.isIosApp,
+          connection: () =>
+            (navigator as unknown as { connection?: { type?: string; saveData?: boolean } })
+              .connection,
+          confirm: () => askMetered(this.app, lang),
+        }),
+        wifiOnly: () => {
+          const s = settings.get().largeFiles;
+          return { enabled: s.wifiOnly, thresholdBytes: s.thresholdMb * 1024 * 1024 };
+        },
+        mode: () => {
+          const s = settings.get().sync;
+          return { mode: s.mode, periodicMinutes: s.periodicMinutes };
+        },
       });
       this.host = host;
-      this.register(settings.onChange(() => void host.reloadSettings()));
+      this.register(
+        settings.onChange(() => {
+          // M10: the device's choice applies at once, the server confirms it.
+          const quick = settingsSync.quick();
+          if (quick) host.engine()?.setSettings(quick);
+          const s = settings.get().sync;
+          host.engine()?.setMode(s.mode, s.periodicMinutes);
+          void host.reloadSettings();
+        }),
+      );
       this.register(real.onChange(() => void host.refresh()));
       void host.refresh();
       server = real;
       transfer = new RealTransfer(() => host.engine());
       // Vault events → debounced cycles (E4).
       this.register(
-        new Watcher(this.app, () => host.engine()).attach((ref) => this.registerEvent(ref)),
+        new Watcher(
+          this.app,
+          () => host.engine(),
+          () => settings.get().sync.liveDebounceSec * 1000,
+        ).attach((ref) => this.registerEvent(ref)),
       );
     }
     const deviceInfo = () => {
@@ -211,6 +251,16 @@ export default class SyncPlugin extends Plugin {
     const refresh = () =>
       indicator.update(describeStatus(state.snapshot(), DEFAULT_THRESHOLDS, now()));
     this.register(state.onChange(refresh));
+    // S-05: never silent; the warning comes back every hour while the problem lasts.
+    this.register(
+      new InsistentNotices({
+        source: state,
+        clock: now,
+        notice: (msg) => new Notice(msg),
+        lang,
+        mode: () => settings.get().sync.mode,
+      }).start(),
+    );
     if (fakeState) {
       this.register(
         server.onChange((e) => {

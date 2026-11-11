@@ -269,7 +269,7 @@ describe("engine", () => {
     await e.syncNow();
     expect(server.files().get("locked.md")).toBe("v1");
     expect(e.deferred()).toEqual([
-      expect.objectContaining({ path: "locked.md", direction: "upload" }),
+      expect.objectContaining({ path: "locked.md", direction: "upload", reason: "unreadable" }),
     ]);
     fs.read = read;
     await e.syncNow();
@@ -432,6 +432,21 @@ describe("engine", () => {
     const again = await Engine.open(deps(server, fs));
     await again.syncNow();
     expect(again.backlog().down.files).toBe(0);
+  });
+
+  it("recognises the vault events its own writes cause (F4)", async () => {
+    const server = new FakeServer();
+    await server.remotePut(
+      "dev-b",
+      { opId: "o1", fileId: "f1", versionId: "v1", path: "r.md", baseVersionId: null, mtime: 1 },
+      "remote",
+    );
+    const fs = new MemoryFs();
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    expect(e.isEcho("r.md", await fs.stat("r.md"))).toBe(true);
+    fs.put("r.md", "user edit");
+    expect(e.isEcho("r.md", await fs.stat("r.md"))).toBe(false);
   });
 
   it("resumes from the saved state after a restart", async () => {

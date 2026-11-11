@@ -1,4 +1,9 @@
-import { ErrorCode, type SyncSettings } from "@kamino/protocol";
+import {
+  ErrorCode,
+  PROTOCOL_MIN_SUPPORTED,
+  PROTOCOL_VERSION,
+  type SyncSettings,
+} from "@kamino/protocol";
 import type { SyncSnapshot } from "@kamino/status";
 import {
   initialState,
@@ -13,6 +18,9 @@ import {
   type Effect,
 } from "@kamino/sync-core";
 import { Api, ApiError } from "./api.js";
+import { Realtime, type RealtimeEvent, type SocketFactory } from "./socket.js";
+import { EchoGuard } from "./echo.js";
+import type { Network } from "./network.js";
 import { sha256Hex } from "./hash.js";
 import type { Clock, Http, VaultFs } from "./ports.js";
 import { Scanner, type StatCache } from "./scanner.js";
@@ -38,6 +46,15 @@ export interface EngineDeps {
   token: () => string | null;
   /** Codes only: never paths, names, contents or tokens. */
   log?: (code: string) => void;
+  /** S-08: the network, and the device's "large files only on Wi-Fi" option. */
+  network?: Network;
+  wifiOnly?: () => { enabled: boolean; thresholdBytes: number };
+  /** S-02 mode of this device (default live, 15 minutes). */
+  mode?: { mode: SyncMode; periodicMinutes: number };
+  /** Realtime doorbell (M2b, F1): without it the engine works by cycles only. */
+  socket?: SocketFactory;
+  /** Sent in the socket's hello. */
+  client?: { pluginVersion: string; platform: string };
   /** A `vault_settings_changed` entry arrived: the host reads the settings again (E10). */
   onSettingsChanged?: () => void;
   /** Without streaming (`fs.streaming === false`), files over this size wait (E3, 100 MB). */
@@ -45,6 +62,13 @@ export interface EngineDeps {
 }
 
 export const DEFAULT_MAX_IN_MEMORY_BYTES = 100 * 1024 * 1024;
+
+/** The transfer waits for a free network (already recorded). */
+class Held extends Error {
+  constructor() {
+    super("held");
+  }
+}
 
 /** The user paused (or the engine stopped) in the middle of a push. */
 class Paused extends Error {
@@ -89,8 +113,12 @@ export const STATE_FILES = {
   meta: "meta",
 } as const;
 
-/** Pull period until the WebSocket of M2b (E6). */
-export const PULL_PERIOD_MS = 60_000;
+/** S-02. Live: socket + quick sends; Periodic: a cycle every N minutes; Manual: on request. */
+export type SyncMode = "live" | "periodic" | "manual";
+/** Live with the socket down: a pull this often until it is back (spec F3). */
+export const LIVE_FALLBACK_MS = 300_000;
+/** S-08 on iOS: an answer to the metered-network question holds this long (review I5). */
+export const ASK_WINDOW_MS = 30 * 60_000;
 
 type FileEffect = Extract<Effect, { type: "write" | "rename" | "trash" | "mkdir" | "rmdir" }>;
 
@@ -126,7 +154,11 @@ export class Engine {
   private wanted = false;
   private closed = false;
   private pausedFlag = false;
-  private periodic = false;
+  private started = false;
+  private mode: SyncMode;
+  private periodicMinutes: number;
+  /** Each mode's timer belongs to one generation: switching mode ends the old one. */
+  private timerGen = 0;
   private retrying = false;
   private netFailed = false;
   private attempt = 0;
@@ -141,6 +173,15 @@ export class Engine {
   private readonly waiting = new Map<string, DeferredFile>();
   /** I1 (review): files that vanished in one scan, held until the user confirms. */
   private heldDeletions: number | null = null;
+  private realtime: Realtime | null = null;
+  /** S-08 on iOS (review I5): the answer to the metered question holds for a while. */
+  private meteredUntil = 0;
+  private deniedUntil = 0;
+  private asking = false;
+  /** Paths the user asked to transfer now ("carica/scarica ora"): let through once. */
+  private readonly allowOnce = new Set<string>();
+  /** F4: what the engine just did to the vault, to tell its own events apart. */
+  private readonly echo: EchoGuard;
   /** I7: the state has changes not saved yet (outcomes of file effects only). */
   private unsaved = false;
   private notifyQueued = false;
@@ -166,6 +207,7 @@ export class Engine {
     this.scanner = new Scanner(d.fs, d.config.configDir, cache, {
       settings: () => this.st.config.settings,
       caseInsensitive: d.config.platform !== "linux",
+      now: () => d.clock.now(),
       maxHashBytes: () =>
         d.fs.streaming ? Infinity : (d.limits?.maxInMemoryBytes ?? DEFAULT_MAX_IN_MEMORY_BYTES),
     });
@@ -173,6 +215,9 @@ export class Engine {
       d.fs.saveState(STATE_FILES.uploads, JSON.stringify(s)),
     );
     this.lastConfirmedAt = meta.lastConfirmedAt ?? null;
+    this.echo = new EchoGuard(() => d.clock.now());
+    this.mode = d.mode?.mode ?? "live";
+    this.periodicMinutes = d.mode?.periodicMinutes ?? 15;
   }
 
   /** Loads the durable state, the stat cache and the upload sessions saved by a previous run. */
@@ -207,26 +252,146 @@ export class Engine {
     return backlogOf(this.st);
   }
 
+  /** A vault event that only reflects what the engine itself just did (F4). */
+  isEcho(path: string, stat: { size: number; mtime: number } | null): boolean {
+    return this.echo.isEcho(path, stat);
+  }
+
+  /** Remembers what a completed file effect left on disk. */
+  private async noteEcho(fx: FileEffect, ok: boolean): Promise<void> {
+    if (!ok) return;
+    const st = async (p: string) => {
+      const s = await this.d.fs.stat(p).catch(() => null);
+      return s ? { size: s.size, mtime: s.mtime } : null;
+    };
+    switch (fx.type) {
+      case "write":
+      case "mkdir":
+        this.echo.record(fx.path, await st(fx.path));
+        return;
+      case "rename":
+        this.echo.record(fx.from, null);
+        this.echo.record(fx.to, await st(fx.to));
+        return;
+      case "trash":
+      case "rmdir":
+        this.echo.record(fx.path, null);
+        return;
+    }
+  }
+
+  get realtimeConnected(): boolean {
+    return this.realtime?.connected ?? false;
+  }
+
+  /** Opens the realtime doorbell (F1): notifications trigger pulls, data stays REST. */
+  private openRealtime(): void {
+    if (!this.d.socket || this.realtime || this.closed || this.stopReason) return;
+    this.realtime = new Realtime({
+      socket: this.d.socket,
+      clock: this.d.clock,
+      log: this.log,
+      hello: () => ({
+        type: "hello",
+        deviceToken: this.d.token() ?? "",
+        protocol: { min: PROTOCOL_MIN_SUPPORTED, max: PROTOCOL_VERSION },
+        // The durable cursor: what this device has applied (spec §6.1).
+        cursor: this.st.durable.cursor,
+        pluginVersion: this.d.client?.pluginVersion ?? "",
+        platform: this.d.client?.platform ?? "",
+      }),
+      onEvent: (e) => this.onRealtime(e),
+    });
+    this.realtime.start();
+  }
+
+  /**
+   * I1/I2: a socket closed with 4401/4403/4404 may mean a slow hello, a revoked device, a
+   * blocked user or a vault that is gone. A vault route tells which; only a confirmed answer stops.
+   */
+  private async verifyAccess(): Promise<void> {
+    try {
+      await this.api.changes(this.d.vaultId, this.st.durable.cursor);
+    } catch (e) {
+      if (e instanceof ApiError && e.kind === "http" && e.status === 404) this.halt("vault_gone");
+      else if (e instanceof ApiError && (e.kind === "revoked" || e.kind === "blocked"))
+        this.failure(e);
+    }
+  }
+
+  private closeRealtime(): void {
+    this.realtime?.stop();
+    this.realtime = null;
+  }
+
+  private onRealtime(e: RealtimeEvent): void {
+    switch (e.type) {
+      case "connected":
+        // Anything missed while disconnected: one cycle catches up (not while a REST retry is
+        // already scheduled: that would bypass its backoff, review I3).
+        if (!this.retrying) void this.kick();
+        break;
+      case "changes":
+        if (e.head > this.st.durable.cursor) void this.kick();
+        break;
+      case "settings":
+        this.d.onSettingsChanged?.();
+        break;
+      case "revoked":
+      case "blocked":
+      case "protocol":
+        this.halt(e.type);
+        break;
+      case "resync":
+        void this.kick(); // the pull meets cursor_too_old and resyncs
+        break;
+      case "check":
+        void this.verifyAccess();
+        break;
+      case "disconnected":
+        break;
+    }
+    this.changed();
+  }
+
   get stopped(): StopReason | null {
     return this.stopReason;
   }
 
-  /** First cycle now, then a pull every minute. */
+  /** A cycle now (S-03), then whatever the mode asks for. */
   start(): void {
+    this.started = true;
+    this.applyMode();
     void this.kick();
-    if (this.periodic) return;
-    this.periodic = true;
+  }
+
+  /** Applied at once; work in progress finishes, the socket closes with 1000 (spec §6.4). */
+  setMode(mode: SyncMode, periodicMinutes: number): void {
+    const same = mode === this.mode && periodicMinutes === this.periodicMinutes;
+    this.mode = mode;
+    this.periodicMinutes = periodicMinutes;
+    if (this.started && !same) this.applyMode();
+  }
+
+  private applyMode(): void {
+    const gen = ++this.timerGen;
+    if (this.mode === "live") this.openRealtime();
+    else this.closeRealtime();
+    if (this.mode === "manual") return;
     void (async () => {
-      while (!this.closed) {
-        await this.d.clock.sleep(PULL_PERIOD_MS);
-        if (this.closed) break;
-        void this.kick();
+      for (;;) {
+        const live = this.mode === "live";
+        await this.d.clock.sleep(live ? LIVE_FALLBACK_MS : this.periodicMinutes * 60_000);
+        if (gen !== this.timerGen || this.closed || this.stopReason) return;
+        if (!live || !this.realtimeConnected) void this.kick();
       }
     })();
   }
 
   async stop(): Promise<void> {
     this.closed = true;
+    this.timerGen++;
+    this.closeRealtime();
     await this.running;
     await this.settled();
     await this.flush();
@@ -252,11 +417,14 @@ export class Engine {
     while (this.wanted && !this.closed && !this.stopReason && !this.pausedFlag);
   }
 
-  /** Something changed on disk (the caller debounces): a cycle with a full scan follows. */
+  /**
+   * Something changed on disk (the caller debounces). Live: a cycle follows. Periodic and
+   * Manual: it waits for the next cycle (the queue derives from the index then, S-04).
+   */
   localChange(): void {
     this.dirty = true;
     this.changed();
-    void this.kick();
+    if (this.mode === "live" || !this.started) void this.kick();
   }
 
   /** A rename seen by the watcher (local paths). */
@@ -304,8 +472,45 @@ export class Engine {
   deferred(): DeferredFile[] {
     const out = [...this.waiting.values()];
     for (const path of this.unreadable)
-      if (!this.waiting.has(path)) out.push({ path, size: 0, direction: "upload" });
+      if (!this.waiting.has(path))
+        out.push({ path, size: 0, direction: "upload", reason: "unreadable" });
     return out;
+  }
+
+  /**
+   * S-08: a file over the threshold waits on a metered network, unless the user asked to send
+   * it now. On an unknown network (iOS) the user is asked once per cycle; "yes" holds.
+   */
+  private async networkHolds(path: string, size: number): Promise<boolean> {
+    const w = this.d.wifiOnly?.();
+    if (!w?.enabled || size <= w.thresholdBytes) return false;
+    if (this.allowOnce.delete(path)) return false;
+    const kind = this.d.network?.kind() ?? "free";
+    if (kind === "free") return false;
+    if (kind === "metered") return true;
+    // Unknown network (iOS): never wait for the answer; the file waits while it's pending.
+    const now = this.d.clock.now();
+    if (now < this.meteredUntil) return false;
+    if (now < this.deniedUntil || this.asking) return true;
+    this.asking = true;
+    void this.d.network!.ask().then(
+      (yes) => {
+        this.asking = false;
+        const t = this.d.clock.now();
+        if (yes) {
+          this.meteredUntil = t + ASK_WINDOW_MS;
+          void this.kick();
+        } else this.deniedUntil = t + ASK_WINDOW_MS;
+      },
+      () => (this.asking = false),
+    );
+    return true;
+  }
+
+  /** "Carica/scarica ora" on a waiting file: let it through once (S-08). */
+  async transferNow(path: string): Promise<void> {
+    this.allowOnce.add(path);
+    await this.syncNow();
   }
 
   /** Over the limit for an adapter that holds whole files in memory. */
@@ -394,6 +599,7 @@ export class Engine {
     this.unreadable = scan.unreadable;
     this.dirty = false;
     this.waiting.clear();
+
     await this.d.fs.saveState(STATE_FILES.cache, JSON.stringify(this.scanner.cache));
     if (
       this.holdsDeletions(scan.files, [...scan.unreadable, ...scan.tooLarge.map((f) => f.path)])
@@ -404,7 +610,7 @@ export class Engine {
     // C1 (review): unreadable files are present with unknown content, never taken for deleted.
     // I4: files too big to hash here are present too, and wait as deferred.
     for (const f of scan.tooLarge)
-      this.waiting.set(f.path, { path: f.path, size: f.size, direction: "upload" });
+      this.waiting.set(f.path, { path: f.path, size: f.size, direction: "upload", reason: "size" });
     const unreadable = [...scan.unreadable, ...scan.tooLarge.map((f) => f.path)].flatMap((p) => {
       const n = normalizePath(p, this.d.config.configDir);
       return n.ok ? [n.path] : [];
@@ -640,6 +846,7 @@ export class Engine {
   private halt(reason: StopReason): void {
     if (this.stopReason) return;
     this.stopReason = reason;
+    this.closeRealtime();
     this.log(`stopped_${reason}`);
     this.changed();
   }
@@ -658,9 +865,23 @@ export class Engine {
         if (this.pausedFlag || this.closed) throw new Paused();
         // Not on disk any more: the commit answers blob_missing, the next cycle decides.
         if (!src) continue;
+        if (await this.networkHolds(src.path, src.size)) {
+          this.waiting.set(src.path, {
+            path: src.path,
+            size: src.size,
+            direction: "upload",
+            reason: "network",
+          });
+          continue;
+        }
         if (this.tooBig(src.size)) {
           // Never lost: it stays on disk and in the queue (blob_missing), shown as deferred.
-          this.waiting.set(src.path, { path: src.path, size: src.size, direction: "upload" });
+          this.waiting.set(src.path, {
+            path: src.path,
+            size: src.size,
+            direction: "upload",
+            reason: "size",
+          });
           continue;
         }
         try {
@@ -700,6 +921,17 @@ export class Engine {
       case "write": {
         let ok = false;
         try {
+          // S-08: a large download on a metered network waits (the index keeps it).
+          const remoteSize = this.st.durable.index[fx.fileId]?.size ?? 0;
+          if (await this.networkHolds(fx.path, remoteSize)) {
+            this.waiting.set(fx.path, {
+              path: fx.path,
+              size: remoteSize,
+              direction: "download",
+              reason: "network",
+            });
+            throw new Held();
+          }
           // I4: replacing a local file too big to check here waits, unread.
           const local = fs.streaming ? null : await fs.stat(fx.path).catch(() => null);
           if (local && this.tooBig(local.size)) throw new TooLarge(local.size);
@@ -711,10 +943,20 @@ export class Engine {
               if (this.tooBig(total)) throw new TooLarge(total);
             },
           );
-          ok = (await fs.write(fx.path, parts, fx.expect, fx.hash)) === "ok";
+          const out = await fs.write(fx.path, parts, fx.expect, fx.hash);
+          ok = out === "ok";
+          // M3: the file isn't what the cache says: hash it again at the next scan.
+          if (out === "changed") delete this.scanner.cache[fx.path];
         } catch (e) {
-          if (e instanceof TooLarge)
-            this.waiting.set(fx.path, { path: fx.path, size: e.size, direction: "download" });
+          if (e instanceof Held) {
+            // already recorded as waiting
+          } else if (e instanceof TooLarge)
+            this.waiting.set(fx.path, {
+              path: fx.path,
+              size: e.size,
+              direction: "download",
+              reason: "size",
+            });
           else if (e instanceof ApiError) this.failure(e);
           else this.log("write_failed");
         }
@@ -735,6 +977,7 @@ export class Engine {
           st && known && known.size === st.size && known.mtime === st.mtime
             ? known.hash
             : await sha256Hex(fs.read(fx.path)).catch(() => null);
+        if (cur !== fx.expect) delete this.scanner.cache[fx.path]; // M3
         const ok = cur === fx.expect && (await fs.trash(fx.path).catch(() => false));
         ev = { type: "trashed", fileId: fx.fileId, ok };
         break;
@@ -754,6 +997,7 @@ export class Engine {
       }
     }
     if (this.stopReason) return;
+    await this.noteEcho(fx, "ok" in ev && ev.ok);
     await this.dispatch(ev);
   }
 
@@ -761,7 +1005,16 @@ export class Engine {
   private queued(): number {
     if (this.pendingMemo?.st !== this.st)
       this.pendingMemo = { st: this.st, count: pendingOps(this.st).length };
-    const n = this.pendingMemo.count;
+    // Waiting files are never safe (spec §6.3). A waiting upload stops being a pending op once
+    // the server answered blob_missing: count it here unless it still is one.
+    let waiting = 0;
+    if (this.waiting.size > 0) {
+      const pendingPaths = new Set(
+        pendingChanges(this.st, 0).map((p) => localPath(p.path, this.d.config.configDir)),
+      );
+      for (const w of this.waiting.values()) if (!pendingPaths.has(w.path)) waiting++;
+    }
+    const n = this.pendingMemo.count + waiting;
     return n > 0 ? n : this.dirty ? 1 : 0;
   }
 

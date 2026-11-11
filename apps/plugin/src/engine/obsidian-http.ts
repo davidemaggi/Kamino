@@ -5,11 +5,17 @@ import { requestUrl } from "obsidian";
 export class ObsidianHttp implements Http {
   private readonly base: string;
 
-  constructor(serverUrl: string) {
+  constructor(
+    serverUrl: string,
+    private readonly opts: { mobile?: boolean } = {},
+  ) {
     this.base = `${serverUrl.replace(/\/+$/, "")}/api/v1`;
   }
 
   async request(r: HttpRequest): Promise<HttpResponse> {
+    // M5: on a phone only HTTPS, whatever path led here.
+    if (this.opts.mobile && !this.base.startsWith("https://"))
+      throw new Error("insecure_on_mobile");
     const headers: Record<string, string> = { ...r.headers };
     let body: string | ArrayBuffer | undefined;
     let contentType: string | undefined;

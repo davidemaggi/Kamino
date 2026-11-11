@@ -1,4 +1,4 @@
-import type { Backlog, StopReason } from "@kamino/sync-engine";
+import type { Backlog, DeferredFile, StopReason } from "@kamino/sync-engine";
 import { describe, expect, it } from "vitest";
 import { RealTransfer, type TransferEngine } from "./real-transfer.js";
 
@@ -9,6 +9,10 @@ class StubEngine implements TransferEngine {
   unreachableSince: number | null = null;
   syncing = false;
   syncs = 0;
+  waiting: DeferredFile[] = [];
+  deferred() {
+    return this.waiting;
+  }
   private cbs = new Set<() => void>();
   release: () => void = () => {};
   backlog() {
@@ -79,5 +83,31 @@ describe("RealTransfer", () => {
     expect(e.syncs).toBe(2);
     e.stopped = "revoked";
     expect(t.progress()?.phase).toBe("failed");
+  });
+  it("is done when only waiting files are left, and says how many (M9)", async () => {
+    const e = new StubEngine();
+    e.waiting = [{ path: "v.mp4", size: 9, direction: "download", reason: "network" }];
+    const t = new RealTransfer(() => e);
+    t.start("download");
+    e.b.down = { files: 3, bytes: 30 };
+    t.progress();
+    e.b.down = { files: 1, bytes: 9 };
+    e.release();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(t.progress()).toMatchObject({ phase: "done", waiting: 1 });
+  });
+  it("an initial upload is done when only uploads waiting for Wi-Fi are left (review I6)", async () => {
+    const e = new StubEngine();
+    e.waiting = [{ path: "v.mp4", size: 9, direction: "upload", reason: "network" }];
+    const t = new RealTransfer(() => e);
+    t.start("upload");
+    e.b.up = { files: 3, bytes: 30 };
+    t.progress();
+    e.b.up = { files: 1, bytes: 9 }; // the waiting file is still a pending upload
+    e.release();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(t.progress()).toMatchObject({ phase: "done", waiting: 1 });
   });
 });

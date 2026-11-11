@@ -250,7 +250,8 @@
       "locked": "Account locked: contact the administrator.",
       "required": "Fill in this field.",
       "totp_mandatory": "Two-step verification is required for administrators: turn it on in the web app (Account), then try again.",
-      "rate_limited": "Too many attempts: wait a few minutes and try again."
+      "rate_limited": "Too many attempts: wait a few minutes and try again.",
+      "update_required": "This plugin is too old for the server: update it, then try again."
     }
   },
   "transfer": {
@@ -267,6 +268,14 @@
     "failed": "The transfer stopped because of an error.",
     "retry": "Retry",
     "done": "Done: {count} files synced.",
-    "openStatus": "Open sync status"
+    "openStatus": "Open sync status",
+    "doneWaiting": "{count} files wait (Wi-Fi, size or unreadable): see the sync status."
+  },
+  "metered": {
+    "title": "Use the mobile network?",
+    "text": "Large attachments are set to wait for Wi-Fi, and this phone can't tell which network it is on. Use the current network for them now?",
+    "dontAsk": "Don't ask again until Obsidian restarts",
+    "proceed": "Use this network",
+    "wait": "Wait for Wi-Fi"
   }
 }

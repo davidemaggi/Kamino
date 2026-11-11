@@ -56,4 +56,21 @@ describe("scanner", () => {
     await again.scan();
     expect(read).not.toHaveBeenCalled();
   });
+  it("rehashes a file modified in the last 2 s even if size and mtime look unchanged (M3)", async () => {
+    let now = 1_000_000;
+    const fs = new MemoryFs(() => now);
+    fs.put("a.md", "one");
+    const s = new Scanner(fs, ".obsidian", {}, { now: () => now });
+    await s.scan();
+    // Same size, same (coarse) mtime: an edit the stat cache can't see.
+    fs.files.set("a.md", { data: new TextEncoder().encode("two"), mtime: now });
+    const read = vi.spyOn(fs, "read");
+    await s.scan();
+    expect(read).toHaveBeenCalledTimes(1);
+    now += 5_000;
+    read.mockClear();
+    await s.scan();
+    await s.scan();
+    expect(read).not.toHaveBeenCalled(); // the rehash in the window already updated the cache
+  });
 });

@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1d: Task 1–12 completati e pushati; Task 13: documenti fatti, **revisione finale fatta: 1 critico + 7 importanti da correggere** (elenco sotto, "Revisione finale di M1d"), poi verifica completa, PR. Branch `m1d-plugin-engine`.
+**Ultimo aggiornamento:** 2026-11-10 — M1d: **completata sul branch** — Task 1–13, revisione finale fatta e corretta (1 critico + 7 importanti, ognuno con test), verifica completa verde. **Prossimo passo: aprire la PR** (`gh` non è autenticato sul PC Windows: aprirla dal Mac o dal sito; testo pronto, vedi sotto) e attendere il merge; poi i test sui dispositivi (`docs/spikes/README.md`) e M2b. Branch `m1d-plugin-engine`.
 
 ## Dove siamo
 
@@ -195,7 +195,7 @@ Decisioni prese durante l'esecuzione (registro completo con il costo di ciascuna
 
 Trovati e corretti durante M1d (ognuno con il suo test): una decina di difetti delle cartelle e della riconciliazione trovati dal simulatore; `kick()` del motore che poteva far girare `syncNow` all'infinito; il bundle di produzione che conteneva ancora `FakeServer` e le credenziali `demo`.
 
-#### Revisione finale di M1d (2026-11-11) — da correggere prima della PR
+#### Revisione finale di M1d (2026-11-11) — corretta
 
 - **C1 (critico):** un file illeggibile durante la scansione (lock su Windows, file iCloud non scaricato, stream interrotto) risulta cancellato e la cancellazione va al server e agli altri dispositivi; `unreadableFiles()` non è mostrato da nessuna parte.
 - **I1:** un elenco vuoto o parziale (disco non montato, permesso revocato su Android, `list("")` diverso dal mock) cancellerebbe tutto: serve un freno (troppe sparizioni in un ciclo → stop e conferma).
@@ -206,7 +206,8 @@ Trovati e corretti durante M1d (ognuno con il suo test): una decina di difetti d
 - **I6:** la pausa non ferma i download già in coda; scollegare durante il trasferimento iniziale aspetta tutti i download.
 - **I7:** il primo sync di un vault grande costa O(N²) (stato clonato e riscritto a ogni evento).
 - Minori rinviati (11): finestra rimuovi→rinomina, rinomine solo di maiuscole su Windows/macOS, cache degli stat con mtime grossolano, streaming disattivato dopo un fallimento, HTTPS su mobile controllato solo all'inizio, `Engine.open` fallito mai ritentato, messaggi d'errore del login, `onunload` che non attende lo stop, trasferimento mai "completato" con un file rimandato, finestra di applicazione delle impostazioni, test sul dispositivo per la scrittura remota sul file aperto nell'editor.
-- Verifica completa da rilanciare (sul PC lento: un pacchetto alla volta, `--maxWorkers=2`, `DOCKER_HOST=tcp://127.0.0.1:2375`); `test:deep` ha avuto 1 scenario fallito su 3000, controesempio da ricavare.
+- **Tutti i critici e gli importanti sono corretti**, ognuno con il test che falliva prima (commit da `ec7…` a `2000c27`): file illeggibile = presente; freno sulle cancellazioni di massa (stato "Decisione", pulsante "Conferma le cancellazioni…", soglia: tutti i file con almeno 5, oppure più di 50 e più del 25%); rinomina durante la scansione; salvataggio dello stato fallito; motore in pausa finché non ha le impostazioni del vault; pausa che ferma i trasferimenti in coda; niente letture intere senza streaming; salvataggi raggruppati (200 download: da 203 a meno di 40 salvataggi).
+- Verifica completa verde (2026-11-11, PC Windows): build, typecheck, lint, format; test per pacchetto (brand 12, protocol 37, status 38, sync-core 74 + deep 3000, sync-engine 52, ui-diff 10, web 186, plugin 257, server 175). Sul PC lento: un pacchetto alla volta con `pnpm --filter <pkg> test -- --maxWorkers=2` e `DOCKER_HOST=tcp://127.0.0.1:2375`. Un fallimento di `test:deep` visto una volta non si è più riprodotto in ~30.000 scenari successivi.
 
 ### Decisioni di M2a (tempo reale sul server)
 

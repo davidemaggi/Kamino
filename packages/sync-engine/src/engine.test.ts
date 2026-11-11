@@ -269,7 +269,7 @@ describe("engine", () => {
     await e.syncNow();
     expect(server.files().get("locked.md")).toBe("v1");
     expect(e.deferred()).toEqual([
-      expect.objectContaining({ path: "locked.md", direction: "upload" }),
+      expect.objectContaining({ path: "locked.md", direction: "upload", reason: "unreadable" }),
     ]);
     fs.read = read;
     await e.syncNow();

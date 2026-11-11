@@ -155,7 +155,9 @@ describe("large files (E3)", () => {
     );
     await e.syncNow();
     expect(server.store.snapshot().files.map((f) => f.path)).toEqual(["small.md"]);
-    expect(e.deferred()).toEqual([{ path: "big.bin", size: 64, direction: "upload" }]);
+    expect(e.deferred()).toEqual([
+      { path: "big.bin", size: 64, direction: "upload", reason: "size" },
+    ]);
     expect(disk.files.has("big.bin")).toBe(true);
     expect(server.statuses.at(-1)).toMatchObject({ deferredFiles: 1 });
     // Never read whole into memory (review I4): only the small file (hash, then upload).
@@ -186,7 +188,9 @@ describe("large files (E3)", () => {
     );
     await e.syncNow();
     expect(t.read).toBe(0);
-    expect(e.deferred()).toEqual([{ path: "big.md", size: 64, direction: "upload" }]);
+    expect(e.deferred()).toEqual([
+      { path: "big.md", size: 64, direction: "upload", reason: "size" },
+    ]);
   });
 
   it("without streaming, a remote file over the limit is not downloaded", async () => {
@@ -203,6 +207,8 @@ describe("large files (E3)", () => {
     );
     await e.syncNow();
     expect(disk.files.has("big.md")).toBe(false);
-    expect(e.deferred()).toEqual([{ path: "big.md", size: 64, direction: "download" }]);
+    expect(e.deferred()).toEqual([
+      { path: "big.md", size: 64, direction: "download", reason: "size" },
+    ]);
   });
 });

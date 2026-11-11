@@ -16,6 +16,8 @@ export interface DeferredFile {
   path: string;
   size: number;
   direction: "upload" | "download";
+  /** Why it waits: a metered network (S-08), the in-memory limit (E3), a failed read. */
+  reason?: "network" | "size" | "unreadable";
 }
 
 /** Every op the client would still send: the unconfirmed batch first, then the rest. */

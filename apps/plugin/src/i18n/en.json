@@ -268,5 +268,12 @@
     "retry": "Retry",
     "done": "Done: {count} files synced.",
     "openStatus": "Open sync status"
+  },
+  "metered": {
+    "title": "Use the mobile network?",
+    "text": "Large attachments are set to wait for Wi-Fi, and this phone can't tell which network it is on. Use the current network for them now?",
+    "dontAsk": "Don't ask again until Obsidian restarts",
+    "proceed": "Use this network",
+    "wait": "Wait for Wi-Fi"
   }
 }

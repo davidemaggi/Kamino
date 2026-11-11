@@ -268,5 +268,12 @@
     "retry": "Riprova",
     "done": "Fatto: {count} file sincronizzati.",
     "openStatus": "Apri lo stato sync"
+  },
+  "metered": {
+    "title": "Usare la rete mobile?",
+    "text": "Gli allegati grandi sono impostati per aspettare il Wi-Fi, e questo telefono non sa su quale rete si trova. Usare la rete attuale per inviarli o riceverli adesso?",
+    "dontAsk": "Non chiedere più fino al riavvio di Obsidian",
+    "proceed": "Usa questa rete",
+    "wait": "Aspetta il Wi-Fi"
   }
 }

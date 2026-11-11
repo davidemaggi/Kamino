@@ -20,6 +20,7 @@ import {
 import { Api, ApiError } from "./api.js";
 import { Realtime, type RealtimeEvent, type SocketFactory } from "./socket.js";
 import { EchoGuard } from "./echo.js";
+import type { Network } from "./network.js";
 import { sha256Hex } from "./hash.js";
 import type { Clock, Http, VaultFs } from "./ports.js";
 import { Scanner, type StatCache } from "./scanner.js";
@@ -45,6 +46,9 @@ export interface EngineDeps {
   token: () => string | null;
   /** Codes only: never paths, names, contents or tokens. */
   log?: (code: string) => void;
+  /** S-08: the network, and the device's "large files only on Wi-Fi" option. */
+  network?: Network;
+  wifiOnly?: () => { enabled: boolean; thresholdBytes: number };
   /** S-02 mode of this device (default live, 15 minutes). */
   mode?: { mode: SyncMode; periodicMinutes: number };
   /** Realtime doorbell (M2b, F1): without it the engine works by cycles only. */
@@ -58,6 +62,13 @@ export interface EngineDeps {
 }
 
 export const DEFAULT_MAX_IN_MEMORY_BYTES = 100 * 1024 * 1024;
+
+/** The transfer waits for a free network (already recorded). */
+class Held extends Error {
+  constructor() {
+    super("held");
+  }
+}
 
 /** The user paused (or the engine stopped) in the middle of a push. */
 class Paused extends Error {
@@ -161,6 +172,11 @@ export class Engine {
   /** I1 (review): files that vanished in one scan, held until the user confirms. */
   private heldDeletions: number | null = null;
   private realtime: Realtime | null = null;
+  /** S-08: "yes" to the metered-network question holds for this cycle (the plugin remembers "don't ask again"). */
+  private meteredOk = false;
+  private askedThisCycle = false;
+  /** Paths the user asked to transfer now ("carica/scarica ora"): let through once. */
+  private readonly allowOnce = new Set<string>();
   /** F4: what the engine just did to the vault, to tell its own events apart. */
   private readonly echo: EchoGuard;
   /** I7: the state has changes not saved yet (outcomes of file effects only). */
@@ -437,8 +453,33 @@ export class Engine {
   deferred(): DeferredFile[] {
     const out = [...this.waiting.values()];
     for (const path of this.unreadable)
-      if (!this.waiting.has(path)) out.push({ path, size: 0, direction: "upload" });
+      if (!this.waiting.has(path))
+        out.push({ path, size: 0, direction: "upload", reason: "unreadable" });
     return out;
+  }
+
+  /**
+   * S-08: a file over the threshold waits on a metered network, unless the user asked to send
+   * it now. On an unknown network (iOS) the user is asked once per cycle; "yes" holds.
+   */
+  private async networkHolds(path: string, size: number): Promise<boolean> {
+    const w = this.d.wifiOnly?.();
+    if (!w?.enabled || size <= w.thresholdBytes) return false;
+    if (this.allowOnce.delete(path)) return false;
+    const kind = this.d.network?.kind() ?? "free";
+    if (kind === "free") return false;
+    if (kind === "metered") return true;
+    if (this.meteredOk) return false;
+    if (this.askedThisCycle) return true;
+    this.askedThisCycle = true;
+    this.meteredOk = await this.d.network!.ask().catch(() => false);
+    return !this.meteredOk;
+  }
+
+  /** "Carica/scarica ora" on a waiting file: let it through once (S-08). */
+  async transferNow(path: string): Promise<void> {
+    this.allowOnce.add(path);
+    await this.syncNow();
   }
 
   /** Over the limit for an adapter that holds whole files in memory. */
@@ -527,6 +568,8 @@ export class Engine {
     this.unreadable = scan.unreadable;
     this.dirty = false;
     this.waiting.clear();
+    this.askedThisCycle = false;
+    this.meteredOk = false;
     await this.d.fs.saveState(STATE_FILES.cache, JSON.stringify(this.scanner.cache));
     if (
       this.holdsDeletions(scan.files, [...scan.unreadable, ...scan.tooLarge.map((f) => f.path)])
@@ -537,7 +580,7 @@ export class Engine {
     // C1 (review): unreadable files are present with unknown content, never taken for deleted.
     // I4: files too big to hash here are present too, and wait as deferred.
     for (const f of scan.tooLarge)
-      this.waiting.set(f.path, { path: f.path, size: f.size, direction: "upload" });
+      this.waiting.set(f.path, { path: f.path, size: f.size, direction: "upload", reason: "size" });
     const unreadable = [...scan.unreadable, ...scan.tooLarge.map((f) => f.path)].flatMap((p) => {
       const n = normalizePath(p, this.d.config.configDir);
       return n.ok ? [n.path] : [];
@@ -792,9 +835,23 @@ export class Engine {
         if (this.pausedFlag || this.closed) throw new Paused();
         // Not on disk any more: the commit answers blob_missing, the next cycle decides.
         if (!src) continue;
+        if (await this.networkHolds(src.path, src.size)) {
+          this.waiting.set(src.path, {
+            path: src.path,
+            size: src.size,
+            direction: "upload",
+            reason: "network",
+          });
+          continue;
+        }
         if (this.tooBig(src.size)) {
           // Never lost: it stays on disk and in the queue (blob_missing), shown as deferred.
-          this.waiting.set(src.path, { path: src.path, size: src.size, direction: "upload" });
+          this.waiting.set(src.path, {
+            path: src.path,
+            size: src.size,
+            direction: "upload",
+            reason: "size",
+          });
           continue;
         }
         try {
@@ -834,6 +891,17 @@ export class Engine {
       case "write": {
         let ok = false;
         try {
+          // S-08: a large download on a metered network waits (the index keeps it).
+          const remoteSize = this.st.durable.index[fx.fileId]?.size ?? 0;
+          if (await this.networkHolds(fx.path, remoteSize)) {
+            this.waiting.set(fx.path, {
+              path: fx.path,
+              size: remoteSize,
+              direction: "download",
+              reason: "network",
+            });
+            throw new Held();
+          }
           // I4: replacing a local file too big to check here waits, unread.
           const local = fs.streaming ? null : await fs.stat(fx.path).catch(() => null);
           if (local && this.tooBig(local.size)) throw new TooLarge(local.size);
@@ -847,8 +915,15 @@ export class Engine {
           );
           ok = (await fs.write(fx.path, parts, fx.expect, fx.hash)) === "ok";
         } catch (e) {
-          if (e instanceof TooLarge)
-            this.waiting.set(fx.path, { path: fx.path, size: e.size, direction: "download" });
+          if (e instanceof Held) {
+            // already recorded as waiting
+          } else if (e instanceof TooLarge)
+            this.waiting.set(fx.path, {
+              path: fx.path,
+              size: e.size,
+              direction: "download",
+              reason: "size",
+            });
           else if (e instanceof ApiError) this.failure(e);
           else this.log("write_failed");
         }
@@ -896,7 +971,16 @@ export class Engine {
   private queued(): number {
     if (this.pendingMemo?.st !== this.st)
       this.pendingMemo = { st: this.st, count: pendingOps(this.st).length };
-    const n = this.pendingMemo.count;
+    // Waiting files are never safe (spec §6.3). A waiting upload stops being a pending op once
+    // the server answered blob_missing: count it here unless it still is one.
+    let waiting = 0;
+    if (this.waiting.size > 0) {
+      const pendingPaths = new Set(
+        pendingChanges(this.st, 0).map((p) => localPath(p.path, this.d.config.configDir)),
+      );
+      for (const w of this.waiting.values()) if (!pendingPaths.has(w.path)) waiting++;
+    }
+    const n = this.pendingMemo.count + waiting;
     return n > 0 ? n : this.dirty ? 1 : 0;
   }
 

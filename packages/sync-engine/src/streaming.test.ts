@@ -158,6 +158,35 @@ describe("large files (E3)", () => {
     expect(e.deferred()).toEqual([{ path: "big.bin", size: 64, direction: "upload" }]);
     expect(disk.files.has("big.bin")).toBe(true);
     expect(server.statuses.at(-1)).toMatchObject({ deferredFiles: 1 });
+    // Never read whole into memory (review I4): only the small file (hash, then upload).
+    expect(t.read).toBe(4);
+  });
+
+  it("without streaming, files excluded by the settings are never read (review I4)", async () => {
+    const server = new FakeServer();
+    const disk = new MemoryFs();
+    disk.put("note.md", "ok");
+    disk.put(".git/objects/pack.bin", big(64));
+    const t = new Timeline();
+    const e = await Engine.open(
+      deps(instrumented(disk, t, false), watchedHttp(server, t), { maxInMemoryBytes: 1000 }),
+    );
+    await e.syncNow();
+    expect(t.read).toBe(4); // note.md hashed and uploaded; .git never read
+    expect(server.store.snapshot().files.map((f) => f.path)).toEqual(["note.md"]);
+  });
+
+  it("without streaming, a local file too big to hash is never read and waits (review I4)", async () => {
+    const server = new FakeServer();
+    const disk = new MemoryFs();
+    disk.put("big.md", "y".repeat(64));
+    const t = new Timeline();
+    const e = await Engine.open(
+      deps(instrumented(disk, t, false), watchedHttp(server, t), { maxInMemoryBytes: 32 }),
+    );
+    await e.syncNow();
+    expect(t.read).toBe(0);
+    expect(e.deferred()).toEqual([{ path: "big.md", size: 64, direction: "upload" }]);
   });
 
   it("without streaming, a remote file over the limit is not downloaded", async () => {

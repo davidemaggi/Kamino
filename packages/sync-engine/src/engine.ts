@@ -158,7 +158,12 @@ export class Engine {
     this.st = initialState(d.config);
     if (durable) this.st = { ...this.st, durable };
     this.api = new Api(d.http, d.token);
-    this.scanner = new Scanner(d.fs, d.config.configDir, cache);
+    this.scanner = new Scanner(d.fs, d.config.configDir, cache, {
+      settings: () => this.st.config.settings,
+      caseInsensitive: d.config.platform !== "linux",
+      maxHashBytes: () =>
+        d.fs.streaming ? Infinity : (d.limits?.maxInMemoryBytes ?? DEFAULT_MAX_IN_MEMORY_BYTES),
+    });
     this.transfers = new Transfers(this.api, d.fs, sessions, (s) =>
       d.fs.saveState(STATE_FILES.uploads, JSON.stringify(s)),
     );
@@ -370,12 +375,17 @@ export class Engine {
     this.dirty = false;
     this.waiting.clear();
     await this.d.fs.saveState(STATE_FILES.cache, JSON.stringify(this.scanner.cache));
-    if (this.holdsDeletions(scan.files, scan.unreadable)) {
+    if (
+      this.holdsDeletions(scan.files, [...scan.unreadable, ...scan.tooLarge.map((f) => f.path)])
+    ) {
       this.changed();
       return;
     }
     // C1 (review): unreadable files are present with unknown content, never taken for deleted.
-    const unreadable = scan.unreadable.flatMap((p) => {
+    // I4: files too big to hash here are present too, and wait as deferred.
+    for (const f of scan.tooLarge)
+      this.waiting.set(f.path, { path: f.path, size: f.size, direction: "upload" });
+    const unreadable = [...scan.unreadable, ...scan.tooLarge.map((f) => f.path)].flatMap((p) => {
       const n = normalizePath(p, this.d.config.configDir);
       return n.ok ? [n.path] : [];
     });
@@ -655,6 +665,9 @@ export class Engine {
       case "write": {
         let ok = false;
         try {
+          // I4: replacing a local file too big to check here waits, unread.
+          const local = fs.streaming ? null : await fs.stat(fx.path).catch(() => null);
+          if (local && this.tooBig(local.size)) throw new TooLarge(local.size);
           const parts = this.transfers.download(
             this.d.vaultId,
             fx.hash,
@@ -679,8 +692,14 @@ export class Engine {
         break;
       }
       case "trash": {
-        // Only if the file still holds the content the client decided about.
-        const cur = await sha256Hex(fs.read(fx.path)).catch(() => null);
+        // Only if the file still holds the content the client decided about; unchanged size and
+        // mtime since the scan mean the hash is known without reading the file (I4).
+        const st = await fs.stat(fx.path).catch(() => null);
+        const known = this.scanner.cache[fx.path];
+        const cur =
+          st && known && known.size === st.size && known.mtime === st.mtime
+            ? known.hash
+            : await sha256Hex(fs.read(fx.path)).catch(() => null);
         const ok = cur === fx.expect && (await fs.trash(fx.path).catch(() => false));
         ev = { type: "trashed", fileId: fx.fileId, ok };
         break;

@@ -144,7 +144,8 @@ export class ObsidianFs implements VaultFs {
           all.set(c, o);
           o += c.length;
         }
-        await this.adapter.writeBinary(tmp, copy(all));
+        // `all` owns its whole buffer: no extra copy (I4).
+        await this.adapter.writeBinary(tmp, all.buffer as ArrayBuffer);
       }
       if (h.digest() !== want) {
         await this.adapter.remove(tmp);

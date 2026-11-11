@@ -117,6 +117,8 @@ export const STATE_FILES = {
 export type SyncMode = "live" | "periodic" | "manual";
 /** Live with the socket down: a pull this often until it is back (spec F3). */
 export const LIVE_FALLBACK_MS = 300_000;
+/** S-08 on iOS: an answer to the metered-network question holds this long (review I5). */
+export const ASK_WINDOW_MS = 30 * 60_000;
 
 type FileEffect = Extract<Effect, { type: "write" | "rename" | "trash" | "mkdir" | "rmdir" }>;
 
@@ -172,9 +174,10 @@ export class Engine {
   /** I1 (review): files that vanished in one scan, held until the user confirms. */
   private heldDeletions: number | null = null;
   private realtime: Realtime | null = null;
-  /** S-08: "yes" to the metered-network question holds for this cycle (the plugin remembers "don't ask again"). */
-  private meteredOk = false;
-  private askedThisCycle = false;
+  /** S-08 on iOS (review I5): the answer to the metered question holds for a while. */
+  private meteredUntil = 0;
+  private deniedUntil = 0;
+  private asking = false;
   /** Paths the user asked to transfer now ("carica/scarica ora"): let through once. */
   private readonly allowOnce = new Set<string>();
   /** F4: what the engine just did to the vault, to tell its own events apart. */
@@ -485,11 +488,23 @@ export class Engine {
     const kind = this.d.network?.kind() ?? "free";
     if (kind === "free") return false;
     if (kind === "metered") return true;
-    if (this.meteredOk) return false;
-    if (this.askedThisCycle) return true;
-    this.askedThisCycle = true;
-    this.meteredOk = await this.d.network!.ask().catch(() => false);
-    return !this.meteredOk;
+    // Unknown network (iOS): never wait for the answer; the file waits while it's pending.
+    const now = this.d.clock.now();
+    if (now < this.meteredUntil) return false;
+    if (now < this.deniedUntil || this.asking) return true;
+    this.asking = true;
+    void this.d.network!.ask().then(
+      (yes) => {
+        this.asking = false;
+        const t = this.d.clock.now();
+        if (yes) {
+          this.meteredUntil = t + ASK_WINDOW_MS;
+          void this.kick();
+        } else this.deniedUntil = t + ASK_WINDOW_MS;
+      },
+      () => (this.asking = false),
+    );
+    return true;
   }
 
   /** "Carica/scarica ora" on a waiting file: let it through once (S-08). */
@@ -584,8 +599,7 @@ export class Engine {
     this.unreadable = scan.unreadable;
     this.dirty = false;
     this.waiting.clear();
-    this.askedThisCycle = false;
-    this.meteredOk = false;
+
     await this.d.fs.saveState(STATE_FILES.cache, JSON.stringify(this.scanner.cache));
     if (
       this.holdsDeletions(scan.files, [...scan.unreadable, ...scan.tooLarge.map((f) => f.path)])

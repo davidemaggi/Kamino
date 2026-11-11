@@ -75,32 +75,39 @@ describe("large attachments only on Wi-Fi (S-08)", () => {
     expect(server.files().has("b.bin")).toBe(false);
   });
 
-  it("iOS: asks once per cycle; yes lets the cycle's large files through", async () => {
-    const n = fixed("ask", true);
+  it("iOS: the question never blocks the cycle; yes lets the large files go (review I5)", async () => {
+    let answer: (v: boolean) => void = () => {};
+    const n = {
+      asked: 0,
+      kind: () => "ask" as const,
+      ask: () => (n.asked++, new Promise<boolean>((r) => (answer = r))),
+    };
     const { server, fs, d } = setup(n);
+    fs.put("note.md", "short");
     fs.put("a.bin", "x".repeat(50));
-    fs.put("b.bin", "z".repeat(50));
     const e = await Engine.open(d);
-    await e.syncNow();
+    await e.syncNow(); // returns while the question is still open
     expect(n.asked).toBe(1);
-    expect(server.files().size).toBe(2);
-    fs.put("c.bin", "w".repeat(50));
+    expect([...server.files().keys()]).toEqual(["note.md"]);
+    answer(true);
+    await new Promise((r) => setTimeout(r, 0));
     await e.syncNow();
-    expect(n.asked).toBe(2); // asked again: "don't ask again" is the plugin's choice
-    expect(server.files().size).toBe(3);
+    expect(server.files().has("a.bin")).toBe(true);
+    expect(n.asked).toBe(1);
   });
 
-  it("iOS: no means they wait, asked again at the next cycle", async () => {
+  it("iOS: no is remembered for a while, not asked at every cycle (review I5)", async () => {
     const n = fixed("ask", false);
     const { server, fs, d } = setup(n);
     fs.put("a.bin", "x".repeat(50));
     const e = await Engine.open(d);
     await e.syncNow();
-    expect(server.files().size).toBe(0);
+    await new Promise((r) => setTimeout(r, 0));
     await e.syncNow();
-    expect(n.asked).toBe(2);
+    await e.syncNow();
+    expect(n.asked).toBe(1);
+    expect(server.files().size).toBe(0);
   });
-
   it("a network change mid-batch defers only the next files", async () => {
     let kind: "free" | "metered" = "free";
     const net = { kind: () => kind, ask: async () => false };

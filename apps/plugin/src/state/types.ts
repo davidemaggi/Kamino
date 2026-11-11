@@ -38,6 +38,8 @@ export interface DeferredFile {
   path: string;
   size: number;
   direction: "upload" | "download";
+  /** Why it waits: a metered network (S-08), the in-memory limit, a failed read. */
+  reason?: "network" | "size" | "unreadable";
 }
 
 export interface DeviceInfo {

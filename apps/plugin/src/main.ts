@@ -18,6 +18,7 @@ import { detectLanguage, t } from "./i18n/index.js";
 import { SettingsStore } from "./settings/store.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
 import { EngineState } from "./state/engine-state.js";
+import { InsistentNotices } from "./state/insistent-notices.js";
 import { FakeSyncState } from "./state/fake.js";
 import type { ConflictActions, SyncStateSource } from "./state/types.js";
 import { Watcher } from "./engine/watcher.js";
@@ -211,6 +212,15 @@ export default class SyncPlugin extends Plugin {
     const refresh = () =>
       indicator.update(describeStatus(state.snapshot(), DEFAULT_THRESHOLDS, now()));
     this.register(state.onChange(refresh));
+    // S-05: never silent; the warning comes back every hour while the problem lasts.
+    this.register(
+      new InsistentNotices({
+        source: state,
+        clock: now,
+        notice: (msg) => new Notice(msg),
+        lang,
+      }).start(),
+    );
     if (fakeState) {
       this.register(
         server.onChange((e) => {

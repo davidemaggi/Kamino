@@ -309,6 +309,55 @@ describe("engine", () => {
     expect(e.snapshot().blocked).toBeNull();
   });
 
+  it("a rename during the scan is a move, not a delete and a new file (review I2)", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    fs.put("a.md", "content");
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    const id = [...server.store.files.values()][0]!.fileId;
+    // The user renames a.md while the next scan is listing the vault.
+    const list = fs.list.bind(fs);
+    let once = true;
+    fs.list = async () => {
+      const out = await list();
+      if (once) {
+        once = false;
+        await fs.rename("a.md", "b.md");
+        e.localRename("a.md", "b.md");
+      }
+      return out;
+    };
+    await e.syncNow();
+    await e.syncNow();
+    const files = [...server.store.files.values()];
+    expect(files.map((f) => [f.fileId, f.path, f.deleted])).toEqual([[id, "b.md", false]]);
+  });
+
+  it("a failed state save doesn't leave the engine stuck (review I3)", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    fs.put("a.md", "x");
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    const save = fs.saveState.bind(fs);
+    let failures = 0;
+    fs.saveState = async (name, data) => {
+      // Disk full exactly when the push result is being recorded.
+      if (name === "durable" && failures === 0 && data.includes("b.md") && !data.includes('"sent":[{')) {
+        failures++;
+        throw new Error("ENOSPC");
+      }
+      return save(name, data);
+    };
+    fs.put("b.md", "y");
+    await e.syncNow();
+    expect(failures).toBe(1);
+    await e.syncNow();
+    expect(server.files().get("b.md")).toBe("y");
+    expect(e.snapshot().queued).toBe(0);
+  });
+
   it("resumes from the saved state after a restart", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

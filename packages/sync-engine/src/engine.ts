@@ -112,6 +112,9 @@ export class Engine {
   private readonly waiting = new Map<string, DeferredFile>();
   /** I1 (review): files that vanished in one scan, held until the user confirms. */
   private heldDeletions: number | null = null;
+  /** I2 (review): renames reported while a scan runs wait for it, then the vault is scanned again. */
+  private scanning = false;
+  private readonly queuedRenames: ClientEvent[] = [];
   private allowDeletionsOnce = false;
   /** A local change was reported after the last scan. */
   private dirty = false;
@@ -207,7 +210,11 @@ export class Engine {
   localRename(from: string, to: string): void {
     const f = normalizePath(from, this.d.config.configDir);
     const t = normalizePath(to, this.d.config.configDir);
-    if (f.ok && t.ok) void this.dispatch({ type: "localRename", from: f.path, to: t.path });
+    if (f.ok && t.ok) {
+      const ev: ClientEvent = { type: "localRename", from: f.path, to: t.path };
+      if (this.scanning) this.queuedRenames.push(ev);
+      else void this.dispatch(ev);
+    }
     this.localChange();
   }
 
@@ -314,13 +321,22 @@ export class Engine {
     if (this.closed || this.stopReason) return;
     this.netFailed = false;
     let scan;
+    this.scanning = true;
     try {
-      scan = await this.scanner.scan();
+      // A rename during the scan may or may not be in it: apply it, then scan again.
+      for (let i = 0; ; i++) {
+        scan = await this.scanner.scan();
+        if (this.queuedRenames.length === 0 || i >= 3) break;
+        for (const ev of this.queuedRenames.splice(0)) await this.dispatch(ev);
+      }
     } catch {
       this.log("scan_failed");
       this.netFailed = true;
       this.scheduleRetry();
       return;
+    } finally {
+      this.scanning = false;
+      for (const ev of this.queuedRenames.splice(0)) void this.dispatch(ev);
     }
     this.unreadable = scan.unreadable;
     this.dirty = false;

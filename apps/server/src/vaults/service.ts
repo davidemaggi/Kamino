@@ -65,6 +65,17 @@ export class VaultService {
     return v!;
   }
 
+  /** Rename and/or change the history retention; the name is re-encrypted. */
+  async update(v: Vault, patch: { name?: string | undefined; retentionDays?: number | undefined }) {
+    const set: Partial<typeof vaults.$inferInsert> = {};
+    if (patch.name !== undefined)
+      set.nameEnc = this.cryptoOf(v).enc("vaults", "name", v.id, patch.name);
+    if (patch.retentionDays !== undefined) set.retentionDays = patch.retentionDays;
+    if (Object.keys(set).length === 0) return v;
+    const [row] = await this.db.update(vaults).set(set).where(eq(vaults.id, v.id)).returning();
+    return row!;
+  }
+
   async listForUser(ownerId: string): Promise<Vault[]> {
     return this.db
       .select()

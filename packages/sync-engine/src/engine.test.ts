@@ -344,7 +344,12 @@ describe("engine", () => {
     let failures = 0;
     fs.saveState = async (name, data) => {
       // Disk full exactly when the push result is being recorded.
-      if (name === "durable" && failures === 0 && data.includes("b.md") && !data.includes('"sent":[{')) {
+      if (
+        name === "durable" &&
+        failures === 0 &&
+        data.includes("b.md") &&
+        !data.includes('"sent":[{')
+      ) {
         failures++;
         throw new Error("ENOSPC");
       }
@@ -353,8 +358,15 @@ describe("engine", () => {
     fs.put("b.md", "y");
     await e.syncNow();
     expect(failures).toBe(1);
+    await server.remotePut(
+      "dev-b",
+      { opId: "r1", fileId: "rf", versionId: "rv", path: "r.md", baseVersionId: null, mtime: 1 },
+      "remote",
+    );
+    await e.syncNow();
     await e.syncNow();
     expect(server.files().get("b.md")).toBe("y");
+    expect(fs.text("r.md")).toBe("remote"); // still pulling: not stuck
     expect(e.snapshot().queued).toBe(0);
   });
 

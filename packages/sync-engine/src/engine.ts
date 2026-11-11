@@ -459,13 +459,20 @@ export class Engine {
   private async apply(ev: ClientEvent): Promise<void> {
     if (this.stopReason) return;
     const { state, effects } = step(this.st, ev, { newId: this.d.newId });
-    this.st = state;
-    for (const fx of effects) {
-      // E5: write-ahead, before any other effect of this step.
-      if (fx.type === "persist")
-        await this.d.fs.saveState(STATE_FILES.durable, JSON.stringify(state.durable));
-      else this.perform(fx);
+    // E5: write-ahead. The new state exists only once saved; nothing else happens before.
+    try {
+      await this.d.fs.saveState(STATE_FILES.durable, JSON.stringify(state.durable));
+    } catch {
+      // I3 (review): the step is dropped. Back to idle so the next cycle can run: pending ops are
+      // resent identical, a lost file event is recovered by the scan.
+      this.log("persist_failed");
+      this.st = { ...this.st, vol: { ...this.st.vol, phase: "idle", requestId: null } };
+      this.netFailed = true;
+      this.changed();
+      return;
     }
+    this.st = state;
+    for (const fx of effects) if (fx.type !== "persist") this.perform(fx);
     if (state.vol.stopped) this.halt(state.vol.stopped);
     this.changed();
   }

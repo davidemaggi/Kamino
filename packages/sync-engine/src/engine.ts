@@ -454,8 +454,14 @@ export class Engine {
       ev = await f();
       this.unreachableSince = null;
     } catch (e) {
-      this.failure(e);
-      ev = { type: "networkError", requestId };
+      if (e instanceof ApiError && e.kind === "cursor_too_old") {
+        // 03 §6.3: start again from the snapshot, reconciled with what this device knows.
+        this.log("cursor_too_old");
+        ev = { type: "resync", requestId };
+      } else {
+        this.failure(e);
+        ev = { type: "networkError", requestId };
+      }
     }
     if (this.stopReason) return;
     await this.dispatch(ev);
@@ -472,8 +478,6 @@ export class Engine {
       return;
     }
     if (e.kind === "network") this.unreachableSince ??= this.d.clock.now();
-    // TODO(M1d task 7): full reconciliation from the snapshot when the cursor is too old.
-    if (e.kind === "cursor_too_old") this.log("cursor_too_old");
     if (e.code) this.lastError = e.code;
     this.netFailed = true;
   }

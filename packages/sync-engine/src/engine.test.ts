@@ -222,6 +222,38 @@ describe("engine", () => {
     expect(told).toBe(1);
   });
 
+  it("catches up from the snapshot when its cursor is too old (03 §6.3)", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    fs.put("mine.md", "kept");
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    await server.remotePut(
+      "dev-b",
+      {
+        opId: "o1",
+        fileId: "f1",
+        versionId: "v1",
+        path: "while-away.md",
+        baseVersionId: null,
+        mtime: 5,
+      },
+      "news",
+    );
+    server.floor = server.store.head; // compacted past this device
+    await e.syncNow();
+    await e.syncNow();
+    expect(fs.text("while-away.md")).toBe("news");
+    expect(fs.text("mine.md")).toBe("kept");
+    expect(server.files()).toEqual(
+      new Map([
+        ["mine.md", "kept"],
+        ["while-away.md", "news"],
+      ]),
+    );
+    expect(e.snapshot().unreachableSince).toBeNull();
+  });
+
   it("resumes from the saved state after a restart", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

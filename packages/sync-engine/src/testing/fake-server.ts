@@ -37,6 +37,8 @@ export class FakeServer {
   /** Unreachable: every request throws. */
   down = false;
   revoked = false;
+  /** Compacted journal: pulls after an older position get 410 cursor_too_old. */
+  floor = 0;
   requests = 0;
   private next = 1;
 
@@ -129,6 +131,7 @@ export class FakeServer {
     }
     if (r.method === "GET" && path === "/vaults/v/changes") {
       const after = Number(new URLSearchParams(query).get("after") ?? 0);
+      if (after < this.floor) return err(410, "cursor_too_old");
       return { status: 200, json: this.store.changes(after, 50) };
     }
     if (r.method === "GET" && path === "/vaults/v/snapshot")

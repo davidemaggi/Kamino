@@ -82,8 +82,11 @@ Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del disposit
 
 1. **Prova del plugin in Obsidian desktop** con il server Docker (vault di prova `vault/kamino` con `pnpm --filter @kamino/plugin build:vault`; nella build di sviluppo il server vero si attiva con `localStorage["kamino-sync-dev-real-server"] = "1"` dalla console di Obsidian): collegamento, upload, modifica, stato.
 2. **Test sui dispositivi** D-1…D-4 (`docs/spikes/README.md`, "Test sui dispositivi dopo M1d"): file grandi su iPhone/Android, resume e cambio di rete, spostamento di una cartella da 2.000 file, una settimana d'uso. Nessuna release pubblica prima di questi.
-3. **M2b — parte plugin di M2** (WebSocket, modalità Live/Periodica/Manuale, D-07, allegati solo in Wi-Fi): brainstorming → spec → piano, poi esecuzione a blocchi con checkpoint (`CLAUDE.md`). Includere i minori rinviati dalla revisione di M1d che toccano il motore (elenco in "Revisione finale di M1d").
-4. Opzionale: aprire la PR del branch `m2b-plugin-realtime` solo quando conterrà lavoro vero (oggi ha solo questo file).
+3. **M2b — parte plugin di M2** (WebSocket, modalità Live/Periodica/Manuale, D-07, allegati solo in Wi-Fi): brainstorming rapido → spec → piano → esecuzione. Includere i minori rinviati dalla revisione di M1d che toccano il motore.
+4. **Poi un unico pacchetto M4+M5+M6** (rotte del server dietro le schermate già fatte: area utente, admin/quote/email, pairing QR) con una sola spec e un solo piano.
+5. M3 (conflitti e storico) e M7 (hardening, release) restano milestone a sé.
+
+**Accelerazioni decise dal committente (2026-11-11):** (1) M4, M5 e M6 in un unico pacchetto; (2) spec leggere per le parti a basso rischio (rotte, schermate), rigore pieno solo dove si possono perdere dati (M2b, M3); (3) la simulazione profonda (`test:deep`) gira in CI, non a ogni modifica in locale (in locale bastano i 150 scenari di `pnpm test`); (4) quando possibile lavorare dal Mac.
 
 ## Come riprendere su un altro PC
 

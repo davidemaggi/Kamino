@@ -82,7 +82,7 @@
     "pending": "Non ancora sul server · {count}",
     "pendingMeta": "{op} · {age}",
     "showAll": "Mostra tutte ({count})",
-    "deferred": "In attesa di Wi-Fi · {count}",
+    "deferred": "In attesa · {count}",
     "uploadNow": "Carica ora",
     "downloadNow": "Scarica ora",
     "device": "Questo dispositivo",
@@ -101,7 +101,11 @@
       "modify": "modificata",
       "delete": "eliminata",
       "rename": "rinominata"
-    }
+    },
+    "confirmDeletions": "Conferma le cancellazioni…",
+    "confirmDeletionsTitle": "Cancellare questi file ovunque?",
+    "confirmDeletionsText": "{count} file sono spariti insieme da questo dispositivo. Se li hai cancellati tu, finiranno nel cestino anche sugli altri dispositivi; le loro versioni restano sul server. Se sono spariti per errore (un disco non collegato, un permesso mancante), annulla e controlla prima.",
+    "confirmDeletionsYes": "Cancellali"
   },
   "conflict": {
     "viewTitle": "Conflitto: {name}",

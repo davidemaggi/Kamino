@@ -95,15 +95,17 @@ export function snapshotOf(x: {
   syncing: boolean;
   conflicts: number;
   stopped: StopReason | null;
+  heldDeletions?: number | null;
 }): SyncSnapshot {
+  const held = !x.stopped && x.heldDeletions != null;
   return {
-    queued: x.queued,
+    queued: held ? x.heldDeletions! : x.queued,
     oldestQueuedAt: x.queued > 0 ? x.oldestQueuedAt : null,
     lastConfirmedAt: x.lastConfirmedAt,
     unreachableSince: x.unreachableSince,
     syncing: x.syncing,
     conflicts: x.conflicts,
-    blocked: x.stopped ? BLOCK[x.stopped] : null,
+    blocked: x.stopped ? BLOCK[x.stopped] : held ? "deletions" : null,
     quotaRatio: null,
     linked: true,
   };

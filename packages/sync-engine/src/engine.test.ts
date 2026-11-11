@@ -277,6 +277,38 @@ describe("engine", () => {
     expect(e.deferred()).toEqual([]);
   });
 
+  it("holds a mass deletion until the user confirms it (review I1)", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    for (let i = 0; i < 60; i++) fs.put(`n${i}.md`, `x${i}`);
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    expect(server.files().size).toBe(60);
+    // The listing comes back empty (unmounted disk, revoked permission…).
+    for (let i = 0; i < 60; i++) fs.remove(`n${i}.md`);
+    await e.syncNow();
+    expect(server.files().size).toBe(60);
+    expect(e.snapshot().blocked).toBe("deletions");
+    await e.syncNow(); // still held, cycle after cycle
+    expect(server.files().size).toBe(60);
+    await e.confirmDeletions();
+    expect(server.files().size).toBe(0);
+    expect(e.snapshot().blocked).toBeNull();
+  });
+
+  it("a few deletions go through without asking", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    for (let i = 0; i < 10; i++) fs.put(`n${i}.md`, `x${i}`);
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    fs.remove("n0.md");
+    fs.remove("n1.md");
+    await e.syncNow();
+    expect(server.files().size).toBe(8);
+    expect(e.snapshot().blocked).toBeNull();
+  });
+
   it("resumes from the saved state after a restart", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

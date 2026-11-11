@@ -110,6 +110,9 @@ export class Engine {
   private unreadable: string[] = [];
   /** Files waiting for streaming or a higher limit, by local path; rebuilt each cycle. */
   private readonly waiting = new Map<string, DeferredFile>();
+  /** I1 (review): files that vanished in one scan, held until the user confirms. */
+  private heldDeletions: number | null = null;
+  private allowDeletionsOnce = false;
   /** A local change was reported after the last scan. */
   private dirty = false;
 
@@ -224,6 +227,7 @@ export class Engine {
       syncing: this.running !== null || this.inflight.size > 0,
       conflicts: this.conflicts().length,
       stopped: this.stopReason,
+      heldDeletions: this.heldDeletions,
     });
   }
 
@@ -322,6 +326,10 @@ export class Engine {
     this.dirty = false;
     this.waiting.clear();
     await this.d.fs.saveState(STATE_FILES.cache, JSON.stringify(this.scanner.cache));
+    if (this.holdsDeletions(scan.files, scan.unreadable)) {
+      this.changed();
+      return;
+    }
     // C1 (review): unreadable files are present with unknown content, never taken for deleted.
     const unreadable = scan.unreadable.flatMap((p) => {
       const n = normalizePath(p, this.d.config.configDir);
@@ -333,6 +341,46 @@ export class Engine {
     await this.report();
     if (this.netFailed) this.scheduleRetry();
     else this.attempt = 0;
+  }
+
+  /**
+   * I1 (review): an empty or partial listing (unmounted disk, revoked permission) must not delete
+   * the vault everywhere. When too many confirmed files vanish at once, the cycle stops before
+   * anything is sent and waits for `confirmDeletions()`.
+   */
+  private holdsDeletions(files: { path: string }[], unreadable: string[]): boolean {
+    const ci = this.d.config.platform !== "linux";
+    const key = (p: string) => (ci ? p.toLowerCase() : p);
+    const present = new Set(files.map((f) => key(f.path)));
+    for (const p of unreadable) {
+      const n = normalizePath(p, this.d.config.configDir);
+      if (n.ok) present.add(key(n.path));
+    }
+    let tracked = 0;
+    let vanished = 0;
+    for (const e of Object.values(this.st.durable.index)) {
+      if (!e.confirmed || e.localHash === null || e.ignored || e.pendingWrite || e.trashing)
+        continue;
+      tracked++;
+      if (!present.has(key(e.path))) vanished++;
+    }
+    const mass =
+      (tracked >= 5 && vanished === tracked) || (vanished > 50 && vanished * 4 > tracked);
+    if (!mass || this.allowDeletionsOnce) {
+      this.allowDeletionsOnce = false;
+      this.heldDeletions = null;
+      return false;
+    }
+    if (this.heldDeletions === null) this.log("deletions_held");
+    this.heldDeletions = vanished;
+    return true;
+  }
+
+  /** The user confirmed the deletions held by the brake: the next cycle sends them. */
+  async confirmDeletions(): Promise<void> {
+    this.allowDeletionsOnce = true;
+    this.heldDeletions = null;
+    await this.syncNow();
   }
 
   private scheduleRetry(): void {

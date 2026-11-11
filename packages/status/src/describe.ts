@@ -16,7 +16,8 @@ export function describeStatus(s: SyncSnapshot, th: Thresholds, now: number): St
   const add = (level: Level, key: StatusMessage["key"], params: Record<string, number> = {}) =>
     found.push({ level, message: { key, params } });
 
-  if (s.blocked !== null) add("blocked", `blocked.${s.blocked}`, { count: s.queued });
+  if (s.blocked === "deletions") add("decision", "decision.deletions", { count: s.queued });
+  else if (s.blocked !== null) add("blocked", `blocked.${s.blocked}`, { count: s.queued });
   if (s.conflicts > 0) add("decision", "decision.conflicts", { count: s.conflicts });
 
   const unreachableMs = s.unreachableSince === null ? null : now - s.unreachableSince;

@@ -28,6 +28,9 @@ function stub(): StateEngine & { syncs: number; fire(): void } {
     async syncNow() {
       this.syncs++;
     },
+    async confirmDeletions() {
+      this.syncs += 10;
+    },
     onChange(cb) {
       cbs.add(cb);
       return () => cbs.delete(cb);
@@ -91,5 +94,7 @@ describe("EngineState", () => {
     await s.syncNow();
     await s.transferNow("big.bin");
     expect(e.syncs).toBe(2);
+    await s.confirmDeletions();
+    expect(e.syncs).toBe(12);
   });
 });

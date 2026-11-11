@@ -82,7 +82,7 @@
     "pending": "Not on the server yet · {count}",
     "pendingMeta": "{op} · {age}",
     "showAll": "Show all ({count})",
-    "deferred": "Waiting for Wi-Fi · {count}",
+    "deferred": "Waiting · {count}",
     "uploadNow": "Upload now",
     "downloadNow": "Download now",
     "device": "This device",
@@ -101,7 +101,11 @@
       "modify": "modified",
       "delete": "deleted",
       "rename": "renamed"
-    }
+    },
+    "confirmDeletions": "Confirm deletions…",
+    "confirmDeletionsTitle": "Delete these files everywhere?",
+    "confirmDeletionsText": "{count} files disappeared from this device at once. If you deleted them, they will go to the trash on your other devices too; their versions stay on the server. If they disappeared by mistake (a disk not connected, a missing permission), cancel and check first.",
+    "confirmDeletionsYes": "Delete them"
   },
   "conflict": {
     "viewTitle": "Conflict: {name}",

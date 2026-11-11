@@ -19,6 +19,7 @@ export interface StateEngine {
   pending(): PendingChange[];
   deferred(): DeferredFile[];
   syncNow(): Promise<void>;
+  confirmDeletions(): Promise<void>;
   onChange(cb: () => void): () => void;
 }
 
@@ -122,6 +123,10 @@ export class EngineState implements SyncStateSource, ConflictActions {
 
   async syncNow(): Promise<void> {
     await this.o.engine()?.syncNow();
+  }
+
+  async confirmDeletions(): Promise<void> {
+    await this.o.engine()?.confirmDeletions();
   }
 
   /** Wi-Fi-only deferral arrives with M2b: for now a cycle tries everything again. */

@@ -76,4 +76,6 @@ export interface ConflictActions {
   syncNow(): Promise<void>;
   /** Sends or fetches now a file deferred to Wi-Fi (direction from DeferredFile). */
   transferNow(path: string): Promise<void>;
+  /** Sends the deletions held because too many files vanished at once (status "deletions"). */
+  confirmDeletions?(): Promise<void>;
 }

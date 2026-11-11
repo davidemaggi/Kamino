@@ -37,9 +37,36 @@ describe("StatusPanelView", () => {
     expect(headings(root)).toEqual([
       "Conflitti · 3",
       "Non ancora sul server · 3",
-      "In attesa di Wi-Fi · 1",
+      "In attesa · 1",
       "Questo dispositivo",
     ]);
+  });
+
+  it("held deletions: a warning button asks for confirmation, then sends them (review I1)", async () => {
+    const { ctx, state, plugin } = makeCtx();
+    state.setSnapshot({
+      ...state.snapshot(),
+      blocked: "deletions",
+      queued: 80,
+      lastConfirmedAt: TEST_NOW,
+    });
+    let confirmed = 0;
+    let asked = "";
+    const c = ctx as unknown as UiContext & { actions: { confirmDeletions?: () => Promise<void> } };
+    c.actions.confirmDeletions = async () => {
+      confirmed++;
+    };
+    c.confirm = async (o) => {
+      asked = o.text;
+      return true;
+    };
+    const { root } = await open(c, plugin);
+    expect(root.textContent).toContain("Molti file sono spariti");
+    const b = buttons(root).find((x) => x.textContent === "Conferma le cancellazioni…")!;
+    b.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(asked).toContain("80 file");
+    expect(confirmed).toBe(1);
   });
 
   it("conflict rows open the conflict; 'Risolvi tutti…' opens the bulk modal", async () => {

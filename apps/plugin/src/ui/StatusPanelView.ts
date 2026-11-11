@@ -101,6 +101,22 @@ export class StatusPanelView extends ItemView {
         void ctx.actions.syncNow();
       });
     }
+    const confirmDeletions = ctx.actions.confirmDeletions?.bind(ctx.actions);
+    if (snapshot.blocked === "deletions" && confirmDeletions) {
+      h(summary, "button", { cls: "mod-warning", text: m.confirmDeletions }).addEventListener(
+        "click",
+        () =>
+          void ctx
+            .confirm({
+              title: m.confirmDeletionsTitle,
+              text: fmt(m.confirmDeletionsText, { count: snapshot.queued }),
+              confirmText: m.confirmDeletionsYes,
+              cancelText: t(ctx.lang).settings.cancel,
+              warning: true,
+            })
+            .then((ok) => (ok ? confirmDeletions() : undefined)),
+      );
+    }
 
     const conflicts = ctx.source.conflicts();
     if (conflicts.length > 0) {

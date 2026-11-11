@@ -254,6 +254,29 @@ describe("engine", () => {
     expect(e.snapshot().unreachableSince).toBeNull();
   });
 
+  it("a file that can't be read is never deleted on the server, and is shown (review C1)", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    fs.put("locked.md", "v1");
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    fs.put("locked.md", "v2"); // changed, and now locked
+    const read = fs.read.bind(fs);
+    fs.read = (p: string) => {
+      if (p === "locked.md") throw new Error("EBUSY");
+      return read(p);
+    };
+    await e.syncNow();
+    expect(server.files().get("locked.md")).toBe("v1");
+    expect(e.deferred()).toEqual([
+      expect.objectContaining({ path: "locked.md", direction: "upload" }),
+    ]);
+    fs.read = read;
+    await e.syncNow();
+    expect(server.files().get("locked.md")).toBe("v2");
+    expect(e.deferred()).toEqual([]);
+  });
+
   it("resumes from the saved state after a restart", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

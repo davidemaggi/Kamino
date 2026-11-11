@@ -134,6 +134,15 @@ describe("client folders (Z9)", () => {
     ]);
   });
 
+  it("a file that can't be read is present, never deleted (review C1)", () => {
+    const store = new MemoryStore();
+    let s = joined(store);
+    s = cycle(s, store, [item("d/a.md", H1)], ["d"]).state;
+    const r = run(s, { type: "sync", scan: [], folders: ["d"], unreadable: ["d/a.md"] });
+    expect(ofType(r.effects, "push")).toEqual([]);
+    expect(Object.values(r.state.durable.index)[0]!.localHash).toBe(H1);
+  });
+
   it("a remote folder is created here; once done nothing more happens", () => {
     const store = new MemoryStore();
     store.commit([{ type: "mkdir", opId: "o1", fileId: "F", path: "d" }], "other");

@@ -236,8 +236,12 @@ export class Engine {
     }));
   }
 
+  /** Files waiting (no streaming, over the limit) and files that couldn't be read this time. */
   deferred(): DeferredFile[] {
-    return [...this.waiting.values()];
+    const out = [...this.waiting.values()];
+    for (const path of this.unreadable)
+      if (!this.waiting.has(path)) out.push({ path, size: 0, direction: "upload" });
+    return out;
   }
 
   /** Over the limit for an adapter that holds whole files in memory. */
@@ -318,7 +322,12 @@ export class Engine {
     this.dirty = false;
     this.waiting.clear();
     await this.d.fs.saveState(STATE_FILES.cache, JSON.stringify(this.scanner.cache));
-    await this.dispatch({ type: "sync", scan: scan.files, folders: scan.folders });
+    // C1 (review): unreadable files are present with unknown content, never taken for deleted.
+    const unreadable = scan.unreadable.flatMap((p) => {
+      const n = normalizePath(p, this.d.config.configDir);
+      return n.ok ? [n.path] : [];
+    });
+    await this.dispatch({ type: "sync", scan: scan.files, folders: scan.folders, unreadable });
     await this.settled();
     if (this.stopReason) return;
     await this.report();

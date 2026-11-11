@@ -138,7 +138,13 @@ export type ClientEvent =
    * Start of a cycle (03 §8): full scan of the vault, then push and pull. `folders` = canonical
    * folder paths on disk; absent = this shell doesn't report folders (folder state untouched).
    */
-  | { type: "sync"; scan: ScanItem[]; folders?: string[] }
+  | {
+      type: "sync";
+      scan: ScanItem[];
+      folders?: string[];
+      /** Canonical paths on disk that couldn't be read: present, content unknown (never deleted). */
+      unreadable?: string[];
+    }
   | { type: "folderDone"; fileId: string; op: "mkdir" | "rmdir" | "leftover"; ok: boolean }
   | { type: "localRename"; from: string; to: string }
   | { type: "snapshotResult"; requestId: string; snapshot: Snapshot }
@@ -227,7 +233,7 @@ export function step(
   const c: Ctx = { s, env, fx: [] };
   switch (event.type) {
     case "sync":
-      onSync(c, event.scan, event.folders);
+      onSync(c, event.scan, event.folders, event.unreadable ?? []);
       break;
     case "folderDone":
       onFolderDone(c, event.fileId, event.op, event.ok);
@@ -494,11 +500,16 @@ function renameDone(e: Entry, to: string): void {
 
 // ---------- local side ----------
 
-function onSync(c: Ctx, scan: ScanItem[], folderScan: string[] | undefined): void {
+function onSync(
+  c: Ctx,
+  scan: ScanItem[],
+  folderScan: string[] | undefined,
+  unreadable: string[],
+): void {
   const { s } = c;
   for (const e of entries(s)) e.blocked = null;
   for (const f of folderList(s)) f.blocked = null;
-  applyScan(c, scan);
+  applyScan(c, scan, unreadable);
   if (folderScan) applyFolderScan(c, folderScan);
   if (s.vol.phase !== "idle") return;
   if (!s.durable.joined) {
@@ -950,8 +961,9 @@ function onRemoteFolder(c: Ctx, entry: JournalEntry): void {
   }
 }
 
-function applyScan(c: Ctx, scan: ScanItem[]): void {
+function applyScan(c: Ctx, scan: ScanItem[], unreadable: string[] = []): void {
   const { s } = c;
+  const unread = new Set(unreadable.map((p) => diskKey(s, p)));
   const owners = new Map<string, Entry>();
   const byTarget = new Map<string, Entry>();
   const holders: Entry[] = [];
@@ -1016,6 +1028,8 @@ function applyScan(c: Ctx, scan: ScanItem[]): void {
   }
   // Every entry that thought it had a file, not only the map's winners: two entries can't share a path.
   for (const e of holders) {
+    // On disk but unreadable this time (locked, not downloaded): as it was, never a deletion.
+    if (!seen.has(e) && unread.has(diskKey(s, e.path))) continue;
     // Seen at its old path: an issued rename did not happen, retry it.
     if (seen.has(e) && e.renaming?.target && e.path !== e.renaming.target) e.renaming.target = null;
     if (seen.has(e)) {

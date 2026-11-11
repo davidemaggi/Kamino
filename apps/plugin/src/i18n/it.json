@@ -182,7 +182,8 @@
     "noticeJoined": "Nuovo dispositivo collegato: {name}.",
     "noticeReused": "Il link è stato usato da un secondo dispositivo ed è stato bloccato.",
     "requestGone": "Questa richiesta non è più valida: è scaduta o ha già avuto risposta.",
-    "answerFailed": "Non è stato possibile inviare la risposta. Riprova."
+    "answerFailed": "Non è stato possibile inviare la risposta. Riprova.",
+    "comingSoon": "L’abbinamento con QR arriva in una prossima versione: per ora collega questo dispositivo con nome utente e password."
   },
   "welcome": {
     "viewTitle": "Collega questo vault",
@@ -241,7 +242,9 @@
       "bad_credentials": "Nome utente o password non corretti.",
       "bad_totp": "Codice di verifica non corretto.",
       "locked": "Account bloccato: contatta l'amministratore.",
-      "required": "Compila questo campo."
+      "required": "Compila questo campo.",
+      "totp_mandatory": "Per gli amministratori la verifica in due passaggi è obbligatoria: attivala dalla web app (Account), poi riprova.",
+      "rate_limited": "Troppi tentativi: attendi qualche minuto e riprova."
     }
   },
   "transfer": {

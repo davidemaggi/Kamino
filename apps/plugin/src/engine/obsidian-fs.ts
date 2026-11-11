@@ -35,13 +35,19 @@ export class ObsidianFs implements VaultFs {
   constructor(
     app: App,
     private readonly pluginDir: string,
-    opts: { fetch?: FetchLike | undefined } = {
-      fetch: typeof fetch === "function" ? (u) => fetch(u) : undefined,
-    },
+    opts: { fetch?: FetchLike | undefined; stateDir?: string } = {},
   ) {
     this.adapter = app.vault.adapter as Adapter;
-    this.fetchFn = opts.fetch;
+    this.fetchFn =
+      "fetch" in opts
+        ? opts.fetch
+        : typeof fetch === "function"
+          ? (u: string) => fetch(u)
+          : undefined;
+    this.stateDir = opts.stateDir ?? `${pluginDir}/state`;
   }
+
+  private readonly stateDir: string;
 
   get streaming(): boolean {
     return (
@@ -188,7 +194,7 @@ export class ObsidianFs implements VaultFs {
   }
 
   private statePath(name: string): string {
-    return `${this.pluginDir}/state/${name}.json`;
+    return `${this.stateDir}/${name}.json`;
   }
 
   async loadState(name: string): Promise<string | null> {

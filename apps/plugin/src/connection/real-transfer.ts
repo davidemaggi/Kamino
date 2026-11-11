@@ -64,7 +64,8 @@ export class RealTransfer implements InitialTransfer {
     else if (snap.unreachableSince !== null) phase = "interrupted";
     // M9: done when only files that wait are left (they don't block the rest).
     const waiting = e.deferred().filter((f) => f.direction === this.direction).length;
-    const waitingLeft = this.direction === "download" ? waiting : 0;
+    // Waiting downloads stay in the download backlog, waiting uploads stay pending (review I6).
+    const waitingLeft = waiting;
     if (phase === "running" && this.cycled && left.files <= waitingLeft) phase = "done";
     return {
       direction: this.direction,

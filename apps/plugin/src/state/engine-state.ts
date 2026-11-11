@@ -20,6 +20,7 @@ export interface StateEngine {
   deferred(): DeferredFile[];
   syncNow(): Promise<void>;
   confirmDeletions(): Promise<void>;
+  transferNow(path: string): Promise<void>;
   onChange(cb: () => void): () => void;
 }
 
@@ -129,9 +130,8 @@ export class EngineState implements SyncStateSource, ConflictActions {
     await this.o.engine()?.confirmDeletions();
   }
 
-  /** Wi-Fi-only deferral arrives with M2b: for now a cycle tries everything again. */
+  /** "Carica/scarica ora" on a waiting file: the engine lets it through once (S-08). */
   async transferNow(path: string): Promise<void> {
-    void path;
-    await this.syncNow();
+    await this.o.engine()?.transferNow(path);
   }
 }

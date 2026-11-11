@@ -258,6 +258,7 @@ export default class SyncPlugin extends Plugin {
         clock: now,
         notice: (msg) => new Notice(msg),
         lang,
+        mode: () => settings.get().sync.mode,
       }).start(),
     );
     if (fakeState) {

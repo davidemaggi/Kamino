@@ -31,6 +31,10 @@ function stub(): StateEngine & { syncs: number; fire(): void } {
     async confirmDeletions() {
       this.syncs += 10;
     },
+    async transferNow(path: string) {
+      this.syncs += 100;
+      void path;
+    },
     onChange(cb) {
       cbs.add(cb);
       return () => cbs.delete(cb);
@@ -92,9 +96,9 @@ describe("EngineState", () => {
     expect(await s.resolveAll("keep_both", ["c1"])).toEqual({ resolved: 0 });
     expect(notices).toEqual(["soon", "soon"]);
     await s.syncNow();
-    await s.transferNow("big.bin");
-    expect(e.syncs).toBe(2);
+    await s.transferNow("big.bin"); // review I4: reaches the engine, not a plain sync
+    expect(e.syncs).toBe(101);
     await s.confirmDeletions();
-    expect(e.syncs).toBe(12);
+    expect(e.syncs).toBe(111);
   });
 });

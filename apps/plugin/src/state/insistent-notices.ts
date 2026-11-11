@@ -21,6 +21,8 @@ export class InsistentNotices {
       clock: () => number;
       notice(message: string): void;
       lang: Lang;
+      /** Review I7: an old queue nags only in Live (the user chose to sync later otherwise). */
+      mode?: () => "live" | "periodic" | "manual";
     },
   ) {}
 
@@ -38,14 +40,23 @@ export class InsistentNotices {
     const now = this.o.clock();
     const s = this.o.source.snapshot();
     const d = describeStatus(s, DEFAULT_THRESHOLDS, now);
+    // Files waiting for Wi-Fi are the user's choice: they don't nag, even while their upload is
+    // still a pending change (review I6).
+    const wifi = new Set(
+      this.o.source
+        .deferred()
+        .filter((f) => f.reason === "network")
+        .map((f) => f.path),
+    );
     const onlyWifi =
+      wifi.size > 0 &&
       s.blocked === null &&
       s.conflicts === 0 &&
       s.unreachableSince === null &&
-      this.o.source.pending().length === 0 &&
-      this.o.source.deferred().length > 0 &&
-      this.o.source.deferred().every((f) => f.reason === "network");
-    if (severity(d.level) < severity("attention") || onlyWifi) {
+      this.o.source.pending().every((p) => wifi.has(p.path));
+    const notLive = (this.o.mode?.() ?? "live") !== "live";
+    const staleOnly = d.message.key === "attention.stale" && notLive;
+    if (severity(d.level) < severity("attention") || onlyWifi || staleOnly) {
       this.lastShown = null;
       this.lastKey = null;
       return;

@@ -92,4 +92,38 @@ describe("InsistentNotices (S-05)", () => {
     expect(shown).toHaveLength(1);
     expect(shown[0]).toContain("disappeared");
   });
+  it("uploads waiting for Wi-Fi still pending don't nag (review I6)", () => {
+    const snap = { ...safe, queued: 1, oldestQueuedAt: now - 5 * HOUR };
+    const shown: string[] = [];
+    new InsistentNotices({
+      source: source(
+        () => snap,
+        () => [{ path: "v.mp4", size: 9, direction: "upload", reason: "network" } as DeferredFile],
+        () => [{ path: "v.mp4", op: "create", since: now - 5 * HOUR }],
+      ),
+      clock: () => now,
+      notice: (m) => shown.push(m),
+      lang: "en",
+    }).start();
+    expect(shown).toEqual([]);
+  });
+
+  it("an old queue nags only in Live mode (review I7)", () => {
+    const snap = { ...safe, queued: 3, oldestQueuedAt: now - 5 * HOUR };
+    for (const [mode, expected] of [
+      ["live", 1],
+      ["periodic", 0],
+      ["manual", 0],
+    ] as const) {
+      const shown: string[] = [];
+      new InsistentNotices({
+        source: source(() => snap),
+        clock: () => now,
+        notice: (m) => shown.push(m),
+        lang: "en",
+        mode: () => mode,
+      }).start();
+      expect(shown).toHaveLength(expected);
+    }
+  });
 });

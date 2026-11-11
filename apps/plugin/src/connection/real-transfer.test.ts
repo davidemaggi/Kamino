@@ -97,4 +97,17 @@ describe("RealTransfer", () => {
     await Promise.resolve();
     expect(t.progress()).toMatchObject({ phase: "done", waiting: 1 });
   });
+  it("an initial upload is done when only uploads waiting for Wi-Fi are left (review I6)", async () => {
+    const e = new StubEngine();
+    e.waiting = [{ path: "v.mp4", size: 9, direction: "upload", reason: "network" }];
+    const t = new RealTransfer(() => e);
+    t.start("upload");
+    e.b.up = { files: 3, bytes: 30 };
+    t.progress();
+    e.b.up = { files: 1, bytes: 9 }; // the waiting file is still a pending upload
+    e.release();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(t.progress()).toMatchObject({ phase: "done", waiting: 1 });
+  });
 });

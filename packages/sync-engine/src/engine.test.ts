@@ -370,6 +370,38 @@ describe("engine", () => {
     expect(e.snapshot().queued).toBe(0);
   });
 
+  it("pause stops downloads already queued; resume finishes them (review I6)", async () => {
+    const server = new FakeServer();
+    for (let i = 0; i < 30; i++)
+      await server.remotePut(
+        "dev-b",
+        {
+          opId: `o${i}`,
+          fileId: `f${i}`,
+          versionId: `v${i}`,
+          path: `r${i}.md`,
+          baseVersionId: null,
+          mtime: 1,
+        },
+        `remote ${i}`,
+      );
+    const fs = new MemoryFs();
+    const e = await Engine.open(deps(server, fs));
+    const write = fs.write.bind(fs);
+    fs.write = async (...args) => {
+      const out = await write(...args);
+      e.pause(); // the user pauses right after the first file lands
+      return out;
+    };
+    await e.syncNow();
+    expect(fs.files.size).toBeLessThanOrEqual(2);
+    fs.write = write;
+    e.resume();
+    await e.syncNow();
+    await e.syncNow();
+    expect(fs.files.size).toBe(30);
+  });
+
   it("resumes from the saved state after a restart", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

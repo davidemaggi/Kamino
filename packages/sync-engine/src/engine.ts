@@ -45,6 +45,34 @@ export interface EngineDeps {
 
 export const DEFAULT_MAX_IN_MEMORY_BYTES = 100 * 1024 * 1024;
 
+/** The user paused (or the engine stopped) in the middle of a push. */
+class Paused extends Error {
+  constructor() {
+    super("paused");
+  }
+}
+
+/** The event of a file effect that was not performed. */
+function skipped(fx: FileEffect): ClientEvent {
+  switch (fx.type) {
+    case "write":
+      return { type: "written", fileId: fx.fileId, hash: fx.hash, ok: false };
+    case "rename":
+      return { type: "renamed", fileId: fx.fileId, to: fx.toPath, ok: false };
+    case "trash":
+      return { type: "trashed", fileId: fx.fileId, ok: false };
+    case "mkdir":
+      return { type: "folderDone", fileId: fx.fileId, op: "mkdir", ok: false };
+    case "rmdir":
+      return {
+        type: "folderDone",
+        fileId: fx.fileId,
+        op: fx.leftover ? "leftover" : "rmdir",
+        ok: false,
+      };
+  }
+}
+
 /** The file is over the in-memory limit of an adapter without streaming. */
 class TooLarge extends Error {
   constructor(readonly size: number) {
@@ -534,7 +562,9 @@ export class Engine {
       ev = await f();
       this.unreachableSince = null;
     } catch (e) {
-      if (e instanceof ApiError && e.kind === "cursor_too_old") {
+      if (e instanceof Paused) {
+        ev = { type: "networkError", requestId };
+      } else if (e instanceof ApiError && e.kind === "cursor_too_old") {
         // 03 §6.3: start again from the snapshot, reconciled with what this device knows.
         this.log("cursor_too_old");
         ev = { type: "resync", requestId };
@@ -579,6 +609,8 @@ export class Engine {
         byHash.set(c.hash, { path, size: c.size });
       for (const hash of missing) {
         const src = byHash.get(hash);
+        // Paused or stopped: the batch waits, resent identical later (I6).
+        if (this.pausedFlag || this.closed) throw new Paused();
         // Not on disk any more: the commit answers blob_missing, the next cycle decides.
         if (!src) continue;
         if (this.tooBig(src.size)) {
@@ -611,6 +643,13 @@ export class Engine {
 
   private async fileEffect(fx: FileEffect): Promise<void> {
     const { fs } = this.d;
+    // I6 (review): closed = like a crash (the scan recovers); paused = done without doing it,
+    // retried at the next cycle.
+    if (this.closed) return;
+    if (this.pausedFlag) {
+      await this.dispatch(skipped(fx));
+      return;
+    }
     let ev: ClientEvent;
     switch (fx.type) {
       case "write": {

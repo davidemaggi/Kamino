@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-11 — **M2b in corso** sul branch `m2b-plugin-realtime`: spec approvata (`docs/superpowers/specs/2026-11-11-m2b-plugin-realtime-design.md`), piano `docs/superpowers/plans/2026-11-11-m2b-plugin-realtime.md`; **blocco A (Task 1–2: client WebSocket e notifiche nel motore) fatto**, prossimo il blocco B (Task 3 modalità). Registro delle decisioni in `.superpowers/sdd/2026-11-11-m2b-plugin-realtime/progress.md` (non versionato).
+**Ultimo aggiornamento:** 2026-11-11 — **M2b completata sul branch `m2b-plugin-realtime`**: Task 1–12, revisione finale fatta e corretta (0 critici, 11 importanti corretti ognuno con test, 15 minori rinviati), verifica completa verde. **Prossimo passo: aprire la PR** (`gh` non autenticato su questo PC: dal Mac o dal sito) e attendere il merge; poi i test sui dispositivi D-1…D-7 (`docs/spikes/README.md`) e la settimana d'uso che chiude M2; poi il pacchetto M4+M5+M6.
 
 ## Dove siamo
 
@@ -173,6 +173,17 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di M2b (tempo reale nel plugin)
+
+Spec `docs/superpowers/specs/2026-11-11-m2b-plugin-realtime-design.md` (F1–F10, §6), piano `docs/superpowers/plans/2026-11-11-m2b-plugin-realtime.md`; note in `docs/03-sync-protocol.md` §8.2. Registro completo delle decisioni in `.superpowers/sdd/2026-11-11-m2b-plugin-realtime/progress.md` (non versionato).
+
+- WebSocket come campanello: le notifiche avviano cicli, i dati arrivano sempre via REST; ogni notifica fa un ciclo completo (scansione con cache), da ottimizzare solo se misurato.
+- Chiusure `4401`/`4403`/`4404`: prima una verifica REST su una rotta del vault, poi eventuale stop (`vault_gone` mostrato come "revocato"); l'attesa tra i tentativi si azzera solo dopo 60 s di connessione stabile.
+- Modalità nel motore (`setMode`), pull ogni 5 min in Live col socket giù; eco riconosciuta per path+dimensione+mtime (10 s); nota aperta con modifiche non salvate mai sovrascritta.
+- Rete a consumo: domanda su iOS mai bloccante, la risposta vale 30 minuti; "non chiedere più" è del plugin fino al riavvio; i file in attesa non contano come "al sicuro" ma non fanno scattare l'avviso orario; l'avviso per coda vecchia solo in Live.
+- `ObsidianFs`: sostituzione con copia messa da parte (nome corto + manifest) e recupero all'apertura (se differisce, resta "(recovered)"); rinomine di sole maiuscole senza mai sovrascrivere un altro file; streaming con ripiego per file e controllo dei byte.
+- Minori rinviati dalla revisione di M2b (15): ciclo in più dopo il proprio push, tempi dell'eco su FS con mtime grossolano, mtime nel futuro sempre "recenti", modifiche concorrenti contate come guasti di streaming, rimandati in download che lampeggiano "al sicuro" e manca la dicitura "in attesa del Wi-Fi", conteggio non memorizzato mentre ci sono file in attesa, socket lento a riprendersi al ritorno in primo piano, factory del socket che lancia, file temporaneo della rinomina di maiuscole non recuperato, timer disattivati ma non cancellati, Manuale che sincronizza al cambio impostazioni, riga duplicata nell'host, nessun ciclo quando la rete torna libera, copertura della protezione dell'editor (CRLF/BOM, canvas), nota per un attimo assente durante la sostituzione.
 
 ### Decisioni di M1d (motore del plugin)
 

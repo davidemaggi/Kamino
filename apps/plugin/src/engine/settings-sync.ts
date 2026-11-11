@@ -25,7 +25,7 @@ export class SettingsSync {
 
   async load(api: Api, fs: VaultFs): Promise<SyncSettings> {
     let vault: SyncSettings | null = null;
-    let effective: SyncSettings | null = null;
+    let effective: SyncSettings;
     try {
       vault = await api.vaultSettings();
       // I5 (review): saved at once, whatever happens to the device part.

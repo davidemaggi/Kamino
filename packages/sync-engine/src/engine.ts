@@ -44,6 +44,8 @@ export interface EngineDeps {
   token: () => string | null;
   /** Codes only: never paths, names, contents or tokens. */
   log?: (code: string) => void;
+  /** S-02 mode of this device (default live, 15 minutes). */
+  mode?: { mode: SyncMode; periodicMinutes: number };
   /** Realtime doorbell (M2b, F1): without it the engine works by cycles only. */
   socket?: SocketFactory;
   /** Sent in the socket's hello. */
@@ -99,8 +101,10 @@ export const STATE_FILES = {
   meta: "meta",
 } as const;
 
-/** Pull period until the WebSocket of M2b (E6). */
-export const PULL_PERIOD_MS = 60_000;
+/** S-02. Live: socket + quick sends; Periodic: a cycle every N minutes; Manual: on request. */
+export type SyncMode = "live" | "periodic" | "manual";
+/** Live with the socket down: a pull this often until it is back (spec F3). */
+export const LIVE_FALLBACK_MS = 300_000;
 
 type FileEffect = Extract<Effect, { type: "write" | "rename" | "trash" | "mkdir" | "rmdir" }>;
 
@@ -136,7 +140,11 @@ export class Engine {
   private wanted = false;
   private closed = false;
   private pausedFlag = false;
-  private periodic = false;
+  private started = false;
+  private mode: SyncMode;
+  private periodicMinutes: number;
+  /** Each mode's timer belongs to one generation: switching mode ends the old one. */
+  private timerGen = 0;
   private retrying = false;
   private netFailed = false;
   private attempt = 0;
@@ -184,6 +192,8 @@ export class Engine {
       d.fs.saveState(STATE_FILES.uploads, JSON.stringify(s)),
     );
     this.lastConfirmedAt = meta.lastConfirmedAt ?? null;
+    this.mode = d.mode?.mode ?? "live";
+    this.periodicMinutes = d.mode?.periodicMinutes ?? 15;
   }
 
   /** Loads the durable state, the stat cache and the upload sessions saved by a previous run. */
@@ -281,23 +291,39 @@ export class Engine {
     return this.stopReason;
   }
 
-  /** First cycle now, then a pull every minute. */
+  /** A cycle now (S-03), then whatever the mode asks for. */
   start(): void {
-    this.openRealtime();
+    this.started = true;
+    this.applyMode();
     void this.kick();
-    if (this.periodic) return;
-    this.periodic = true;
+  }
+
+  /** Applied at once; work in progress finishes, the socket closes with 1000 (spec §6.4). */
+  setMode(mode: SyncMode, periodicMinutes: number): void {
+    const same = mode === this.mode && periodicMinutes === this.periodicMinutes;
+    this.mode = mode;
+    this.periodicMinutes = periodicMinutes;
+    if (this.started && !same) this.applyMode();
+  }
+
+  private applyMode(): void {
+    const gen = ++this.timerGen;
+    if (this.mode === "live") this.openRealtime();
+    else this.closeRealtime();
+    if (this.mode === "manual") return;
     void (async () => {
-      while (!this.closed) {
-        await this.d.clock.sleep(PULL_PERIOD_MS);
-        if (this.closed) break;
-        void this.kick();
+      for (;;) {
+        const live = this.mode === "live";
+        await this.d.clock.sleep(live ? LIVE_FALLBACK_MS : this.periodicMinutes * 60_000);
+        if (gen !== this.timerGen || this.closed || this.stopReason) return;
+        if (!live || !this.realtimeConnected) void this.kick();
       }
     })();
   }
 
   async stop(): Promise<void> {
     this.closed = true;
+    this.timerGen++;
     this.closeRealtime();
     await this.running;
     await this.settled();
@@ -324,11 +350,14 @@ export class Engine {
     while (this.wanted && !this.closed && !this.stopReason && !this.pausedFlag);
   }
 
-  /** Something changed on disk (the caller debounces): a cycle with a full scan follows. */
+  /**
+   * Something changed on disk (the caller debounces). Live: a cycle follows. Periodic and
+   * Manual: it waits for the next cycle (the queue derives from the index then, S-04).
+   */
   localChange(): void {
     this.dirty = true;
     this.changed();
-    void this.kick();
+    if (this.mode === "live" || !this.started) void this.kick();
   }
 
   /** A rename seen by the watcher (local paths). */

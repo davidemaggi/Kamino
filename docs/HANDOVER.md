@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-10 — M1d: Task 1–12 completati e pushati; Task 13 in corso (documenti fatti, verifica completa e revisione finale del branch in corso, poi PR). Branch `m1d-plugin-engine`.
+**Ultimo aggiornamento:** 2026-11-10 — M1d: Task 1–12 completati e pushati; Task 13: documenti fatti, **revisione finale fatta: 1 critico + 7 importanti da correggere** (elenco sotto, "Revisione finale di M1d"), poi verifica completa, PR. Branch `m1d-plugin-engine`.
 
 ## Dove siamo
 
@@ -194,6 +194,19 @@ Decisioni prese durante l'esecuzione (registro completo con il costo di ciascuna
 - nelle build di sviluppo il server vero si attiva con `localStorage["kamino-sync-dev-real-server"] = "1"`.
 
 Trovati e corretti durante M1d (ognuno con il suo test): una decina di difetti delle cartelle e della riconciliazione trovati dal simulatore; `kick()` del motore che poteva far girare `syncNow` all'infinito; il bundle di produzione che conteneva ancora `FakeServer` e le credenziali `demo`.
+
+#### Revisione finale di M1d (2026-11-11) — da correggere prima della PR
+
+- **C1 (critico):** un file illeggibile durante la scansione (lock su Windows, file iCloud non scaricato, stream interrotto) risulta cancellato e la cancellazione va al server e agli altri dispositivi; `unreadableFiles()` non è mostrato da nessuna parte.
+- **I1:** un elenco vuoto o parziale (disco non montato, permesso revocato su Android, `list("")` diverso dal mock) cancellerebbe tutto: serve un freno (troppe sparizioni in un ciclo → stop e conferma).
+- **I2:** una rinomina durante la scansione diventa cancellazione + nuovo file.
+- **I3:** se il salvataggio dello stato fallisce, il motore resta bloccato fino al riavvio senza dirlo.
+- **I4:** sui dispositivi senza streaming la scansione (e i controlli di hash) leggono interi anche file enormi o esclusi → crash all'avvio.
+- **I5:** se fallisce solo una parte delle chiamate delle impostazioni, il motore parte con i default perdendo le esclusioni del vault.
+- **I6:** la pausa non ferma i download già in coda; scollegare durante il trasferimento iniziale aspetta tutti i download.
+- **I7:** il primo sync di un vault grande costa O(N²) (stato clonato e riscritto a ogni evento).
+- Minori rinviati (11): finestra rimuovi→rinomina, rinomine solo di maiuscole su Windows/macOS, cache degli stat con mtime grossolano, streaming disattivato dopo un fallimento, HTTPS su mobile controllato solo all'inizio, `Engine.open` fallito mai ritentato, messaggi d'errore del login, `onunload` che non attende lo stop, trasferimento mai "completato" con un file rimandato, finestra di applicazione delle impostazioni, test sul dispositivo per la scrittura remota sul file aperto nell'editor.
+- Verifica completa da rilanciare (sul PC lento: un pacchetto alla volta, `--maxWorkers=2`, `DOCKER_HOST=tcp://127.0.0.1:2375`); `test:deep` ha avuto 1 scenario fallito su 3000, controesempio da ricavare.
 
 ### Decisioni di M2a (tempo reale sul server)
 

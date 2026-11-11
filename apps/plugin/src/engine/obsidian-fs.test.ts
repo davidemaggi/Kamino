@@ -130,7 +130,8 @@ describe("ObsidianFs", () => {
     expect([...adapter.files.keys()].filter((p) => p.includes("/tmp/"))).toEqual([]);
     // State after a crash between "old set aside" and "new in place", plus a stray download.
     adapter.files.delete("b.md");
-    await adapter.write(`${PLUGIN_DIR}/tmp/${encodeURIComponent("b.md")}.old`, "b content");
+    await adapter.write(`${PLUGIN_DIR}/tmp/abc.old`, "b content");
+    await adapter.write(`${PLUGIN_DIR}/tmp/abc.old.json`, JSON.stringify({ path: "b.md" }));
     await adapter.write(`${PLUGIN_DIR}/tmp/123-1.part`, "half");
     const fresh = new ObsidianFs(app as never, PLUGIN_DIR, { fetch: undefined });
     await fresh.list();
@@ -181,5 +182,31 @@ describe("ObsidianFs", () => {
       }),
     });
     await expect(sha256Hex(short.read("a.md"))).rejects.toThrow();
+  });
+  it("replaces files with very long names (review I8)", async () => {
+    const long = `${"文".repeat(40)}/${"記".repeat(60)}.md`;
+    await adapter.write(long, "old");
+    expect(await fs.write(long, parts("new"), await hashOf("old"), await hashOf("new"))).toBe("ok");
+    expect(text(adapter, long)).toBe("new");
+    const names = [...adapter.files.keys()].filter((p) => p.includes("/tmp/"));
+    expect(names).toEqual([]);
+  });
+
+  it("recovery never deletes a set-aside copy that differs from the file now there (review I9)", async () => {
+    await adapter.write("c.md", "recreated by the user");
+    await adapter.write(`${PLUGIN_DIR}/tmp/x.old`, "original content");
+    await adapter.write(`${PLUGIN_DIR}/tmp/x.old.json`, JSON.stringify({ path: "c.md" }));
+    const fresh = new ObsidianFs(app as never, PLUGIN_DIR, { fetch: undefined });
+    await fresh.ready();
+    expect(text(adapter, "c.md")).toBe("recreated by the user");
+    expect(text(adapter, "c (recovered).md")).toBe("original content");
+  });
+
+  it("a case-only rename never overwrites a different file on a case-sensitive disk (review I10)", async () => {
+    await adapter.write("note.md", "mine");
+    await adapter.write("Note.md", "another file");
+    expect(await fs.rename("note.md", "Note.md")).toBe(false);
+    expect(text(adapter, "note.md")).toBe("mine");
+    expect(text(adapter, "Note.md")).toBe("another file");
   });
 });

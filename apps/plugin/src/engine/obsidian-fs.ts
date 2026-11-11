@@ -18,6 +18,9 @@ type FetchLike = (url: string) => Promise<{ ok: boolean; body: ReadableStream<Ui
 
 const copy = (b: Uint8Array): ArrayBuffer =>
   b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
+async function* once(b: Uint8Array): AsyncIterable<Uint8Array> {
+  yield b;
+}
 const parentOf = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
 
 /**
@@ -89,18 +92,46 @@ export class ObsidianFs implements VaultFs {
     if (!(await this.adapter.exists(tmpDir))) return;
     const { files } = await this.adapter.list(tmpDir);
     for (const f of files) {
-      const name = f.slice(tmpDir.length + 1);
-      if (name.endsWith(".old")) {
-        const original = decodeURIComponent(name.slice(0, -4));
-        if (await this.adapter.exists(original)) await this.adapter.remove(f).catch(() => {});
-        else {
-          await this.ensureDir(parentOf(original));
-          await this.adapter.rename(f, original).catch(() => {});
-        }
-      } else if (name.endsWith(".part")) await this.adapter.remove(f).catch(() => {});
+      if (f.endsWith(".part")) {
+        await this.adapter.remove(f).catch(() => {});
+        continue;
+      }
+      if (!f.endsWith(".old")) continue;
+      let original: string | null;
+      try {
+        original = (JSON.parse(await this.adapter.read(`${f}.json`)) as { path: string }).path;
+      } catch {
+        original = null;
+      }
+      if (original === null) continue; // no manifest: left alone, nothing is guessed
+      if (!(await this.adapter.exists(original))) {
+        await this.ensureDir(parentOf(original));
+        await this.adapter.rename(f, original).catch(() => {});
+      } else if ((await sha256Hex(this.read(f))) === (await sha256Hex(this.read(original)))) {
+        await this.adapter.remove(f).catch(() => {});
+      } else {
+        // I9: something else took its place meanwhile: both kept, the old one next to it.
+        await this.adapter.rename(f, await this.freeSibling(original, "recovered")).catch(() => {});
+      }
+      await this.adapter.remove(`${f}.json`).catch(() => {});
     }
   }
 
+  /** "name (label).ext", or "name (label 2).ext"… not taken yet. */
+  private async freeSibling(path: string, label: string): Promise<string> {
+    const dot = path.lastIndexOf(".");
+    const slash = path.lastIndexOf("/");
+    const [base, ext] = dot > slash ? [path.slice(0, dot), path.slice(dot)] : [path, ""];
+    for (let n = 1; ; n++) {
+      const p = `${base} (${label}${n > 1 ? ` ${n}` : ""})${ext}`;
+      if (!(await this.adapter.exists(p))) return p;
+    }
+  }
+
+  /** I9: recovers an interrupted replacement now (called when the engine is created). */
+  async ready(): Promise<void> {
+    if (!this.recovered) await this.recover();
+  }
   async list(): Promise<FsEntry[]> {
     if (!this.recovered) await this.recover();
     const out: FsEntry[] = [];
@@ -224,8 +255,10 @@ export class ObsidianFs implements VaultFs {
       }
       // M1: the old file is set aside (never removed first), the new one takes its place, then
       // the old one goes; a crash in between is recovered by `recover()`.
-      const aside = `${tmpDir}/${encodeURIComponent(path)}.old`;
+      // I8: a short name (whole paths can exceed 255 characters), and a manifest written first.
+      const aside = `${tmpDir}/${(await sha256Hex(once(new TextEncoder().encode(path)))).slice(0, 24)}.old`;
       if (await this.adapter.exists(aside)) await this.adapter.remove(aside);
+      await this.adapter.write(`${aside}.json`, JSON.stringify({ path }));
       await this.adapter.rename(path, aside);
       try {
         await this.adapter.rename(tmp, path);
@@ -234,6 +267,7 @@ export class ObsidianFs implements VaultFs {
         throw e;
       }
       await this.adapter.remove(aside).catch(() => {});
+      await this.adapter.remove(`${aside}.json`).catch(() => {});
       return "ok";
     } catch (e) {
       if (await this.adapter.exists(tmp)) await this.adapter.remove(tmp).catch(() => {});
@@ -245,6 +279,9 @@ export class ObsidianFs implements VaultFs {
     if (!(await this.adapter.exists(from))) return false;
     // M2: only the case changes. On Windows/macOS `to` "exists" (same file): via a temporary name.
     if (from !== to && from.toLowerCase() === to.toLowerCase()) {
+      // I10: on a case-sensitive disk `to` may be another file: never replace it.
+      const { files, folders } = await this.adapter.list(parentOf(to));
+      if ([...files, ...folders].includes(to)) return false;
       const tmp = `${parentOf(from) ? `${parentOf(from)}/` : ""}.${Date.now()}-${++this.tmpN}.case`;
       await this.adapter.rename(from, tmp);
       await this.adapter.rename(tmp, to);

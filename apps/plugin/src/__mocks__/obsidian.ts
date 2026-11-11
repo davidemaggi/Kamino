@@ -199,6 +199,10 @@ export class MockAdapter {
     next.set(new Uint8Array(data), cur.length);
     this.files.set(path, { data: next, mtime: this.tick++ });
   };
+  /** Real file systems refuse a name component longer than 255 characters. */
+  private checkName(path: string): void {
+    if (path.split("/").some((s) => s.length > 255)) throw new Error("ENAMETOOLONG");
+  }
   private parents(path: string): void {
     const segs = path.split("/");
     for (let i = 1; i < segs.length; i++) this.folders.add(segs.slice(0, i).join("/"));
@@ -231,10 +235,12 @@ export class MockAdapter {
     await this.writeBinary(path, new TextEncoder().encode(data).buffer);
   }
   async writeBinary(path: string, data: ArrayBuffer): Promise<void> {
+    this.checkName(path);
     this.parents(path);
     this.files.set(path, { data: new Uint8Array(data.slice(0)), mtime: this.tick++ });
   }
   async rename(from: string, to: string): Promise<void> {
+    this.checkName(to);
     if (this.key(to) !== undefined || this.folders.has(to)) throw new Error("EEXIST");
     const f = this.files.get(from);
     if (!f) throw new Error("ENOENT");

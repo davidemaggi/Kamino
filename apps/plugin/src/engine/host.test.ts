@@ -64,4 +64,31 @@ describe("EngineHost", () => {
     expect(host.engine()).not.toBeNull();
     await host.stop();
   });
+  it("a stopped host never opens an engine again (review I11)", async () => {
+    const wakeups: Array<() => void> = [];
+    let broken = true;
+    const host = new EngineHost({
+      current: () => ({ server: "https://s", vaultId: "v", deviceId: "d", deviceToken: "t" }),
+      fs: () => {
+        const fs = new MemoryFs();
+        if (broken) fs.loadState = () => Promise.reject(new Error("EIO"));
+        return fs;
+      },
+      http: () => ({ request: () => Promise.reject(new Error("offline")) }),
+      platform: "linux",
+      configDir: ".obsidian",
+      clock: {
+        now: () => 1,
+        sleep: () => new Promise<void>((r) => wakeups.push(r)),
+        random: () => 0.5,
+      },
+      newId: () => "x",
+    });
+    await host.refresh();
+    await host.stop(); // plugin unloaded during the retry wait
+    broken = false;
+    for (const w of wakeups.splice(0)) w();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(host.engine()).toBeNull();
+  });
 });

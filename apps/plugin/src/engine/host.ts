@@ -44,6 +44,8 @@ export class EngineHost {
   private readonly listeners = new Set<() => void>();
   private off: (() => void) | null = null;
   private io: { api: Api; fs: VaultFs } | null = null;
+  /** I11: stopped for good (plugin unloaded): never opens an engine again. */
+  private disposed = false;
 
   constructor(private readonly o: EngineHostOptions) {}
 
@@ -60,6 +62,7 @@ export class EngineHost {
   }
 
   private async apply(): Promise<void> {
+    if (this.disposed) return;
     const link = this.o.current();
     const key = link ? `${link.server}|${link.vaultId}|${link.deviceId}` : null;
     if (key === this.key) return;
@@ -72,6 +75,8 @@ export class EngineHost {
     if (link) {
       const token = link.deviceToken;
       const fs = this.o.fs(link.deviceId);
+      // I9: an interrupted replacement is recovered before anything else runs.
+      await (fs as Partial<{ ready(): Promise<void> }>).ready?.();
       const http = this.o.http(link.server);
       const api = new Api(http, () => token);
       this.io = { api, fs };
@@ -166,6 +171,7 @@ export class EngineHost {
   }
 
   async stop(): Promise<void> {
+    this.disposed = true;
     this.off?.();
     await this.current?.stop();
     this.current = null;

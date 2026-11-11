@@ -114,6 +114,10 @@ export class Api {
 
   // --- this device ---
 
+  /** This device still exists and may sync (401/403/404 → ApiError). */
+  async device(): Promise<void> {
+    await this.send({ method: "GET", path: "/device" });
+  }
   async renameDevice(name: string): Promise<void> {
     await this.send({ method: "PATCH", path: "/device", json: { name } });
   }

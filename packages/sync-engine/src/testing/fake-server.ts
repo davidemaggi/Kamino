@@ -2,6 +2,7 @@ import type { Op } from "@kamino/protocol";
 import { MemoryStore } from "@kamino/sync-core";
 import { sha256Hex } from "../hash.js";
 import type { Http, HttpRequest, HttpResponse } from "../ports.js";
+import type { SocketFactory, SocketHandlers } from "../socket.js";
 
 const err = (status: number, code: string): HttpResponse => ({
   status,
@@ -40,7 +41,82 @@ export class FakeServer {
   /** Compacted journal: pulls after an older position get 410 cursor_too_old. */
   floor = 0;
   requests = 0;
+  /** GET /changes calls (pulls). */
+  pulls = 0;
   private next = 1;
+  /** Open realtime sockets (the doorbell of M2b). */
+  private readonly sockets = new Set<{ h: SocketHandlers; open: boolean }>();
+  private drop = 0;
+  private dup = 0;
+
+  /** A realtime socket for the device: welcome after hello, a `changes` at every commit. */
+  socket(deviceId: string): SocketFactory {
+    return (h) => {
+      const s = { h, open: true };
+      this.sockets.add(s);
+      queueMicrotask(() => s.open && (this.down ? this.closeOne(s, 1006) : h.onOpen()));
+      return {
+        send: (data) => {
+          if (!s.open) return;
+          const msg = JSON.parse(data) as { type: string; deviceToken?: string };
+          if (msg.type !== "hello") return;
+          if (this.revoked || msg.deviceToken !== deviceId) return this.closeOne(s, 4401);
+          queueMicrotask(() =>
+            this.deliver(s, {
+              type: "welcome",
+              protocol: 1,
+              head: this.store.head,
+              deviceId,
+              serverVersion: "test",
+              codename: "Ash",
+            }),
+          );
+        },
+        close: () => this.closeOne(s, 1000),
+      };
+    };
+  }
+
+  /** The next notification is lost / delivered twice. */
+  dropNext(): void {
+    this.drop++;
+  }
+  duplicateNext(): void {
+    this.dup++;
+  }
+  closeAll(code: number): void {
+    for (const s of [...this.sockets]) this.closeOne(s, code);
+  }
+  get openSockets(): number {
+    return [...this.sockets].filter((s) => s.open).length;
+  }
+
+  private closeOne(s: { h: SocketHandlers; open: boolean }, code: number): void {
+    if (!s.open) return;
+    s.open = false;
+    this.sockets.delete(s);
+    queueMicrotask(() => s.h.onClose(code));
+  }
+
+  private deliver(s: { h: SocketHandlers; open: boolean }, msg: unknown): void {
+    if (s.open) s.h.onMessage(JSON.stringify(msg));
+  }
+
+  /** Tells every socket that the head moved. */
+  notify(): void {
+    for (const s of this.sockets) {
+      if (this.drop > 0) {
+        this.drop--;
+        continue;
+      }
+      const msg = { type: "changes", entries: [], head: this.store.head, hasMore: false };
+      queueMicrotask(() => this.deliver(s, msg));
+      if (this.dup > 0) {
+        this.dup--;
+        queueMicrotask(() => this.deliver(s, msg));
+      }
+    }
+  }
 
   /** An Http for the device with this id (the token is the device id). */
   http(deviceId: string): Http {
@@ -65,10 +141,12 @@ export class FakeServer {
     const hash = await sha256Hex(once(data));
     this.content.set(hash, data);
     this.store.blobs.add(hash);
-    return this.store.commit(
+    const r = this.store.commit(
       [{ ...op, type: "put", contentHash: hash, size: data.length }],
       deviceId,
     );
+    this.notify();
+    return r;
   }
 
   private async handle(r: HttpRequest, deviceId: string): Promise<HttpResponse> {
@@ -127,10 +205,13 @@ export class FakeServer {
     }
     if (r.method === "POST" && path === "/vaults/v/commits") {
       const { ops } = r.json as { ops: Op[] };
-      return { status: 200, json: this.store.commit(ops, deviceId) };
+      const res = this.store.commit(ops, deviceId);
+      this.notify();
+      return { status: 200, json: res };
     }
     if (r.method === "GET" && path === "/vaults/v/changes") {
       const after = Number(new URLSearchParams(query).get("after") ?? 0);
+      this.pulls++;
       if (after < this.floor) return err(410, "cursor_too_old");
       return { status: 200, json: this.store.changes(after, 50) };
     }

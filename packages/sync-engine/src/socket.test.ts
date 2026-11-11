@@ -1,35 +1,7 @@
 import { PROTOCOL_VERSION, type Hello } from "@kamino/protocol";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Clock } from "./ports.js";
+import { ManualClock } from "./testing/manual-clock.js";
 import { Realtime, type RealtimeEvent, type SocketHandlers } from "./socket.js";
-
-/** Time moves only through advance(); sleeps end when their time comes. */
-class ManualClock implements Clock {
-  t = 0;
-  private sleepers: { at: number; r: () => void }[] = [];
-  now() {
-    return this.t;
-  }
-  sleep(ms: number) {
-    return new Promise<void>((r) => this.sleepers.push({ at: this.t + ms, r }));
-  }
-  random() {
-    return 0.5;
-  }
-  async advance(ms: number) {
-    const end = this.t + ms;
-    for (;;) {
-      const next = this.sleepers.filter((s) => s.at <= end).sort((a, b) => a.at - b.at)[0];
-      if (!next) break;
-      this.t = Math.max(this.t, next.at);
-      this.sleepers = this.sleepers.filter((s) => s !== next);
-      next.r();
-      for (let i = 0; i < 10; i++) await Promise.resolve();
-    }
-    this.t = end;
-    for (let i = 0; i < 10; i++) await Promise.resolve();
-  }
-}
 
 interface Conn {
   h: SocketHandlers;

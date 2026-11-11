@@ -1,4 +1,9 @@
-import { ErrorCode, type SyncSettings } from "@kamino/protocol";
+import {
+  ErrorCode,
+  PROTOCOL_MIN_SUPPORTED,
+  PROTOCOL_VERSION,
+  type SyncSettings,
+} from "@kamino/protocol";
 import type { SyncSnapshot } from "@kamino/status";
 import {
   initialState,
@@ -13,6 +18,7 @@ import {
   type Effect,
 } from "@kamino/sync-core";
 import { Api, ApiError } from "./api.js";
+import { Realtime, type RealtimeEvent, type SocketFactory } from "./socket.js";
 import { sha256Hex } from "./hash.js";
 import type { Clock, Http, VaultFs } from "./ports.js";
 import { Scanner, type StatCache } from "./scanner.js";
@@ -38,6 +44,10 @@ export interface EngineDeps {
   token: () => string | null;
   /** Codes only: never paths, names, contents or tokens. */
   log?: (code: string) => void;
+  /** Realtime doorbell (M2b, F1): without it the engine works by cycles only. */
+  socket?: SocketFactory;
+  /** Sent in the socket's hello. */
+  client?: { pluginVersion: string; platform: string };
   /** A `vault_settings_changed` entry arrived: the host reads the settings again (E10). */
   onSettingsChanged?: () => void;
   /** Without streaming (`fs.streaming === false`), files over this size wait (E3, 100 MB). */
@@ -141,6 +151,7 @@ export class Engine {
   private readonly waiting = new Map<string, DeferredFile>();
   /** I1 (review): files that vanished in one scan, held until the user confirms. */
   private heldDeletions: number | null = null;
+  private realtime: Realtime | null = null;
   /** I7: the state has changes not saved yet (outcomes of file effects only). */
   private unsaved = false;
   private notifyQueued = false;
@@ -207,12 +218,72 @@ export class Engine {
     return backlogOf(this.st);
   }
 
+  get realtimeConnected(): boolean {
+    return this.realtime?.connected ?? false;
+  }
+
+  /** Opens the realtime doorbell (F1): notifications trigger pulls, data stays REST. */
+  private openRealtime(): void {
+    if (!this.d.socket || this.realtime || this.closed || this.stopReason) return;
+    this.realtime = new Realtime({
+      socket: this.d.socket,
+      clock: this.d.clock,
+      log: this.log,
+      hello: () => ({
+        type: "hello",
+        deviceToken: this.d.token() ?? "",
+        protocol: { min: PROTOCOL_MIN_SUPPORTED, max: PROTOCOL_VERSION },
+        // The durable cursor: what this device has applied (spec §6.1).
+        cursor: this.st.durable.cursor,
+        pluginVersion: this.d.client?.pluginVersion ?? "",
+        platform: this.d.client?.platform ?? "",
+      }),
+      onEvent: (e) => this.onRealtime(e),
+    });
+    this.realtime.start();
+  }
+
+  private closeRealtime(): void {
+    this.realtime?.stop();
+    this.realtime = null;
+  }
+
+  private onRealtime(e: RealtimeEvent): void {
+    switch (e.type) {
+      case "connected":
+        // Anything missed while disconnected: one cycle catches up.
+        void this.kick();
+        break;
+      case "changes":
+        if (e.head > this.st.durable.cursor) void this.kick();
+        break;
+      case "settings":
+        this.d.onSettingsChanged?.();
+        break;
+      case "revoked":
+      case "blocked":
+      case "protocol":
+        this.halt(e.type);
+        break;
+      case "resync":
+        void this.kick(); // the pull meets cursor_too_old and resyncs
+        break;
+      case "check":
+        void this.api.device().catch((err: unknown) => this.failure(err));
+        break;
+      case "disconnected":
+        break;
+    }
+    this.changed();
+  }
+
   get stopped(): StopReason | null {
     return this.stopReason;
   }
 
   /** First cycle now, then a pull every minute. */
   start(): void {
+    this.openRealtime();
     void this.kick();
     if (this.periodic) return;
     this.periodic = true;
@@ -227,6 +298,7 @@ export class Engine {
 
   async stop(): Promise<void> {
     this.closed = true;
+    this.closeRealtime();
     await this.running;
     await this.settled();
     await this.flush();
@@ -640,6 +712,7 @@ export class Engine {
   private halt(reason: StopReason): void {
     if (this.stopReason) return;
     this.stopReason = reason;
+    this.closeRealtime();
     this.log(`stopped_${reason}`);
     this.changed();
   }

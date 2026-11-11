@@ -40,6 +40,8 @@ export const SILENCE_MS = 75_000;
 const WATCH_EVERY_MS = 15_000;
 /** Another connection of this device took the slot: give it room (spec §6.2). */
 const REPLACED_WAIT_MS = 300_000;
+/** I3: a connection that lived this long resets the reconnection backoff. */
+const STABLE_MS = 60_000;
 
 /**
  * The realtime doorbell (spec F1/F2): it only says that something changed; the engine fetches
@@ -55,6 +57,8 @@ export class Realtime {
   private terminal = false;
   private live = false;
   private lastMessage = 0;
+  /** When the current connection got its welcome (null = not yet). */
+  private welcomedAt: number | null = null;
 
   constructor(
     private readonly o: {
@@ -123,8 +127,9 @@ export class Realtime {
     const msg = m.data;
     switch (msg.type) {
       case "welcome":
+        // I3: the backoff resets only once the connection has proved stable (see closed()).
         this.live = true;
-        this.attempt = 0;
+        this.welcomedAt = this.o.clock.now();
         this.o.onEvent({ type: "connected", head: msg.head });
         return;
       case "changes":
@@ -164,13 +169,11 @@ export class Realtime {
     const wasLive = this.live;
     this.live = false;
     if (this.stopped) return;
+    // I3: a connection that lasted is a fresh start; one closed right after welcome is not.
+    if (this.welcomedAt !== null && this.o.clock.now() - this.welcomedAt >= STABLE_MS)
+      this.attempt = 0;
+    this.welcomedAt = null;
     switch (code) {
-      case CLOSE.unauthorized:
-        this.end({ type: "revoked" });
-        return;
-      case CLOSE.forbidden:
-        this.end({ type: "blocked" });
-        return;
       case CLOSE.protocol:
         this.end({ type: "protocol" });
         return;
@@ -178,7 +181,9 @@ export class Realtime {
     if (wasLive) this.o.log?.("ws_lost");
     this.o.onEvent({ type: "disconnected" });
     if (code === CLOSE.cursorTooOld) this.o.onEvent({ type: "resync" });
-    if (code === CLOSE.notFound) this.o.onEvent({ type: "check" });
+    // I1: 4401/4403 also follow a slow hello: the engine verifies via REST before stopping.
+    if (code === CLOSE.notFound || code === CLOSE.unauthorized || code === CLOSE.forbidden)
+      this.o.onEvent({ type: "check" });
     const delay =
       code === CLOSE.replaced
         ? REPLACED_WAIT_MS - 30_000 + this.o.clock.random() * 60_000

@@ -112,18 +112,54 @@ describe("engine and realtime notifications", () => {
   });
 
   it.each([
-    [4401, "revoked"],
-    [4403, "blocked"],
-    [4426, "protocol"],
-  ] as const)("a close %i stops the engine (%s)", async (code, why) => {
+    [
+      4401,
+      "revoked",
+      (s: FakeServer): void => {
+        s.revoked = true;
+      },
+    ],
+    [
+      4403,
+      "blocked",
+      (s: FakeServer): void => {
+        s.blocked = true;
+      },
+    ],
+    [
+      4404,
+      "vault_gone",
+      (s: FakeServer): void => {
+        s.vaultGone = true;
+      },
+    ],
+    [4426, "protocol", (): void => {}],
+  ] as const)(
+    "a close %i stops the engine once REST confirms (%s) (review I1, I2)",
+    async (code, why, setup) => {
+      const server = new FakeServer();
+      const clock = new ManualClock();
+      const e = await Engine.open(deps(server, new MemoryFs(), clock));
+      e.start();
+      await settle(e, clock);
+      setup(server);
+      server.closeAll(code);
+      for (let i = 0; i < 20; i++) await clock.advance(0);
+      expect(e.stopped).toBe(why);
+    },
+  );
+
+  it("a 4401 after a slow hello, with REST fine, doesn't stop anything (review I1)", async () => {
     const server = new FakeServer();
     const clock = new ManualClock();
     const e = await Engine.open(deps(server, new MemoryFs(), clock));
     e.start();
     await settle(e, clock);
-    server.closeAll(code);
-    for (let i = 0; i < 20; i++) await clock.advance(0);
-    expect(e.stopped).toBe(why);
+    server.closeAll(4401);
+    await settle(e, clock, 1_500);
+    expect(e.stopped).toBeNull();
+    expect(e.realtimeConnected).toBe(true);
+    await e.stop();
   });
 
   it("4404: checks via REST and stops if the device is gone", async () => {

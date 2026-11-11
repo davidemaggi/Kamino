@@ -88,17 +88,41 @@ describe("Realtime", () => {
     expect(events.at(-1)).toEqual({ type: "settings" });
   });
 
-  it.each([
-    [4401, "revoked"],
-    [4403, "blocked"],
-    [4426, "protocol"],
-  ] as const)("stops on %i (%s) and never reconnects", async (code, type) => {
+  it("stops on 4426 (protocol) and never reconnects", async () => {
     last().h.onOpen();
     server(welcome);
-    last().h.onClose(code);
-    expect(events.at(-1)).toEqual({ type });
+    last().h.onClose(4426);
+    expect(events.at(-1)).toEqual({ type: "protocol" });
     await clock.advance(3_600_000);
     expect(conns).toHaveLength(1);
+  });
+
+  it.each([4401, 4403])(
+    "%i alone (a slow hello can cause it) asks the engine to check, and keeps trying (review I1)",
+    async (code) => {
+      last().h.onOpen();
+      last().h.onClose(code);
+      expect(events).toContainEqual({ type: "check" });
+      expect(events.some((e) => e.type === "revoked" || e.type === "blocked")).toBe(false);
+      await clock.advance(1_000);
+      expect(conns).toHaveLength(2);
+    },
+  );
+
+  it("a connection closed right after welcome doesn't reset the backoff (review I3)", async () => {
+    for (let i = 0; i < 4; i++) {
+      last().h.onOpen();
+      server(welcome);
+      last().h.onClose(1011);
+      await clock.advance(20_000);
+    }
+    // 1 s, 2 s, 4 s, 8 s... not 1 s every time: the 5th attempt is still waiting after 10 s.
+    const n = conns.length;
+    last().h.onOpen();
+    server(welcome);
+    last().h.onClose(1011);
+    await clock.advance(10_000);
+    expect(conns.length).toBe(n);
   });
 
   it("a device_revoked message stops it, once", async () => {
@@ -146,13 +170,17 @@ describe("Realtime", () => {
     expect(events.filter((e) => e.type === "disconnected").length).toBeGreaterThan(0);
   });
 
-  it("a connection that worked resets the backoff", async () => {
+  it("a connection that worked for a minute resets the backoff", async () => {
     last().h.onClose(1006);
     await clock.advance(1_000);
     last().h.onClose(1006);
     await clock.advance(2_000);
     last().h.onOpen();
     server(welcome);
+    for (let i = 0; i < 5; i++) {
+      await clock.advance(15_000);
+      server({ type: "ping" });
+    }
     last().h.onClose(1006);
     await clock.advance(1_000);
     expect(conns).toHaveLength(4);

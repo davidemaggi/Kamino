@@ -302,6 +302,20 @@ export class Engine {
     this.realtime.start();
   }
 
+  /**
+   * I1/I2: a socket closed with 4401/4403/4404 may mean a slow hello, a revoked device, a
+   * blocked user or a vault that is gone. A vault route tells which; only a confirmed answer stops.
+   */
+  private async verifyAccess(): Promise<void> {
+    try {
+      await this.api.changes(this.d.vaultId, this.st.durable.cursor);
+    } catch (e) {
+      if (e instanceof ApiError && e.kind === "http" && e.status === 404) this.halt("vault_gone");
+      else if (e instanceof ApiError && (e.kind === "revoked" || e.kind === "blocked"))
+        this.failure(e);
+    }
+  }
+
   private closeRealtime(): void {
     this.realtime?.stop();
     this.realtime = null;
@@ -310,8 +324,9 @@ export class Engine {
   private onRealtime(e: RealtimeEvent): void {
     switch (e.type) {
       case "connected":
-        // Anything missed while disconnected: one cycle catches up.
-        void this.kick();
+        // Anything missed while disconnected: one cycle catches up (not while a REST retry is
+        // already scheduled: that would bypass its backoff, review I3).
+        if (!this.retrying) void this.kick();
         break;
       case "changes":
         if (e.head > this.st.durable.cursor) void this.kick();
@@ -328,7 +343,7 @@ export class Engine {
         void this.kick(); // the pull meets cursor_too_old and resyncs
         break;
       case "check":
-        void this.api.device().catch((err: unknown) => this.failure(err));
+        void this.verifyAccess();
         break;
       case "disconnected":
         break;

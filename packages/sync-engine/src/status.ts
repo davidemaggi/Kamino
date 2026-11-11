@@ -2,7 +2,8 @@ import type { BlockReason, SyncSnapshot } from "@kamino/status";
 import type { Op } from "@kamino/protocol";
 import { nextOps, type ClientState } from "@kamino/sync-core";
 
-export type StopReason = "revoked" | "blocked" | "protocol" | "update_required";
+/** `vault_gone`: the vault was deleted or suspended on the server (re-link to another one). */
+export type StopReason = "revoked" | "blocked" | "protocol" | "update_required" | "vault_gone";
 
 /** A local change not yet confirmed by the server (canonical path). */
 export interface PendingChange {
@@ -87,6 +88,7 @@ const BLOCK: Record<StopReason, BlockReason> = {
   blocked: "auth",
   protocol: "protocol",
   update_required: "protocol",
+  vault_gone: "revoked",
 };
 
 export function snapshotOf(x: {

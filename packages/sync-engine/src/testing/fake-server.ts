@@ -38,6 +38,9 @@ export class FakeServer {
   /** Unreachable: every request throws. */
   down = false;
   revoked = false;
+  /** The user is blocked (403 user_blocked) / the vault is gone (404 on vault routes). */
+  blocked = false;
+  vaultGone = false;
   /** Compacted journal: pulls after an older position get 410 cursor_too_old. */
   floor = 0;
   requests = 0;
@@ -126,6 +129,8 @@ export class FakeServer {
         if (this.down) throw new Error("unreachable");
         if (r.headers?.authorization !== `Bearer ${deviceId}`) return err(401, "unauthorized");
         if (this.revoked) return err(401, "device_revoked");
+        if (this.blocked) return err(403, "user_blocked");
+        if (this.vaultGone && r.path.startsWith("/vaults/")) return err(404, "not_found");
         return this.handle(r, deviceId);
       },
     };

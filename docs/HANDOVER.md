@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-11 — **M1d mergiata su `main` (PR #12).** Sessione chiusa in pausa su richiesta del committente; si riprende dal branch `m2b-plugin-realtime` (creato da `main` dopo il merge, contiene solo questo aggiornamento).
+**Ultimo aggiornamento:** 2026-11-11 — **M2b in corso** sul branch `m2b-plugin-realtime`: spec approvata (`docs/superpowers/specs/2026-11-11-m2b-plugin-realtime-design.md`), piano `docs/superpowers/plans/2026-11-11-m2b-plugin-realtime.md`; **blocco A (Task 1–2: client WebSocket e notifiche nel motore) fatto**, prossimo il blocco B (Task 3 modalità). Registro delle decisioni in `.superpowers/sdd/2026-11-11-m2b-plugin-realtime/progress.md` (non versionato).
 
 ## Dove siamo
 

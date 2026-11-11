@@ -32,6 +32,10 @@ describe("ErrorCode", () => {
       "device_revoked",
       "protocol_unsupported",
       "cursor_too_old",
+      "not_implemented",
+      "export_expired",
+      "history_window",
+      "confirm_mismatch",
     ]) {
       expect(ErrorCode.options).toContain(c);
     }

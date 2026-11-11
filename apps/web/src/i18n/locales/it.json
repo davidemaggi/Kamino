@@ -172,6 +172,8 @@
     "config_locked": "Questo valore è impostato dall'ambiente e non si può cambiare qui.",
     "username_taken": "Questo nome utente è già in uso.",
     "email_taken": "Questa email è già in uso.",
+    "not_implemented": "Disponibile in una prossima versione.",
+    "export_expired": "Questo link è scaduto o non è più valido.",
     "invalid_request": "Dati non validi: controlla i campi."
   },
   "account": {

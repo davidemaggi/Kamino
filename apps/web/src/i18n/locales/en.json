@@ -172,6 +172,8 @@
     "config_locked": "This value is set by the environment and can't be changed here.",
     "username_taken": "This username is already taken.",
     "email_taken": "This email is already in use.",
+    "not_implemented": "Available in an upcoming version.",
+    "export_expired": "This link has expired or is no longer valid.",
     "invalid_request": "Invalid data: check the fields."
   },
   "account": {

@@ -43,6 +43,13 @@
       "when": 1794431647148,
       "tag": "0005_green_darwin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794478241330,
+      "tag": "0006_kind_namor",
+      "breakpoints": true
     }
   ]
 }

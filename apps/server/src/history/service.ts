@@ -178,6 +178,7 @@ export class HistoryService {
         id: files.id,
         pathEnc: files.pathEnc,
         size: files.size,
+        tombstoneAt: files.deletedAt,
         deletedAt: sql<Date | null>`(select max(${journal.at}) from ${journal}
           where ${journal.vaultId} = ${files.vaultId} and ${journal.fileId} = ${files.id}
           and ${journal.type} = 'file_deleted')`,
@@ -187,8 +188,9 @@ export class HistoryService {
       .from(files)
       .where(and(eq(files.vaultId, v), eq(files.kind, "file"), eq(files.deleted, true)));
     const items = rows.map((r) => {
-      // Journal compacted: the last version is the latest moment the deletion can be dated from.
-      const deleted = new Date(r.deletedAt ?? r.lastVersionAt ?? 0);
+      // Rows deleted before files.deleted_at existed, journal compacted: the last version is the
+      // latest moment the deletion can be dated from.
+      const deleted = new Date(r.tombstoneAt ?? r.deletedAt ?? r.lastVersionAt ?? 0);
       return {
         fileId: r.id,
         path: this.pathOf(vc, r),
@@ -209,15 +211,23 @@ export class HistoryService {
     const v = vc.vaultId;
     const now = this.now();
     const [vault] = await this.db
-      .select({ retentionDays: vaults.retentionDays, createdAt: vaults.createdAt })
+      .select({
+        retentionDays: vaults.retentionDays,
+        createdAt: vaults.createdAt,
+        floor: vaults.journalFloor,
+        floorAt: vaults.journalFloorAt,
+      })
       .from(vaults)
       .where(eq(vaults.id, v));
     if (!vault) throw notFound();
     const when = at === null || at.getTime() >= now ? null : at;
+    // Compacted entries can't be undone: a raised retention doesn't bring them back.
+    const compactedUntil = vault.floor > 0 ? (vault.floorAt?.getTime() ?? now) : 0;
     if (
       when &&
       (when.getTime() < now - vault.retentionDays * DAY_MS ||
-        when.getTime() < vault.createdAt.getTime())
+        when.getTime() < vault.createdAt.getTime() ||
+        when.getTime() < compactedUntil)
     )
       throw new ApiError("history_window", 400);
 

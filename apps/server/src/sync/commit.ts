@@ -36,6 +36,13 @@ export class CursorTooOld extends Error {
   }
 }
 
+/** The vault was deleted while the request was on its way (checked under the vault lock). */
+export class VaultGone extends Error {
+  constructor() {
+    super("not_found");
+  }
+}
+
 export class SyncService {
   constructor(
     private readonly db: Db,
@@ -64,11 +71,13 @@ export class SyncService {
 
   private async applyOne(tx: Tx, vc: VaultCrypto, deviceId: string, op: Op): Promise<OpResult> {
     const [locked] = await tx
-      .select({ head: vaults.headSeq })
+      .select({ head: vaults.headSeq, status: vaults.status })
       .from(vaults)
       .where(eq(vaults.id, vc.vaultId))
       .for("update");
-    let head = locked!.head;
+    // deleteVault takes the same lock: nothing is written into a vault once it is deleted.
+    if (!locked || locked.status !== "active") throw new VaultGone();
+    let head = locked.head;
     const view = new PrefetchedView();
     let decision: Decision;
     for (let guard = 0; ; guard++) {
@@ -90,7 +99,7 @@ export class SyncService {
         await this.insertJournal(tx, vc, deviceId, op.opId, seq, m.entry, fromPath);
       } else await this.mutate(tx, vc, deviceId, m);
     }
-    if (head !== locked!.head) {
+    if (head !== locked.head) {
       await tx.update(vaults).set({ headSeq: head }).where(eq(vaults.id, vc.vaultId));
       await tx.execute(sql`select pg_notify(${NOTIFY_CHANNEL}, ${`${vc.vaultId}:${head}`})`);
     }
@@ -269,7 +278,13 @@ export class SyncService {
       case "head":
         await tx
           .update(files)
-          .set({ headVersionId: m.versionId, size: m.size, mtime: m.mtime, deleted: false })
+          .set({
+            headVersionId: m.versionId,
+            size: m.size,
+            mtime: m.mtime,
+            deleted: false,
+            deletedAt: null,
+          })
           .where(fileWhere(m.fileId));
         return;
       case "path":
@@ -282,10 +297,13 @@ export class SyncService {
           .where(fileWhere(m.fileId));
         return;
       case "tombstone":
-        await tx.update(files).set({ deleted: true }).where(fileWhere(m.fileId));
+        await tx
+          .update(files)
+          .set({ deleted: true, deletedAt: new Date(this.now()) })
+          .where(fileWhere(m.fileId));
         return;
       case "undelete":
-        await tx.update(files).set({ deleted: false }).where(fileWhere(m.fileId));
+        await tx.update(files).set({ deleted: false, deletedAt: null }).where(fileWhere(m.fileId));
         return;
       case "openConflict":
         await tx.insert(conflicts).values({

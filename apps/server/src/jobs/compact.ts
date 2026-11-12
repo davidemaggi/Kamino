@@ -53,8 +53,12 @@ export async function compactJournal(
       const gone = await tx
         .delete(journal)
         .where(and(eq(journal.vaultId, id), gt(journal.seq, v.floor), lte(journal.seq, cut)))
-        .returning({ seq: journal.seq });
-      await tx.update(vaults).set({ journalFloor: cut }).where(eq(vaults.id, id));
+        .returning({ seq: journal.seq, at: journal.at });
+      const floorAt = gone.reduce<Date | null>((m, g) => (m && m >= g.at ? m : g.at), null);
+      await tx
+        .update(vaults)
+        .set({ journalFloor: cut, ...(floorAt ? { journalFloorAt: floorAt } : {}) })
+        .where(eq(vaults.id, id));
       return gone.length;
     });
   }

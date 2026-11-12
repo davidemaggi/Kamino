@@ -159,6 +159,8 @@ export const vaults = pgTable("vaults", {
   headSeq: bigint("head_seq", { mode: "number" }).notNull().default(0),
   /** Last journal seq removed by compaction: a cursor below it gets cursor_too_old (03 §6.3). */
   journalFloor: bigint("journal_floor", { mode: "number" }).notNull().default(0),
+  /** Time of the newest entry removed by compaction: history can't be rebuilt before it. */
+  journalFloorAt: timestamp("journal_floor_at", { withTimezone: true }),
   /** Vault sync settings (S-10), AAD vaults ‖ settings ‖ id; null = the S-10 defaults. */
   settingsEnc: bytea("settings_enc"),
   retentionDays: integer("retention_days").notNull().default(30),
@@ -211,6 +213,8 @@ export const files = pgTable(
     size: bigint("size", { mode: "number" }).notNull().default(0),
     mtime: bigint("mtime", { mode: "number" }).notNull().default(0),
     deleted: boolean("deleted").notNull().default(false),
+    /** When the tombstone was set: dates the trash entry after the journal is compacted. */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

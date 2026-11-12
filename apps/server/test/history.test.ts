@@ -2,6 +2,7 @@ import { FileList, FileVersions, TrashList, VersionContent } from "@kamino/proto
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { FsBlobStore } from "../src/blobs/fs-store.js";
 import { HistoryService } from "../src/history/service.js";
+import { compactJournal } from "../src/jobs/compact.js";
 import { ApiError } from "../src/http/errors.js";
 import { ownedVault } from "../src/vaults/access.js";
 import { testApp, type TestApp } from "./helpers/app.js";
@@ -148,6 +149,30 @@ describe.skipIf(dockerUnavailable)("history and trash (read only)", () => {
     const err = await h.treeAt(vc, new Date(t.clock.now - 31 * 86_400_000)).catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect(err).toMatchObject({ code: "history_window", status: 400 });
+  });
+
+  it("refuses dates before compaction, even after the retention is raised", async () => {
+    const { d, vc } = await setup();
+    await t.db.$client`update vaults set retention_days = 7 where id = ${d.vaultId}`;
+    await put(d, "f1", "v1", "a.md", "one", null);
+    const early = new Date(t.clock.now);
+    await put(d, "f2", "v2", "gone.md", "bye", null);
+    await commit(d, { type: "delete", fileId: "f2", baseVersionId: "v2" });
+    await d.call("POST", `/vaults/${d.vaultId}/ack`, { seq: 3 });
+    t.clock.now += 10 * 86_400_000;
+    expect((await compactJournal(t.db, t.clock.now)).deleted).toBe(3);
+    await t.db.$client`update vaults set retention_days = 30 where id = ${d.vaultId}`;
+    // Inside the new window, but the entries that would undo the deletion are gone.
+    await expect(h.treeAt(vc, early)).rejects.toMatchObject({ code: "history_window" });
+    // The trash keeps the real deletion time.
+    const item = (await h.trash(vc)).items[0]!;
+    expect(new Date(item.deletedAt).getTime()).toBe(t.clock.now - 10 * 86_400_000);
+    // After the compacted range: fine.
+    t.clock.now += MIN;
+    await put(d, "f1", "v3", "a.md", "two", "v1");
+    const later = new Date(t.clock.now);
+    t.clock.now += MIN;
+    expect([...(await h.treeAt(vc, later)).keys()]).toEqual(["a.md"]);
   });
 
   it("answers not found for files and versions of another vault", async () => {

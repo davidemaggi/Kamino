@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-11 — **M2b mergiata su `main` (PR #13).** Sessione chiusa; si riprende **dal Mac** sul branch `m456-server-routes` (creato da `main` dopo il merge, contiene solo questo aggiornamento): prossimo il pacchetto **M4+M5+M6** (vedi "Prossimi passi").
+**Ultimo aggiornamento:** 2026-11-12 — **P1 di M4+M5+M6 (area utente sul server vero) completata** sul branch `m456-server-routes`, PR aperta in attesa di merge. Dopo il merge: P2 (admin, quote, email) su `m5-admin-email` da `main`, Task 8–13 del piano.
 
 ## Dove siamo
 
@@ -20,10 +20,10 @@
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
 | M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · ✅ M1d (spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md`, piano `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`): mergiata (PR #12) |
 | M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ✅ M2b: mergiata (PR #13); ⏳ test sui dispositivi D-1…D-7 e settimana d'uso |
-| M4+M5+M6 — pacchetto unico (rotte del server dietro le schermate già fatte) | 🔧 brainstorming, branch `m456-server-routes` |
+| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | 🔧 P1 area utente (Task 1–7): PR aperta su `m456-server-routes` · ⏳ P2 admin/quote/email (Task 8–13) · ⏳ P3 pairing (Task 14–15) |
 | M3…M7 | ⏳ |
 
-**Branch di lavoro:** `m456-server-routes` (da `main` dopo la PR #13; per ora solo l'aggiornamento di questo file).
+**Branch di lavoro:** `m456-server-routes` (P1, PR in attesa di merge); poi `m5-admin-email` e `m6-pairing`, ciascuno da `main` dopo il merge del precedente.
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -81,7 +81,7 @@ Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del disposit
 
 ## Prossimi passi
 
-1. **Pacchetto M4+M5+M6** (un'unica spec leggera e un unico piano): le rotte del server dietro le schermate già fatte della web app e del plugin — area utente (dettaglio vault, dispositivi, conflitti in sola lettura, storico, cestino, download ZIP), admin (utenti, inviti, configurazione con fonte dei valori, salute, audit), quote, SMTP ed email, pairing con QR/magic link; poi spegnere MSW per le rotte coperte. Brainstorming rapido (solo le scelte vere), poi piano ed esecuzione senza checkpoint intermedi.
+1. **Pacchetto M4+M5+M6**: P1 fatta (PR aperta). Dopo il merge: **P2** (Task 8–13: configurazione con fonte dei valori, admin utenti/inviti, quote, SMTP ed email con pg-boss, salute e audit) su `m5-admin-email`, poi **P3** (Task 14–15: pairing QR/magic link) su `m6-pairing`. Esecuzione senza checkpoint intermedi, una revisione per PR.
 2. **Test sui dispositivi** D-1…D-7 (`docs/spikes/README.md`) e la **settimana d'uso** con due desktop e un telefono, che chiude M2. Nessuna release pubblica prima.
 3. **M3** (conflitti e storico) e **M7** (hardening, release) restano milestone a sé.
 4. Minori rinviati dalle revisioni di M1d e M2b: elencati nelle rispettive sezioni qui sotto.
@@ -173,6 +173,20 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di P1 (M4: area utente sul server)
+
+| # | Decisione | Costo se sbagliata |
+|---|---|---|
+| U1 | Data fuori dalla finestra dello storico (ZIP "com'era il…") = codice esistente `history_window` (400), non un nuovo `out_of_retention` | Basso: un codice in più nel catalogo |
+| U2 | Nuova colonna `journal.from_path_enc` (migrazione `0004`): il percorso prima di uno spostamento, per ricostruire l'albero a una data. Le voci scritte prima non ce l'hanno: uno spostamento vecchio si "disfa" solo a partire dalla migrazione | Basso: storico pre-migrazione solo su vault di prova |
+| U3 | Timestamp di `files`, `file_versions`, `conflicts`, `conflict_candidates` dall'orologio del server (`now()` iniettato), non dal default del DB | Nessuno |
+| U4 | Eliminazione vault: in una transazione stato `deleted`, DEK e impostazioni azzerate (`dek_wrapped` ora nullable, migrazione `0005`), dispositivi revocati; socket chiusi subito. I blob li cancella un job orario `vault-purge` (minuto 37), idempotente | Basso: blob illeggibili restano su disco fino a un'ora |
+| U5 | ZIP in streaming con yazl, cartella di configurazione esportata come `.obsidian/`; nome del file `vault-AAAA-MM-GG.zip` (mai il nome del vault negli header) | Nessuno |
+| U6 | Ripristino e risoluzione: il server risponde 501 `not_implemented`; nella web app i pulsanti sono disattivati con "In arrivo" (`common.comingSoon`) tranne con le API finte (flag `features.historyWrites` in `src/lib/features.ts`). Si attivano con M3 | Nessuno |
+| U7 | Playwright (`pnpm --filter @kamino/web e2e`): server vero su Postgres usa-e-getta (`apps/server/test/e2e-server.ts`, porta 8181) + Vite in modalità ibrida (porta 5181). Non gira in CI per ora (serve Docker e il browser) | Basso |
+
+Nota: `multi-client.test.ts` è fallito una volta (contatore `snapshots` a 0) sotto il carico di `pnpm test` completo; ripetuto da solo, con la suite del server e con tutta la suite è passato. Da tenere d'occhio: se si ripresenta, il seme fisso dipende dai tempi.
 
 ### Decisioni di M2b (tempo reale nel plugin)
 

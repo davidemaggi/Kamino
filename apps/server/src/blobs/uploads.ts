@@ -13,7 +13,7 @@ import {
   TAG_BYTES,
 } from "../crypto/stream.js";
 import type { Db } from "../db/client.js";
-import { blobs, uploadSessions } from "../db/schema.js";
+import { blobs, uploadSessions, vaults } from "../db/schema.js";
 import type { VaultCrypto } from "../vaults/vault-crypto.js";
 import type { BlobStore } from "./store.js";
 
@@ -176,9 +176,16 @@ export class UploadService {
       throw new TransferError("invalid_request", 409);
     }
     const storeKey = blobKeyOf(vc.vaultId, s.blobId);
-    let outcome: "stored" | "exists" | "mismatch";
+    let outcome: "stored" | "exists" | "mismatch" | "gone";
     try {
       outcome = await this.db.transaction(async (tx) => {
+        // Shared lock on the vault row: a deletion waits for this blob or this blob sees it.
+        const [vault] = await tx
+          .select({ status: vaults.status })
+          .from(vaults)
+          .where(eq(vaults.id, vc.vaultId))
+          .for("share");
+        if (vault?.status !== "active") return "gone";
         await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${storeKey}, 0))`);
         const [exists] = await tx
           .select({ blobId: blobs.blobId })
@@ -227,6 +234,10 @@ export class UploadService {
         .set({ state: "open", claimedAt: null })
         .where(eq(uploadSessions.id, id));
       throw e;
+    }
+    if (outcome === "gone") {
+      await this.discard(id);
+      throw new TransferError("not_found", 404);
     }
     if (outcome === "mismatch") {
       await this.discard(id);

@@ -2,6 +2,7 @@ import { readdirSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { FsBlobStore } from "../src/blobs/fs-store.js";
 import { purgeDeletedVaults } from "../src/jobs/purge.js";
+import { VaultGone } from "../src/sync/commit.js";
 import { deleteVault } from "../src/vaults/delete.js";
 import { testApp, type TestApp } from "./helpers/app.js";
 import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
@@ -76,5 +77,30 @@ describe.skipIf(dockerUnavailable)("vault deletion", () => {
     // Idempotent.
     expect((await purgeDeletedVaults(t.db, store)).blobs).toBe(0);
     expect((await putFile(keep, "c.md")).results[0]!.status).toBe("accepted");
+  });
+
+  it("a commit or upload already past the checks writes nothing into the deleted vault", async () => {
+    const d = await linkDevice(t, await user(t, "mario"));
+    const v = (await t.vaults.byId(d.vaultId))!;
+    // Taken before the deletion, as by a request that passed its checks just before.
+    const vc = t.vaults.cryptoOf(v);
+    const { createHash } = await import("node:crypto");
+    const hash = createHash("sha256").update("abc").digest("hex");
+    const upload = await t.uploads.create(vc, d.deviceId, hash, 3);
+    await t.uploads.putChunk(vc, upload.uploadId, 0, Buffer.from("abc"));
+    expect(upload.chunkSize).toBeGreaterThanOrEqual(3);
+    await deleteVault(t.db, t.hub, t.vaults, v, "Note", t.clock.now);
+
+    await expect(
+      t.sync.commit(vc, d.deviceId, [
+        { type: "mkdir", opId: "late", fileId: "d1", path: "late" } as never,
+      ]),
+    ).rejects.toBeInstanceOf(VaultGone);
+    await expect(t.uploads.complete(vc, upload.uploadId)).rejects.toMatchObject({ status: 404 });
+    const rows = await t.db.$client`select
+      (select count(*) from journal where vault_id = ${v.id})::int as journal,
+      (select count(*) from files where vault_id = ${v.id})::int as files,
+      (select count(*) from blobs where vault_id = ${v.id})::int as blobs`;
+    expect(rows[0]).toEqual({ journal: 0, files: 0, blobs: 0 });
   });
 });

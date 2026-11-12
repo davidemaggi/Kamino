@@ -22,6 +22,8 @@ export async function deleteVault(
     throw new ApiError("confirm_mismatch", 400);
   const at = new Date(now);
   const revoked = await db.transaction(async (tx) => {
+    // Same row lock as commits and uploads: one in flight finishes first, later ones see "deleted".
+    await tx.select({ id: vaults.id }).from(vaults).where(eq(vaults.id, vault.id)).for("update");
     await tx
       .update(vaults)
       .set({ status: "deleted", deletedAt: at, dekWrapped: null, settingsEnc: null })

@@ -165,3 +165,66 @@ describe("loadConfig", () => {
     });
   });
 });
+
+describe("system settings from the environment", () => {
+  it("nothing set → no locked fields", () => {
+    expect(loadConfig(minimal).config.system).toEqual({});
+  });
+
+  it("parses every variable; empty strings count as unset", () => {
+    const c = loadConfig(
+      {
+        ...minimal,
+        KAMINO_REGISTRATION: "open",
+        KAMINO_DEFAULT_QUOTA_BYTES: "1000",
+        KAMINO_MAX_RETENTION_DAYS: "",
+        KAMINO_MAX_FILE_BYTES: "2000",
+        KAMINO_SMTP_HOST: "smtp.example.com",
+        KAMINO_SMTP_PORT: "587",
+        KAMINO_SMTP_SECURITY: "starttls",
+        KAMINO_SMTP_USERNAME: "",
+        KAMINO_SMTP_PASSWORD_FILE: "/run/secrets/smtp",
+        KAMINO_SMTP_FROM: "Kamino <noreply@example.com>",
+        KAMINO_SMTP_ALLOW_INVALID_CERTS: "true",
+      },
+      () => "smtp-secret\n",
+    ).config.system;
+    expect(c).toEqual({
+      registration: "open",
+      defaultQuotaBytes: 1000,
+      maxFileBytes: 2000,
+      smtp: {
+        host: "smtp.example.com",
+        port: 587,
+        security: "starttls",
+        password: "smtp-secret",
+        from: "Kamino <noreply@example.com>",
+        allowInvalidCerts: true,
+      },
+    });
+  });
+
+  it("'none' means an explicitly unlimited default quota", () => {
+    expect(loadConfig({ ...minimal, KAMINO_DEFAULT_QUOTA_BYTES: "none" }).config.system).toEqual({
+      defaultQuotaBytes: null,
+    });
+  });
+
+  it("rejects invalid values without echoing secrets", () => {
+    const issues = issuesOf(() =>
+      loadConfig({
+        ...minimal,
+        KAMINO_REGISTRATION: "maybe",
+        KAMINO_DEFAULT_QUOTA_BYTES: "-1",
+        KAMINO_MAX_RETENTION_DAYS: "91",
+        KAMINO_SMTP_PORT: "70000",
+        KAMINO_SMTP_SECURITY: "ssl",
+        KAMINO_SMTP_ALLOW_INVALID_CERTS: "yes",
+        KAMINO_SMTP_PASSWORD: "p",
+        KAMINO_SMTP_PASSWORD_FILE: "/x",
+      }),
+    );
+    expect(issues).toHaveLength(7);
+    expect(issues.join(" ")).not.toContain('"p"');
+  });
+});

@@ -8,6 +8,7 @@ import {
   DEFAULT_PORT,
   LOG_LEVELS,
   type Config,
+  type SystemEnv,
   type ConfigSource,
   type LogLevel,
 } from "./schema.js";
@@ -50,6 +51,7 @@ function readSecret(
   key: string,
   readFile: (p: string) => Buffer | string,
   issues: string[],
+  required = true,
 ): Resolved {
   const name = envName(key);
   const fileName = `${name}_FILE`;
@@ -73,13 +75,76 @@ function readSecret(
       return undefined;
     }
   }
-  issues.push(`${name} is required (or ${fileName})`);
+  if (required) issues.push(`${name} is required (or ${fileName})`);
   return undefined;
 }
 
 /** An IPv4/IPv6 address with an optional /prefix (a shape check; the proxy library parses it). */
 function isIpOrCidr(s: string): boolean {
   return /^[0-9a-fA-F:.]+(\/\d{1,3})?$/.test(s) && /[.:]/.test(s);
+}
+
+function nonNegativeInt(env: Env, key: string, issues: string[], max?: number): number | undefined {
+  const raw = read(env, envName(key));
+  if (raw === undefined) return undefined;
+  if (/^\d+$/.test(raw) && (max === undefined || Number(raw) <= max)) return Number(raw);
+  issues.push(
+    `${envName(key)} must be a non-negative integer${max === undefined ? "" : ` up to ${max}`}`,
+  );
+  return undefined;
+}
+
+function oneOf<T extends string>(
+  env: Env,
+  key: string,
+  allowed: readonly T[],
+  issues: string[],
+): T | undefined {
+  const raw = read(env, envName(key));
+  if (raw === undefined) return undefined;
+  if ((allowed as readonly string[]).includes(raw)) return raw as T;
+  issues.push(`${envName(key)} must be one of: ${allowed.join(", ")}`);
+  return undefined;
+}
+
+/** E-03: only what is set ends up in the result, so the UI knows which fields are locked. */
+function loadSystemEnv(
+  env: Env,
+  readFile: (p: string) => Buffer | string,
+  issues: string[],
+): SystemEnv {
+  const out: SystemEnv = {};
+  const registration = oneOf(env, "REGISTRATION", ["closed", "open"] as const, issues);
+  if (registration) out.registration = registration;
+  if (read(env, envName("DEFAULT_QUOTA_BYTES")) === "none") out.defaultQuotaBytes = null;
+  else {
+    const q = nonNegativeInt(env, "DEFAULT_QUOTA_BYTES", issues);
+    if (q !== undefined) out.defaultQuotaBytes = q;
+  }
+  const days = nonNegativeInt(env, "MAX_RETENTION_DAYS", issues, 90);
+  if (days !== undefined) out.maxRetentionDays = days;
+
+  const smtp: NonNullable<SystemEnv["smtp"]> = {};
+  const host = read(env, envName("SMTP_HOST"));
+  if (host !== undefined) smtp.host = host;
+  const portRaw = read(env, envName("SMTP_PORT"));
+  if (portRaw !== undefined) {
+    const n = Number(portRaw);
+    if (/^\d+$/.test(portRaw) && n >= 1 && n <= 65535) smtp.port = n;
+    else issues.push(`${envName("SMTP_PORT")} must be an integer between 1 and 65535`);
+  }
+  const security = oneOf(env, "SMTP_SECURITY", ["none", "starttls", "tls"] as const, issues);
+  if (security) smtp.security = security;
+  const username = read(env, envName("SMTP_USERNAME"));
+  if (username !== undefined) smtp.username = username;
+  const password = readSecret(env, "SMTP_PASSWORD", readFile, issues, false);
+  if (password) smtp.password = password.value;
+  const from = read(env, envName("SMTP_FROM"));
+  if (from !== undefined) smtp.from = from;
+  const invalid = oneOf(env, "SMTP_ALLOW_INVALID_CERTS", ["true", "false"] as const, issues);
+  if (invalid) smtp.allowInvalidCerts = invalid === "true";
+  if (Object.keys(smtp).length > 0) out.smtp = smtp;
+  return out;
 }
 
 export function loadConfig(
@@ -162,6 +227,9 @@ export function loadConfig(
     else issues.push(`${envName("MAX_FILE_BYTES")} must be a positive integer (bytes)`);
   }
 
+  const system = loadSystemEnv(env, readFile, issues);
+  if (maxRaw !== undefined) system.maxFileBytes = maxFileBytes;
+
   const databaseUrl = readSecret(env, "DATABASE_URL", readFile, issues);
   const masterKey = readSecret(env, "MASTER_KEY", readFile, issues);
 
@@ -178,6 +246,7 @@ export function loadConfig(
       storage,
       stagingDir,
       maxFileBytes,
+      system,
     },
     sources: {
       publicUrl: "env",
@@ -190,6 +259,7 @@ export function loadConfig(
         storageKind === "s3" || read(env, envName("STORAGE_DIR")) !== undefined ? "env" : "default",
       stagingDir: read(env, envName("STAGING_DIR")) === undefined ? "default" : "env",
       maxFileBytes: maxRaw === undefined ? "default" : "env",
+      system: Object.keys(system).length === 0 ? "default" : "env",
     },
   };
 }

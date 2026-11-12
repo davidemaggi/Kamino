@@ -347,3 +347,15 @@ export const conflictCandidates = pgTable(
   },
   (t) => [primaryKey({ columns: [t.vaultId, t.conflictId, t.versionId] })],
 );
+
+/**
+ * E-03: settings changed from the admin UI, one row per field ("registration", "smtp.host"…).
+ * Secrets (only "smtp.password" today) live in `secret_enc` under k_system, AAD
+ * system_config ‖ secret ‖ key; `value` stays null for them.
+ */
+export const systemConfig = pgTable("system_config", {
+  key: text("key").primaryKey(),
+  value: jsonb("value"),
+  secretEnc: bytea("secret_enc"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

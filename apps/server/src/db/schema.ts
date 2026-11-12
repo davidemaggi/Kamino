@@ -359,3 +359,28 @@ export const systemConfig = pgTable("system_config", {
   secretEnc: bytea("secret_enc"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * F8: email waiting to be sent. Recipient and parameters (links included) are encrypted with
+ * k_system, AAD email_outbox ‖ column ‖ id; only the template and the attempts are in clear.
+ */
+export const emailOutbox = pgTable(
+  "email_outbox",
+  {
+    id: uuid("id").primaryKey(),
+    toEnc: bytea("to_enc").notNull(),
+    template: text("template").notNull(),
+    locale: text("locale").notNull(),
+    paramsEnc: bytea("params_enc").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    nextAt: timestamp("next_at", { withTimezone: true }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    lastErrorCode: text("last_error_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("email_outbox_due")
+      .on(t.nextAt)
+      .where(sql`${t.sentAt} is null`),
+  ],
+);

@@ -9,9 +9,13 @@ import { ensureKeyCheck } from "./crypto/key-check.js";
 import { MasterKeyError, parseMasterKey, type Kek } from "./crypto/keyring.js";
 import { createDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
-import { startJobs } from "./jobs/boss.js";
+import { startJobs, type Jobs } from "./jobs/boss.js";
 import { compactJournal } from "./jobs/compact.js";
 import { purgeDeletedVaults } from "./jobs/purge.js";
+import { drainOutbox } from "./jobs/email.js";
+import { smtpTransport } from "./email/mailer.js";
+import { Outbox } from "./email/outbox.js";
+import { SystemConfigService } from "./system/config.js";
 import { createLogger } from "./observability/logger.js";
 import { resolveWebRoot } from "./web.js";
 
@@ -59,6 +63,12 @@ async function main(): Promise<void> {
   }
 
   const auth = new AuthService(db, kek, PRODUCT_NAME);
+  const systemConfig = new SystemConfigService(db, config, kek);
+  // The drain is queued right after an enqueue; `jobs` exists only once pg-boss has started.
+  const started: { jobs?: Jobs } = {};
+  const outbox = new Outbox(db, kek, systemConfig, smtpTransport, Date.now, logger, () =>
+    started.jobs?.kick("email"),
+  );
   const setupToken = await auth.ensureSetupToken();
   // 04 §8: the only token ever logged, once, while the server has no users.
   if (setupToken)
@@ -70,6 +80,8 @@ async function main(): Promise<void> {
     buildInfo,
     kek,
     auth,
+    systemConfig,
+    outbox,
     webRoot: resolveWebRoot(),
   });
 
@@ -82,9 +94,11 @@ async function main(): Promise<void> {
       compact: () => compactJournal(db, Date.now()),
       sweep: () => uploads.sweep(),
       purge: () => purgeDeletedVaults(db, store),
+      email: () => drainOutbox(outbox),
     },
     logger,
   );
+  started.jobs = jobs;
 
   const shutdown = async (): Promise<void> => {
     try {

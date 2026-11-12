@@ -29,6 +29,8 @@ import { VaultService } from "./vaults/service.js";
 import { healthRoutes } from "./routes/health.js";
 import { versionRoutes } from "./routes/version.js";
 import { webRoutes } from "./web.js";
+import type { SystemConfigService } from "./system/config.js";
+import type { Outbox } from "./email/outbox.js";
 
 export type AppDeps = {
   config: Config;
@@ -43,6 +45,8 @@ export type AppDeps = {
   uploads?: UploadService | undefined;
   sync?: SyncService | undefined;
   hub?: Hub | undefined;
+  systemConfig?: SystemConfigService | undefined;
+  outbox?: Outbox | undefined;
   /** WebSocket timings (tests shorten them); `listen: false` skips the LISTEN connection. */
   realtime?: { helloMs?: number; heartbeatMs?: number; listen?: boolean } | undefined;
   /** Application clock (tests inject a fake one). */

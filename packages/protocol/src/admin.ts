@@ -91,6 +91,7 @@ export const SmtpTestResult = z.union([
   z.object({ ok: z.literal(true) }),
   z.object({ ok: z.literal(false), error: z.string() }),
 ]);
+export type SmtpTestResult = z.infer<typeof SmtpTestResult>;
 
 export const HealthCheck = z.object({
   name: z.enum(["database", "storage", "disk", "jobs", "smtp"]),

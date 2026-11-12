@@ -6,6 +6,7 @@ export const JOBS = {
   compact: "journal-compact",
   sweep: "upload-sweep",
   purge: "vault-purge",
+  email: "email-outbox",
 } as const;
 export type JobName = keyof typeof JOBS;
 
@@ -13,12 +14,15 @@ const SCHEDULES: Record<JobName, string> = {
   compact: "17 3 * * *", // daily, at night
   sweep: "7 * * * *", // hourly (C10)
   purge: "37 * * * *", // hourly: blobs of deleted vaults (F5)
+  email: "* * * * *", // every minute: retries with backoff (F8)
 };
 
 export interface Jobs {
   stop(): Promise<void>;
   /** Queues a job now and waits for it to finish (tests, CLI). */
   runNow(name: JobName, timeoutMs?: number): Promise<void>;
+  /** Queues a job without waiting (an email just enqueued). */
+  kick(name: JobName): void;
 }
 
 /**
@@ -48,6 +52,9 @@ export async function startJobs(
   }
   return {
     stop: () => boss.stop({ graceful: true }),
+    kick(name) {
+      boss.send(JOBS[name]).catch((e: Error) => log.warn({ err: e.name }, "job not queued"));
+    },
     async runNow(name, timeoutMs = 10_000) {
       const queue = JOBS[name];
       const id = await boss.send(queue);

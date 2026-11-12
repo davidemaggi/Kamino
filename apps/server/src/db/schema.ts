@@ -65,6 +65,8 @@ export const users = pgTable("users", {
   /** U-09: a reset started by an admin, shown to the user until the password changes. */
   adminResetAt: timestamp("admin_reset_at", { withTimezone: true }),
   deletionScheduledAt: timestamp("deletion_scheduled_at", { withTimezone: true }),
+  /** Q-01: per-user limit in bytes; null = the system default (which may itself be none). */
+  quotaBytes: bigint("quota_bytes", { mode: "number" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

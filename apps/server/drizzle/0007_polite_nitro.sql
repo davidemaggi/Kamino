@@ -18,4 +18,5 @@ CREATE TABLE "system_config" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "quota_bytes" bigint;--> statement-breakpoint
 CREATE INDEX "email_outbox_due" ON "email_outbox" USING btree ("next_at") WHERE "email_outbox"."sent_at" is null;

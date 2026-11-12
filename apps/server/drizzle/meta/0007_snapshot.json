@@ -1,5 +1,5 @@
 {
-  "id": "c9b01bfb-a3f7-4de1-8dcb-1719a37c79a7",
+  "id": "2cab352c-3eab-4c35-b66e-abb450a63cb4",
   "prevId": "1cf2c731-4adb-4113-8d8b-32a6e18404e2",
   "version": "7",
   "dialect": "postgresql",
@@ -1390,6 +1390,12 @@
         "deletion_scheduled_at": {
           "name": "deletion_scheduled_at",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quota_bytes": {
+          "name": "quota_bytes",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },

@@ -15,3 +15,7 @@ docker/secrets/
 
 # Local Obsidian test vault (plugin dev builds are copied here: pnpm --filter @kamino/plugin build:vault)
 /vault/
+
+# Playwright
+test-results/
+playwright-report/

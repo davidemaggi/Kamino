@@ -8,6 +8,7 @@ import { errorMessage } from "../../api/errors.js";
 import { Button } from "../../components/ui/button.js";
 import { Input } from "../../components/ui/input.js";
 import { Label } from "../../components/ui/label.js";
+import { features } from "../../lib/features.js";
 import { formatAgo, formatBytes, formatDateTime } from "../../lib/format.js";
 import { FileHistoryDialog } from "./FileHistoryDialog.js";
 
@@ -62,6 +63,9 @@ export function VaultHistoryTab({ vault }: { vault: Vault }) {
       <section aria-label={t("history.trash")} className="space-y-2">
         <h2 className="font-serif text-lg font-semibold">{t("history.trash")}</h2>
         <p className="text-muted-foreground text-sm">{t("history.trashHint")}</p>
+        {!features.historyWrites && (
+          <p className="text-muted-foreground text-sm">{t("common.comingSoon")}</p>
+        )}
         <ul className="bg-card divide-y rounded-xl border">
           {trash.data?.items.length === 0 && (
             <li className="text-muted-foreground p-3 text-sm">{t("history.trashEmpty")}</li>
@@ -81,7 +85,7 @@ export function VaultHistoryTab({ vault }: { vault: Vault }) {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={restore.isPending}
+                disabled={restore.isPending || !features.historyWrites}
                 onClick={() => restore.mutate(item.fileId)}
               >
                 {t("history.restoreFile")}

@@ -15,6 +15,7 @@ vi.mock("@kamino/ui-diff", () => ({
 }));
 
 import { http, HttpResponse } from "msw";
+import { features } from "../../lib/features.js";
 import { signInAs } from "../../mocks/db.js";
 import { server } from "../../test/setup.js";
 import { simulateStaleNext, ud } from "../../mocks/userdata.js";
@@ -24,6 +25,7 @@ afterEach(() => {
   cleanup();
   diffCalls.length = 0;
   vi.unstubAllGlobals();
+  features.historyWrites = true;
 });
 
 const list = () => screen.getByRole("navigation", { name: "Conflitti" });
@@ -74,6 +76,17 @@ describe("ConflictCenter (desktop)", () => {
     await renderRoute("/conflicts/c-photo");
     expect(await screen.findAllByRole("img")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "Modifica e unisci…" })).toBeNull();
+  });
+
+  it("against the real server, resolving is disabled and says it is coming", async () => {
+    features.historyWrites = false;
+    signInAs("demo");
+    await renderRoute("/conflicts");
+    const keep = (await screen.findByRole("button", { name: "Tieni la mia" })) as HTMLButtonElement;
+    expect(keep.disabled).toBe(true);
+    expect(screen.getByText("In arrivo: per ora puoi solo consultare.")).toBeDefined();
+    const all = screen.getByRole("button", { name: "Risolvi tutti…" }) as HTMLButtonElement;
+    expect(all.disabled).toBe(true);
   });
 
   it("resolve all needs an explicit choice", async () => {

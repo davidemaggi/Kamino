@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog.js";
+import { features } from "../../lib/features.js";
 import { formatBytes, formatDateTime } from "../../lib/format.js";
 import { cn } from "../../lib/utils.js";
 
@@ -98,7 +99,14 @@ export function FileHistoryDialog({
               <p className="text-muted-foreground text-sm">{t("history.noPreview")}</p>
             )}
             {chosen && !chosen.current && !confirming && (
-              <Button onClick={() => setConfirming(true)}>{t("history.restore")}</Button>
+              <div className="space-y-1">
+                <Button disabled={!features.historyWrites} onClick={() => setConfirming(true)}>
+                  {t("history.restore")}
+                </Button>
+                {!features.historyWrites && (
+                  <p className="text-muted-foreground text-sm">{t("common.comingSoon")}</p>
+                )}
+              </div>
             )}
             {chosen && !chosen.current && confirming && (
               <div className="bg-muted space-y-2 rounded-lg p-3">

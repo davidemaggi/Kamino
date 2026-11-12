@@ -22,7 +22,8 @@ function mswWorker(): Plugin {
   };
 }
 
-const SERVER = "http://localhost:8080";
+/** The real server behind the proxy (hybrid mode); Playwright points it at its own. */
+const SERVER = process.env["KAMINO_DEV_SERVER"] ?? "http://localhost:8080";
 
 /** Injects the product name from @kamino/brand into index.html. */
 function brandHtml(): Plugin {
@@ -41,6 +42,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}", "test/**/*.test.ts"],
+    exclude: ["e2e/**", "node_modules/**"],
     setupFiles: ["src/test/setup.ts"],
     testTimeout: 30_000,
   },

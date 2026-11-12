@@ -65,9 +65,8 @@ export const deviceHandlers = [
   }),
 ];
 
-export const userHandlers = [
-  ...vaultListHandlers,
-  ...deviceHandlers,
+/** P1 (M4): served by the real server in hybrid mode. */
+export const vaultDetailHandlers = [
   http.get(`${API}/vaults/:id`, ({ params }) => {
     const v = ud.vaults.find((x) => x.id === params["id"]);
     return unauthorized() ?? (v ? HttpResponse.json(v) : fail(404, "not_found"));
@@ -109,6 +108,10 @@ export const userHandlers = [
       },
     });
   }),
+];
+
+/** P3 (M6): still fake in hybrid mode. */
+export const pairingHandlers = [
   http.post(`${API}/vaults/:id/pairings`, ({ params }) => {
     const deny = unauthorized();
     if (deny) return deny;
@@ -171,6 +174,10 @@ export const userHandlers = [
       return unauthorized() ?? noContent();
     }),
   ),
+];
+
+/** P1 (M4): served by the real server in hybrid mode (resolving answers 501 there). */
+export const conflictHandlers = [
   http.get(
     `${API}/conflicts`,
     () =>
@@ -219,6 +226,10 @@ export const userHandlers = [
     refreshVaults();
     return unauthorized() ?? noContent();
   }),
+];
+
+/** P1 (M4): served by the real server in hybrid mode (restoring answers 501 there). */
+export const historyHandlers = [
   http.get(`${API}/vaults/:id/files`, ({ request, params }) => {
     const q = (new URL(request.url).searchParams.get("q") ?? "").toLowerCase();
     const files = ud.files
@@ -295,4 +306,13 @@ export const userHandlers = [
     ud.trash = ud.trash.filter((x) => x !== t);
     return unauthorized() ?? noContent();
   }),
+];
+
+export const userHandlers = [
+  ...vaultListHandlers,
+  ...deviceHandlers,
+  ...vaultDetailHandlers,
+  ...pairingHandlers,
+  ...conflictHandlers,
+  ...historyHandlers,
 ];

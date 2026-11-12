@@ -99,7 +99,7 @@ export const vaultDetailHandlers = [
     const v = ud.vaults.find((x) => x.id === params["id"]);
     if (!v) return unauthorized() ?? fail(404, "not_found");
     const at = new URL(request.url).searchParams.get("at");
-    if (at && Date.parse(at) < Date.parse(v.historyFrom)) return fail(410, "history_window");
+    if (at && Date.parse(at) < Date.parse(v.historyFrom)) return fail(400, "history_window");
     // String body: a jsdom Blob is not accepted by MSW under Node; the client reads it as a blob anyway.
     return new HttpResponse("PK\u0003\u0004 fake zip", {
       headers: {

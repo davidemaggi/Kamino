@@ -10,6 +10,7 @@ import { errorMessage } from "../../api/errors.js";
 import { ApiError } from "../../api/http.js";
 import { DiffView, type DiffViewApi } from "../../components/DiffView.js";
 import { Button } from "../../components/ui/button.js";
+import { features } from "../../lib/features.js";
 import { formatBytes, formatDateTime } from "../../lib/format.js";
 import { useIsNarrow } from "../../lib/useMediaQuery.js";
 
@@ -39,6 +40,7 @@ export function ConflictDetailPane({
   const [stale, setStale] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const locked = busy || !features.historyWrites;
   const diff = useRef<DiffViewApi>(null);
   const alive = useRef(true);
   useEffect(() => {
@@ -253,6 +255,9 @@ export function ConflictDetailPane({
           )}
         </>
       )}
+      {!features.historyWrites && (
+        <p className="text-muted-foreground text-sm">{t("common.comingSoon")}</p>
+      )}
       <div className={narrow ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}>
         {editing ? (
           <>
@@ -278,18 +283,18 @@ export function ConflictDetailPane({
           </>
         ) : (
           <>
-            <Button variant="outline" disabled={busy} onClick={() => void apply("keep_mine")}>
+            <Button variant="outline" disabled={locked} onClick={() => void apply("keep_mine")}>
               {t("conflicts.keepMine")}
             </Button>
-            <Button variant="outline" disabled={busy} onClick={() => void apply("keep_incoming")}>
+            <Button variant="outline" disabled={locked} onClick={() => void apply("keep_incoming")}>
               {t("conflicts.keepIncoming")}
             </Button>
-            <Button variant="outline" disabled={busy} onClick={() => void apply("keep_both")}>
+            <Button variant="outline" disabled={locked} onClick={() => void apply("keep_both")}>
               {t("conflicts.keepBoth")}
             </Button>
             {!d.binary && (
               <Button
-                disabled={busy}
+                disabled={locked}
                 onClick={() => {
                   setEditing(true);
                   setTab("diff");

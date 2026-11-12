@@ -5,7 +5,7 @@ import { AuthError } from "../auth/service.js";
 import type { Db } from "../db/client.js";
 import { deviceGuard } from "../devices/auth.js";
 import { recordStatus } from "../devices/status.js";
-import { CursorTooOld, type SyncService } from "../sync/commit.js";
+import { CursorTooOld, VaultGone, type SyncService } from "../sync/commit.js";
 import type { VaultService } from "../vaults/service.js";
 import type { VaultCrypto } from "../vaults/vault-crypto.js";
 import { parse } from "./auth.js";
@@ -27,7 +27,12 @@ export function syncRoutes(db: Db, vaultsSvc: VaultService, sync: SyncService) {
       async (req, reply) => {
         const b = parse(CommitRequest, req, reply);
         if (!b) return reply;
-        return sync.commit(await cryptoFor(req), req.device!.id, b.ops);
+        try {
+          return await sync.commit(await cryptoFor(req), req.device!.id, b.ops);
+        } catch (e) {
+          if (e instanceof VaultGone) return fail(reply, 404, "not_found");
+          throw e;
+        }
       },
     );
 

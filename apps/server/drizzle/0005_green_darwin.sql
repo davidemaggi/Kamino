@@ -1,0 +1,1 @@
+ALTER TABLE "vaults" ALTER COLUMN "dek_wrapped" DROP NOT NULL;

@@ -36,6 +36,13 @@ export class CursorTooOld extends Error {
   }
 }
 
+/** The vault was deleted while the request was on its way (checked under the vault lock). */
+export class VaultGone extends Error {
+  constructor() {
+    super("not_found");
+  }
+}
+
 export class SyncService {
   constructor(
     private readonly db: Db,
@@ -64,11 +71,13 @@ export class SyncService {
 
   private async applyOne(tx: Tx, vc: VaultCrypto, deviceId: string, op: Op): Promise<OpResult> {
     const [locked] = await tx
-      .select({ head: vaults.headSeq })
+      .select({ head: vaults.headSeq, status: vaults.status })
       .from(vaults)
       .where(eq(vaults.id, vc.vaultId))
       .for("update");
-    let head = locked!.head;
+    // deleteVault takes the same lock: nothing is written into a vault once it is deleted.
+    if (!locked || locked.status !== "active") throw new VaultGone();
+    let head = locked.head;
     const view = new PrefetchedView();
     let decision: Decision;
     for (let guard = 0; ; guard++) {
@@ -84,10 +93,13 @@ export class SyncService {
     for (const m of decision.mutations) {
       if (m.type === "journal") {
         seq = ++head;
-        await this.insertJournal(tx, vc, deviceId, op.opId, seq, m.entry);
+        // The path before the entry, from the record decide() read: lets history rebuild past trees.
+        const before = view.files.get(m.entry.fileId)?.path;
+        const fromPath = before !== undefined && before !== m.entry.path ? before : null;
+        await this.insertJournal(tx, vc, deviceId, op.opId, seq, m.entry, fromPath);
       } else await this.mutate(tx, vc, deviceId, m);
     }
-    if (head !== locked!.head) {
+    if (head !== locked.head) {
       await tx.update(vaults).set({ headSeq: head }).where(eq(vaults.id, vc.vaultId));
       await tx.execute(sql`select pg_notify(${NOTIFY_CHANNEL}, ${`${vc.vaultId}:${head}`})`);
     }
@@ -246,6 +258,7 @@ export class SyncService {
           size: m.file.size,
           mtime: m.file.mtime,
           deleted: false,
+          createdAt: new Date(this.now()),
         });
         return;
       case "version":
@@ -259,12 +272,19 @@ export class SyncService {
           size: m.size,
           mtime: m.mtime,
           deviceId,
+          createdAt: new Date(this.now()),
         });
         return;
       case "head":
         await tx
           .update(files)
-          .set({ headVersionId: m.versionId, size: m.size, mtime: m.mtime, deleted: false })
+          .set({
+            headVersionId: m.versionId,
+            size: m.size,
+            mtime: m.mtime,
+            deleted: false,
+            deletedAt: null,
+          })
           .where(fileWhere(m.fileId));
         return;
       case "path":
@@ -277,10 +297,13 @@ export class SyncService {
           .where(fileWhere(m.fileId));
         return;
       case "tombstone":
-        await tx.update(files).set({ deleted: true }).where(fileWhere(m.fileId));
+        await tx
+          .update(files)
+          .set({ deleted: true, deletedAt: new Date(this.now()) })
+          .where(fileWhere(m.fileId));
         return;
       case "undelete":
-        await tx.update(files).set({ deleted: false }).where(fileWhere(m.fileId));
+        await tx.update(files).set({ deleted: false, deletedAt: null }).where(fileWhere(m.fileId));
         return;
       case "openConflict":
         await tx.insert(conflicts).values({
@@ -290,15 +313,24 @@ export class SyncService {
           kind: m.kind,
           baseVersionId: m.baseVersionId,
           headVersionId: m.headVersionId,
+          createdAt: new Date(this.now()),
         });
-        await tx
-          .insert(conflictCandidates)
-          .values({ vaultId: v, conflictId: m.conflictId, versionId: m.candidate, deviceId });
+        await tx.insert(conflictCandidates).values({
+          vaultId: v,
+          conflictId: m.conflictId,
+          versionId: m.candidate,
+          deviceId,
+          createdAt: new Date(this.now()),
+        });
         return;
       case "addCandidate":
-        await tx
-          .insert(conflictCandidates)
-          .values({ vaultId: v, conflictId: m.conflictId, versionId: m.versionId, deviceId });
+        await tx.insert(conflictCandidates).values({
+          vaultId: v,
+          conflictId: m.conflictId,
+          versionId: m.versionId,
+          deviceId,
+          createdAt: new Date(this.now()),
+        });
         return;
     }
   }
@@ -310,6 +342,7 @@ export class SyncService {
     opId: string,
     seq: number,
     e: Extract<Mutation, { type: "journal" }>["entry"],
+    fromPath: string | null,
   ): Promise<void> {
     const v = vc.vaultId;
     await tx.insert(journal).values({
@@ -321,6 +354,8 @@ export class SyncService {
       opId,
       versionId: e.versionId ?? null,
       pathEnc: vc.enc("journal", "path", `${v}:${seq}`, e.path),
+      fromPathEnc:
+        fromPath === null ? null : vc.enc("journal", "from_path", `${v}:${seq}`, fromPath),
       contentHashEnc:
         e.contentHash === undefined
           ? null

@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-11 — **M2b completata sul branch `m2b-plugin-realtime`**: Task 1–12, revisione finale fatta e corretta (0 critici, 11 importanti corretti ognuno con test, 15 minori rinviati), verifica completa verde. **Prossimo passo: aprire la PR** (`gh` non autenticato su questo PC: dal Mac o dal sito) e attendere il merge; poi i test sui dispositivi D-1…D-7 (`docs/spikes/README.md`) e la settimana d'uso che chiude M2; poi il pacchetto M4+M5+M6.
+**Ultimo aggiornamento:** 2026-11-12 — **P1 di M4+M5+M6 (area utente sul server vero) completata** sul branch `m456-server-routes`, PR aperta in attesa di merge. Dopo il merge: P2 (admin, quote, email) su `m5-admin-email` da `main`, Task 8–13 del piano.
 
 ## Dove siamo
 
@@ -19,10 +19,11 @@
 | Fase UI — sotto-fase 4b: area utente della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-user-area-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-user-area.md`) | ✅ implementata, rivista (7 importanti + 9 minori corretti); mergiata su `main` (PR #6) |
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
 | M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · ✅ M1d (spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md`, piano `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`): mergiata (PR #12) |
-| M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ⏳ M2b |
+| M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ✅ M2b: mergiata (PR #13); ⏳ test sui dispositivi D-1…D-7 e settimana d'uso |
+| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | 🔧 P1 area utente (Task 1–7): PR aperta su `m456-server-routes` · ⏳ P2 admin/quote/email (Task 8–13) · ⏳ P3 pairing (Task 14–15) |
 | M3…M7 | ⏳ |
 
-**Branch di lavoro:** `m2b-plugin-realtime` (da `main` dopo la PR #12; per ora solo l'aggiornamento di questo file).
+**Branch di lavoro:** `m456-server-routes` (P1, PR in attesa di merge); poi `m5-admin-email` e `m6-pairing`, ciascuno da `main` dopo il merge del precedente.
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -80,11 +81,10 @@ Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del disposit
 
 ## Prossimi passi
 
-1. **Prova del plugin in Obsidian desktop** con il server Docker (vault di prova `vault/kamino` con `pnpm --filter @kamino/plugin build:vault`; nella build di sviluppo il server vero si attiva con `localStorage["kamino-sync-dev-real-server"] = "1"` dalla console di Obsidian): collegamento, upload, modifica, stato.
-2. **Test sui dispositivi** D-1…D-4 (`docs/spikes/README.md`, "Test sui dispositivi dopo M1d"): file grandi su iPhone/Android, resume e cambio di rete, spostamento di una cartella da 2.000 file, una settimana d'uso. Nessuna release pubblica prima di questi.
-3. **M2b — parte plugin di M2** (WebSocket, modalità Live/Periodica/Manuale, D-07, allegati solo in Wi-Fi): brainstorming rapido → spec → piano → esecuzione. Includere i minori rinviati dalla revisione di M1d che toccano il motore.
-4. **Poi un unico pacchetto M4+M5+M6** (rotte del server dietro le schermate già fatte: area utente, admin/quote/email, pairing QR) con una sola spec e un solo piano.
-5. M3 (conflitti e storico) e M7 (hardening, release) restano milestone a sé.
+1. **Pacchetto M4+M5+M6**: P1 fatta (PR aperta). Dopo il merge: **P2** (Task 8–13: configurazione con fonte dei valori, admin utenti/inviti, quote, SMTP ed email con pg-boss, salute e audit) su `m5-admin-email`, poi **P3** (Task 14–15: pairing QR/magic link) su `m6-pairing`. Esecuzione senza checkpoint intermedi, una revisione per PR.
+2. **Test sui dispositivi** D-1…D-7 (`docs/spikes/README.md`) e la **settimana d'uso** con due desktop e un telefono, che chiude M2. Nessuna release pubblica prima.
+3. **M3** (conflitti e storico) e **M7** (hardening, release) restano milestone a sé.
+4. Minori rinviati dalle revisioni di M1d e M2b: elencati nelle rispettive sezioni qui sotto.
 
 **Accelerazioni decise dal committente (2026-11-11):** (1) M4, M5 e M6 in un unico pacchetto; (2) spec leggere per le parti a basso rischio (rotte, schermate), rigore pieno solo dove si possono perdere dati (M2b, M3); (3) la simulazione profonda (`test:deep`) gira in CI, non a ogni modifica in locale (in locale bastano i 150 scenari di `pnpm test`); (4) quando possibile lavorare dal Mac.
 
@@ -173,6 +173,23 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di P1 (M4: area utente sul server)
+
+| # | Decisione | Costo se sbagliata |
+|---|---|---|
+| U1 | Data fuori dalla finestra dello storico (ZIP "com'era il…") = codice esistente `history_window` (400), non un nuovo `out_of_retention` | Basso: un codice in più nel catalogo |
+| U2 | Nuova colonna `journal.from_path_enc` (migrazione `0004`): il percorso prima di uno spostamento, per ricostruire l'albero a una data. Le voci scritte prima non ce l'hanno: uno spostamento vecchio si "disfa" solo a partire dalla migrazione | Basso: storico pre-migrazione solo su vault di prova |
+| U3 | Timestamp di `files`, `file_versions`, `conflicts`, `conflict_candidates` dall'orologio del server (`now()` iniettato), non dal default del DB | Nessuno |
+| U4 | Eliminazione vault: in una transazione stato `deleted`, DEK e impostazioni azzerate (`dek_wrapped` ora nullable, migrazione `0005`), dispositivi revocati; socket chiusi subito. I blob li cancella un job orario `vault-purge` (minuto 37), idempotente | Basso: blob illeggibili restano su disco fino a un'ora |
+| U5 | ZIP in streaming con yazl, cartella di configurazione esportata come `.obsidian/`; nome del file `vault-AAAA-MM-GG.zip` (mai il nome del vault negli header) | Nessuno |
+| U6 | Ripristino e risoluzione: il server risponde 501 `not_implemented`; nella web app i pulsanti sono disattivati con "In arrivo" (`common.comingSoon`) tranne con le API finte (flag `features.historyWrites` in `src/lib/features.ts`). Si attivano con M3 | Nessuno |
+| U7 | Playwright (`pnpm --filter @kamino/web e2e`): server vero su Postgres usa-e-getta (`apps/server/test/e2e-server.ts`, porta 8181) + Vite in modalità ibrida (porta 5181). Non gira in CI per ora (serve Docker e il browser) | Basso |
+
+| U8 | Revisione finale (8 rilievi), corretti: errore di lettura a metà ZIP → stream distrutto, mai il processo; download annullato → non si leggono altri blob; `vaults.journal_floor_at` (migrazione `0006`) impedisce di ricostruire date già compattate anche se si alza la retention; `files.deleted_at` data il cestino dopo la compattazione; `deleteVault` prende il lock della riga del vault e commit/upload ricontrollano lo stato sotto lock (404, niente scritture in un vault eliminato); mock ZIP fuori finestra 400 come il server | — |
+| U9 | Rinviato: id di file/versione scelti dal client, univoci solo per vault. Se lo stesso id esiste in due vault dello stesso utente, `/files/:id/versions` e `/versions/:id` rispondono 404 (nessuna fuga verso altri utenti; il plugin usa UUID). Da risolvere con M3, mettendo il vault nella rotta | Basso |
+
+Nota: `multi-client.test.ts` è fallito una volta (contatore `snapshots` a 0) sotto il carico di `pnpm test` completo; ripetuto da solo, con la suite del server e con tutta la suite è passato. Da tenere d'occhio: se si ripresenta, il seme fisso dipende dai tempi.
 
 ### Decisioni di M2b (tempo reale nel plugin)
 

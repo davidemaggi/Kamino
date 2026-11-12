@@ -8,7 +8,7 @@ import { conflicts, devices, files, fileVersions } from "../db/schema.js";
 import type { Vault, VaultService } from "../vaults/service.js";
 
 /** Admin maximum for history retention until system settings arrive (M5). */
-const MAX_RETENTION_DAYS = 90;
+export const MAX_RETENTION_DAYS = 90;
 
 interface Stats {
   fileCount: number;
@@ -71,31 +71,33 @@ async function statsOf(db: Db, v: Vault): Promise<Stats> {
   };
 }
 
-/** C1: the minimum the web app needs from the real server (the rest of the user area is M4). */
+export async function vaultDto(db: Db, vaultsSvc: VaultService, v: Vault): Promise<VaultDto> {
+  const st = await statsOf(db, v);
+  return {
+    id: v.id,
+    name: vaultsSvc.nameOf(v),
+    fileCount: st.fileCount,
+    deviceCount: st.deviceCount,
+    level: st.level,
+    conflicts: st.conflicts,
+    usedBytes: st.usedBytes,
+    historyBytes: st.historyBytes,
+    trashBytes: st.trashBytes,
+    retentionDays: Math.min(v.retentionDays, MAX_RETENTION_DAYS),
+    maxRetentionDays: MAX_RETENTION_DAYS,
+    historyFrom: v.createdAt.toISOString(),
+  };
+}
+
+/** C1: the vault list and summary of the web app. */
 export function vaultRoutes(db: Db, vaultsSvc: VaultService) {
   return async (app: FastifyInstance) => {
     app.get("/vaults", async (req, reply) => {
       const s = requireUser(req, reply);
       if (!s) return reply;
-      const list = await vaultsSvc.listForUser(s.user.id);
       const vaults: VaultDto[] = [];
-      for (const v of list) {
-        const st = await statsOf(db, v);
-        vaults.push({
-          id: v.id,
-          name: vaultsSvc.nameOf(v),
-          fileCount: st.fileCount,
-          deviceCount: st.deviceCount,
-          level: st.level,
-          conflicts: st.conflicts,
-          usedBytes: st.usedBytes,
-          historyBytes: st.historyBytes,
-          trashBytes: st.trashBytes,
-          retentionDays: Math.min(v.retentionDays, MAX_RETENTION_DAYS),
-          maxRetentionDays: MAX_RETENTION_DAYS,
-          historyFrom: v.createdAt.toISOString(),
-        });
-      }
+      for (const v of await vaultsSvc.listForUser(s.user.id))
+        vaults.push(await vaultDto(db, vaultsSvc, v));
       const usedBytes = vaults.reduce((n, v) => n + v.usedBytes + v.historyBytes + v.trashBytes, 0);
       // Quotas arrive with M5: no limit yet.
       return { vaults, quota: { usedBytes, limitBytes: null } };

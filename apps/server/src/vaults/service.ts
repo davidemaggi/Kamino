@@ -5,6 +5,7 @@ import type { Db } from "../db/client.js";
 import { devices, files, oneTimeTokens, users, vaults } from "../db/schema.js";
 import { AuthError } from "../auth/service.js";
 import { hashToken, randomToken, uuidv7 } from "../auth/tokens.js";
+import { notFound } from "../http/errors.js";
 import { VaultCrypto } from "./vault-crypto.js";
 
 export const ENROLL_TTL_MS = 10 * 60_000;
@@ -20,6 +21,10 @@ export class VaultService {
   ) {}
 
   cryptoOf(v: Vault): VaultCrypto {
+    if (!v.dekWrapped || v.status !== "active") {
+      this.crypto.delete(v.id);
+      throw notFound();
+    }
     let c = this.crypto.get(v.id);
     if (!c) {
       c = new VaultCrypto(v.id, this.kek, v.dekWrapped);
@@ -32,6 +37,11 @@ export class VaultService {
     return (await this.db.select().from(vaults).where(eq(vaults.id, id)))[0];
   }
 
+  /** Drops the cached keys of a deleted vault. */
+  forget(vaultId: string): void {
+    this.crypto.delete(vaultId);
+  }
+
   nameOf(v: Vault): string {
     return this.cryptoOf(v).dec("vaults", "name", v.id, v.nameEnc);
   }
@@ -39,7 +49,7 @@ export class VaultService {
   async create(ownerId: string, name: string): Promise<Vault> {
     const id = uuidv7();
     const dek = generateDek();
-    const draft = { id, dekWrapped: wrapDek(this.kek, id, dek) } as Vault;
+    const draft = { id, status: "active", dekWrapped: wrapDek(this.kek, id, dek) } as Vault;
     const nameEnc = this.cryptoOf(draft).enc("vaults", "name", id, name);
     const [v] = await this.db
       .insert(vaults)
@@ -47,12 +57,23 @@ export class VaultService {
         id,
         ownerId,
         nameEnc,
-        dekWrapped: draft.dekWrapped,
+        dekWrapped: draft.dekWrapped!,
         kekId: this.kek.id,
         createdAt: new Date(this.now()),
       })
       .returning();
     return v!;
+  }
+
+  /** Rename and/or change the history retention; the name is re-encrypted. */
+  async update(v: Vault, patch: { name?: string | undefined; retentionDays?: number | undefined }) {
+    const set: Partial<typeof vaults.$inferInsert> = {};
+    if (patch.name !== undefined)
+      set.nameEnc = this.cryptoOf(v).enc("vaults", "name", v.id, patch.name);
+    if (patch.retentionDays !== undefined) set.retentionDays = patch.retentionDays;
+    if (Object.keys(set).length === 0) return v;
+    const [row] = await this.db.update(vaults).set(set).where(eq(vaults.id, v.id)).returning();
+    return row!;
   }
 
   async listForUser(ownerId: string): Promise<Vault[]> {

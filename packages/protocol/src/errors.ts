@@ -40,6 +40,8 @@ export const ErrorCode = z.enum([
   "config_locked",
   "unauthorized",
   "not_found",
+  "not_implemented",
+  "export_expired",
   "internal",
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;

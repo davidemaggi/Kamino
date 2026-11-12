@@ -11,6 +11,7 @@ import { createDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { startJobs } from "./jobs/boss.js";
 import { compactJournal } from "./jobs/compact.js";
+import { purgeDeletedVaults } from "./jobs/purge.js";
 import { createLogger } from "./observability/logger.js";
 import { resolveWebRoot } from "./web.js";
 
@@ -73,15 +74,15 @@ async function main(): Promise<void> {
   });
 
   // ADR 0008: compaction (daily) and upload cleanup (hourly, C10), after the key check.
-  const uploads = new UploadService(
-    db,
-    createBlobStore(config.storage),
-    config.stagingDir,
-    config.maxFileBytes,
-  );
+  const store = createBlobStore(config.storage);
+  const uploads = new UploadService(db, store, config.stagingDir, config.maxFileBytes);
   const jobs = await startJobs(
     config.databaseUrl,
-    { compact: () => compactJournal(db, Date.now()), sweep: () => uploads.sweep() },
+    {
+      compact: () => compactJournal(db, Date.now()),
+      sweep: () => uploads.sweep(),
+      purge: () => purgeDeletedVaults(db, store),
+    },
     logger,
   );
 

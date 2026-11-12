@@ -14,6 +14,7 @@ import { enrollRoutes } from "./routes/enroll.js";
 import { transferRoutes } from "./routes/transfer.js";
 import { syncRoutes } from "./routes/sync.js";
 import { vaultRoutes } from "./routes/vaults.js";
+import { userAreaRoutes } from "./routes/user-area.js";
 import { SyncService } from "./sync/commit.js";
 import { Hub } from "./realtime/hub.js";
 import { keepListening } from "./realtime/listener.js";
@@ -85,6 +86,16 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const sync = deps.sync ?? new SyncService(deps.db);
   await app.register(syncRoutes(deps.db, vaultsSvc, sync), { prefix: "/api/v1" });
   await app.register(vaultRoutes(deps.db, vaultsSvc), { prefix: "/api/v1" });
+  await app.register(
+    userAreaRoutes({
+      db: deps.db,
+      vaults: vaultsSvc,
+      store: blobStore,
+      hub,
+      now: deps.now ?? Date.now,
+    }),
+    { prefix: "/api/v1" },
+  );
   // Spec §5: frames above 64 KB close the socket.
   await app.register(websocket, { options: { maxPayload: 65_536 } });
   await app.register(

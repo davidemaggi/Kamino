@@ -186,6 +186,9 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | U6 | Ripristino e risoluzione: il server risponde 501 `not_implemented`; nella web app i pulsanti sono disattivati con "In arrivo" (`common.comingSoon`) tranne con le API finte (flag `features.historyWrites` in `src/lib/features.ts`). Si attivano con M3 | Nessuno |
 | U7 | Playwright (`pnpm --filter @kamino/web e2e`): server vero su Postgres usa-e-getta (`apps/server/test/e2e-server.ts`, porta 8181) + Vite in modalità ibrida (porta 5181). Non gira in CI per ora (serve Docker e il browser) | Basso |
 
+| U8 | Revisione finale (8 rilievi), corretti: errore di lettura a metà ZIP → stream distrutto, mai il processo; download annullato → non si leggono altri blob; `vaults.journal_floor_at` (migrazione `0006`) impedisce di ricostruire date già compattate anche se si alza la retention; `files.deleted_at` data il cestino dopo la compattazione; `deleteVault` prende il lock della riga del vault e commit/upload ricontrollano lo stato sotto lock (404, niente scritture in un vault eliminato); mock ZIP fuori finestra 400 come il server | — |
+| U9 | Rinviato: id di file/versione scelti dal client, univoci solo per vault. Se lo stesso id esiste in due vault dello stesso utente, `/files/:id/versions` e `/versions/:id` rispondono 404 (nessuna fuga verso altri utenti; il plugin usa UUID). Da risolvere con M3, mettendo il vault nella rotta | Basso |
+
 Nota: `multi-client.test.ts` è fallito una volta (contatore `snapshots` a 0) sotto il carico di `pnpm test` completo; ripetuto da solo, con la suite del server e con tutta la suite è passato. Da tenere d'occhio: se si ripresenta, il seme fisso dipende dai tempi.
 
 ### Decisioni di M2b (tempo reale nel plugin)

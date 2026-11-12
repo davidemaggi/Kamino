@@ -9,6 +9,8 @@ import { SyncService } from "../../src/sync/commit.js";
 import { Hub } from "../../src/realtime/hub.js";
 import { QuotaService } from "../../src/quota/service.js";
 import { SystemConfigService } from "../../src/system/config.js";
+import { Outbox } from "../../src/email/outbox.js";
+import type { Message } from "../../src/email/mailer.js";
 import type { Config, SystemEnv } from "../../src/config/schema.js";
 import { openWs, type TestWs } from "./ws.js";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -34,6 +36,9 @@ export interface TestApp {
   hub: Hub;
   config: SystemConfigService;
   quota: QuotaService;
+  outbox: Outbox;
+  /** Email "sent" by the fake SMTP transport (after `outbox.drain()`). */
+  mail: Message[];
   /** A WebSocket client on /api/v1/ws. */
   ws(opts?: { autoPong?: boolean }): Promise<TestWs>;
   /** Temporary blob and staging directories (removed on close). */
@@ -94,10 +99,20 @@ export async function testApp(
   );
   const sync = new SyncService(db, () => clock.now);
   const hub = new Hub();
+  const logger = opts.log ? createLogger("debug", opts.log) : pino({ level: "silent" });
+  const mail: Message[] = [];
+  const outbox = new Outbox(
+    db,
+    kek,
+    systemConfig,
+    () => ({ send: async (m) => void mail.push(m) }),
+    () => clock.now,
+    logger,
+  );
   const app = await buildApp({
     config,
     db,
-    logger: opts.log ? createLogger("debug", opts.log) : pino({ level: "silent" }),
+    logger,
     buildInfo,
     kek,
     auth,
@@ -108,6 +123,7 @@ export async function testApp(
     hub,
     systemConfig,
     quota,
+    outbox,
     realtime: { helloMs: 500, heartbeatMs: 30_000, ...opts.realtime },
     now: () => clock.now,
   });
@@ -121,6 +137,8 @@ export async function testApp(
     hub,
     config: systemConfig,
     quota,
+    outbox,
+    mail,
     ws: (o) => openWs(app, o?.autoPong ?? true),
     dirs,
     clock,

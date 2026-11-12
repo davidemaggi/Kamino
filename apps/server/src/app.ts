@@ -31,7 +31,10 @@ import { versionRoutes } from "./routes/version.js";
 import { webRoutes } from "./web.js";
 import { SystemConfigService } from "./system/config.js";
 import { QuotaService } from "./quota/service.js";
-import type { Outbox } from "./email/outbox.js";
+import { Outbox } from "./email/outbox.js";
+import { smtpTransport } from "./email/mailer.js";
+import { AdminUsers } from "./admin/users.js";
+import { adminRoutes } from "./routes/admin.js";
 
 export type AppDeps = {
   config: Config;
@@ -77,8 +80,14 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const systemConfig =
     deps.systemConfig ?? new SystemConfigService(deps.db, deps.config, deps.kek, deps.now);
   const quota = deps.quota ?? new QuotaService(deps.db, systemConfig, deps.now);
+  const now = deps.now ?? Date.now;
+  const outbox =
+    deps.outbox ?? new Outbox(deps.db, deps.kek, systemConfig, smtpTransport, now, deps.logger);
   const secure = deps.config.publicUrl.startsWith("https:");
-  await app.register(authRoutes(auth, secure), { prefix: "/api/v1" });
+  await app.register(
+    authRoutes(auth, secure, { outbox, config: systemConfig, publicUrl: deps.config.publicUrl }),
+    { prefix: "/api/v1" },
+  );
   await app.register(accountRoutes(auth), { prefix: "/api/v1" });
   const vaultsSvc = deps.vaults ?? new VaultService(deps.db, deps.kek);
   const hub = deps.hub ?? new Hub();
@@ -111,6 +120,25 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       hub,
       config: systemConfig,
       now: deps.now ?? Date.now,
+    }),
+    { prefix: "/api/v1" },
+  );
+  const startedAt = now();
+  await app.register(
+    adminRoutes({
+      users: new AdminUsers(deps.db, auth, hub, systemConfig, outbox, deps.config.publicUrl, now),
+      auth,
+      config: systemConfig,
+      outbox,
+      health: {
+        db: deps.db,
+        store: blobStore,
+        config: systemConfig,
+        buildInfo: deps.buildInfo,
+        diskDir: deps.config.storage.kind === "fs" ? deps.config.storage.dir : null,
+        startedAt,
+        now,
+      },
     }),
     { prefix: "/api/v1" },
   );

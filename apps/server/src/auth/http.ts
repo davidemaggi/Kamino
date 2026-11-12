@@ -110,3 +110,17 @@ export function requireUser(
   }
   return req.auth;
 }
+
+/** Admin guard (U-07): signed in, admin, with TOTP on; otherwise 401/403 already sent. */
+export function requireAdmin(
+  req: FastifyRequest,
+  reply: FastifyReply,
+): { user: User; sessionId: string } | null {
+  const a = requireUser(req, reply);
+  if (!a) return null;
+  if (a.user.role !== "admin" || a.user.totpEnabledAt === null) {
+    void fail(reply, 403, "forbidden");
+    return null;
+  }
+  return a;
+}

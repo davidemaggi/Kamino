@@ -6,6 +6,8 @@ import {
   SetupRequest,
   TotpLoginRequest,
 } from "@kamino/protocol";
+import type { Outbox } from "../email/outbox.js";
+import type { SystemConfigService } from "../system/config.js";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { z } from "zod";
 import { clearSessionCookie, ctxOf, fail, setSessionCookie } from "../auth/http.js";
@@ -26,7 +28,14 @@ export function parse<T>(schema: z.ZodType<T>, req: FastifyRequest, reply: Fasti
   return null;
 }
 
-export function authRoutes(auth: AuthService, secure: boolean) {
+/** What "forgot password" needs to send a link; without it the answer is always `smtp: false`. */
+export interface ForgotMail {
+  outbox: Outbox;
+  config: SystemConfigService;
+  publicUrl: string;
+}
+
+export function authRoutes(auth: AuthService, secure: boolean, mail?: ForgotMail) {
   const limiter = new RateLimiter<Bucket>({
     login: { max: 10, windowMs: 15 * 60_000 },
     totp: { max: 10, windowMs: 15 * 60_000 },
@@ -85,8 +94,21 @@ export function authRoutes(auth: AuthService, secure: boolean) {
     );
     app.post("/auth/forgot", async (req, reply) => {
       if (limited("forgot", req, reply)) return reply;
-      if (!parse(ForgotRequest, req, reply)) return reply;
-      return { smtp: false }; // B5: email arrives with M5; same answer whether the email exists or not
+      const b = parse(ForgotRequest, req, reply);
+      if (!b) return reply;
+      // B5: same answer whether the email exists or not; smtp=false means "ask the admin".
+      if (!mail || !(await mail.config.smtp())) return { smtp: false };
+      const found = await auth.forgotLink(b.email);
+      if (found)
+        await mail.outbox.enqueue(
+          found.user.email,
+          "reset",
+          found.user.locale === "en" ? "en" : "it",
+          {
+            link: `${mail.publicUrl}/reset/${found.token}`,
+          },
+        );
+      return { smtp: true };
     });
     app.post("/auth/reset", async (req, reply) => {
       if (limited("reset", req, reply)) return reply;

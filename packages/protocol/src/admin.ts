@@ -141,3 +141,4 @@ export const AuditPage = z.object({
   page: z.number().int().min(1),
   pages: z.number().int().min(1),
 });
+export type AuditPage = z.infer<typeof AuditPage>;

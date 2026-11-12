@@ -79,6 +79,46 @@ describe("zip stream", () => {
   });
 });
 
+describe("zip stream failures", () => {
+  const tree = new Map<string, TreeEntry>([
+    ["a.bin", { kind: "file", blobId: "a", size: 200 * 65536, mtime: 1 }],
+    ["b.bin", { kind: "file", blobId: "b", size: 65536, mtime: 1 }],
+  ]);
+
+  it("a read error mid-stream fails the stream, never the process", async () => {
+    async function* open() {
+      yield randomBytes(65536);
+      throw new Error("blob gone");
+    }
+    await expect(toBuffer(zipStream(tree, open))).rejects.toThrow("blob gone");
+  });
+
+  it("a size mismatch fails the stream", async () => {
+    async function* open() {
+      yield randomBytes(10);
+    }
+    await expect(toBuffer(zipStream(tree, open))).rejects.toThrow();
+  });
+
+  it("a cancelled download stops reading blobs", async () => {
+    const opened: string[] = [];
+    let pieces = 0;
+    async function* open(blobId: string, size: number) {
+      opened.push(blobId);
+      for (let sent = 0; sent < size; sent += 65536) {
+        pieces++;
+        yield randomBytes(65536);
+      }
+    }
+    const s = zipStream(tree, open);
+    await new Promise<void>((ok) => s.once("data", () => ok()));
+    s.destroy();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(opened).toEqual(["a"]);
+    expect(pieces).toBeLessThan(40);
+  });
+});
+
 describe.skipIf(dockerUnavailable)("zip of a vault", () => {
   let pg: TestPostgres;
   let t: TestApp;

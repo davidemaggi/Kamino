@@ -2,7 +2,7 @@ import { AuditAction, type AuditPage, type HealthCheck, type SystemHealth } from
 import { count, desc, inArray, ne, sql } from "drizzle-orm";
 import { statfs } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { BlobStore } from "../blobs/store.js";
+import { SYSTEM_PREFIX, type BlobStore } from "../blobs/store.js";
 import type { BuildInfo } from "../build-info.js";
 import type { Db } from "../db/client.js";
 import { auditLog, users } from "../db/schema.js";
@@ -68,7 +68,7 @@ export async function systemHealth(d: HealthDeps): Promise<SystemHealth> {
       return { status: "ok" };
     }),
     check("storage", async () => {
-      await d.store.size("health/probe");
+      await d.store.size(`${SYSTEM_PREFIX}/0`);
       return { status: "ok" };
     }),
     ...(d.diskDir === null

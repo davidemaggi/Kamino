@@ -11,6 +11,7 @@ import { QuotaService } from "../../src/quota/service.js";
 import { SystemConfigService } from "../../src/system/config.js";
 import { Outbox } from "../../src/email/outbox.js";
 import type { Message } from "../../src/email/mailer.js";
+import { UserDeletion } from "../../src/users/deletion.js";
 import type { Config, SystemEnv } from "../../src/config/schema.js";
 import { openWs, type TestWs } from "./ws.js";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -39,6 +40,8 @@ export interface TestApp {
   outbox: Outbox;
   /** Email "sent" by the fake SMTP transport (after `outbox.drain()`). */
   mail: Message[];
+  deletion: UserDeletion;
+  blobStore: FsBlobStore;
   /** A WebSocket client on /api/v1/ws. */
   ws(opts?: { autoPong?: boolean }): Promise<TestWs>;
   /** Temporary blob and staging directories (removed on close). */
@@ -109,6 +112,18 @@ export async function testApp(
     () => clock.now,
     logger,
   );
+  const deletion = new UserDeletion({
+    db,
+    kek,
+    auth,
+    vaults,
+    store: blobStore,
+    hub,
+    config: systemConfig,
+    outbox,
+    publicUrl: config.publicUrl,
+    now: () => clock.now,
+  });
   const app = await buildApp({
     config,
     db,
@@ -124,6 +139,7 @@ export async function testApp(
     systemConfig,
     quota,
     outbox,
+    deletion,
     realtime: { helloMs: 500, heartbeatMs: 30_000, ...opts.realtime },
     now: () => clock.now,
   });
@@ -139,6 +155,8 @@ export async function testApp(
     quota,
     outbox,
     mail,
+    deletion,
+    blobStore,
     ws: (o) => openWs(app, o?.autoPong ?? true),
     dirs,
     clock,

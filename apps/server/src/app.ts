@@ -35,6 +35,8 @@ import { Outbox } from "./email/outbox.js";
 import { smtpTransport } from "./email/mailer.js";
 import { AdminUsers } from "./admin/users.js";
 import { adminRoutes } from "./routes/admin.js";
+import { exportRoutes } from "./routes/exports.js";
+import { UserDeletion } from "./users/deletion.js";
 
 export type AppDeps = {
   config: Config;
@@ -52,6 +54,7 @@ export type AppDeps = {
   systemConfig?: SystemConfigService | undefined;
   outbox?: Outbox | undefined;
   quota?: QuotaService | undefined;
+  deletion?: UserDeletion | undefined;
   /** WebSocket timings (tests shorten them); `listen: false` skips the LISTEN connection. */
   realtime?: { helloMs?: number; heartbeatMs?: number; listen?: boolean } | undefined;
   /** Application clock (tests inject a fake one). */
@@ -124,6 +127,21 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     { prefix: "/api/v1" },
   );
   const startedAt = now();
+  const deletion =
+    deps.deletion ??
+    new UserDeletion({
+      db: deps.db,
+      kek: deps.kek,
+      auth,
+      vaults: vaultsSvc,
+      store: blobStore,
+      hub,
+      config: systemConfig,
+      outbox,
+      publicUrl: deps.config.publicUrl,
+      now,
+    });
+  await app.register(exportRoutes(deletion, now), { prefix: "/api/v1" });
   await app.register(
     adminRoutes({
       users: new AdminUsers(deps.db, auth, hub, systemConfig, outbox, deps.config.publicUrl, now),
@@ -139,6 +157,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         startedAt,
         now,
       },
+      deletion,
     }),
     { prefix: "/api/v1" },
   );

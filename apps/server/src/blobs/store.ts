@@ -11,6 +11,9 @@ export interface BlobStore {
   delete(key: string): Promise<void>;
 }
 
+/** Keys outside every vault (exports, probes): a nil-UUID "vault" no vault can have. */
+export const SYSTEM_PREFIX = "00000000-0000-0000-0000-000000000000";
+
 export function createBlobStore(storage: Config["storage"]): BlobStore {
   return storage.kind === "fs" ? new FsBlobStore(storage.dir) : new S3BlobStore(storage);
 }

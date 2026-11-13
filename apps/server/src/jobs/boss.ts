@@ -7,6 +7,8 @@ export const JOBS = {
   sweep: "upload-sweep",
   purge: "vault-purge",
   email: "email-outbox",
+  exports: "user-export",
+  finalize: "user-deletion-finalize",
 } as const;
 export type JobName = keyof typeof JOBS;
 
@@ -15,6 +17,8 @@ const SCHEDULES: Record<JobName, string> = {
   sweep: "7 * * * *", // hourly (C10)
   purge: "37 * * * *", // hourly: blobs of deleted vaults (F5)
   email: "* * * * *", // every minute: retries with backoff (F8)
+  exports: "*/10 * * * *", // ZIPs of users being deleted (F6); also queued right away
+  finalize: "47 * * * *", // hourly: users whose 7 days are over (F6)
 };
 
 export interface Jobs {

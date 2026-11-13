@@ -1,11 +1,17 @@
-import { ConfigPatch, CreateUserRequest, UpdateUserRequest } from "@kamino/protocol";
+import {
+  ConfigPatch,
+  CreateUserRequest,
+  DeleteUserRequest,
+  UpdateUserRequest,
+} from "@kamino/protocol";
 import type { FastifyInstance } from "fastify";
 import { auditPage, systemHealth, type HealthDeps } from "../admin/health.js";
 import type { AdminUsers } from "../admin/users.js";
-import { requireAdmin } from "../auth/http.js";
+import { fail, requireAdmin } from "../auth/http.js";
 import type { AuthService } from "../auth/service.js";
 import type { Outbox } from "../email/outbox.js";
 import type { SystemConfigService } from "../system/config.js";
+import type { UserDeletion } from "../users/deletion.js";
 import { parse } from "./auth.js";
 
 type Id = { Params: { id: string } };
@@ -16,6 +22,7 @@ export interface AdminRouteDeps {
   config: SystemConfigService;
   outbox: Outbox;
   health: HealthDeps;
+  deletion: UserDeletion;
 }
 
 /** E-01..E-06: admin only (TOTP on); thin adapters over the admin services. */
@@ -42,6 +49,14 @@ export function adminRoutes(d: AdminRouteDeps) {
       const b = parse(UpdateUserRequest, req, reply);
       if (!b) return reply;
       return d.users.update(a.user, req.params.id, b);
+    });
+    app.delete<Id>("/admin/users/:id", async (req, reply) => {
+      const a = requireAdmin(req, reply);
+      if (!a) return reply;
+      const b = DeleteUserRequest.safeParse(req.body);
+      if (!b.success) return fail(reply, 400, "confirm_mismatch");
+      await d.deletion.start(a.user, req.params.id, b.data);
+      return reply.code(204).send();
     });
     app.post<Id>("/admin/users/:id/block", async (req, reply) => {
       const a = requireAdmin(req, reply);

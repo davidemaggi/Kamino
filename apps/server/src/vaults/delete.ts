@@ -20,6 +20,17 @@ export async function deleteVault(
 ): Promise<void> {
   if (confirmName.trim() !== vaultsSvc.nameOf(vault).trim())
     throw new ApiError("confirm_mismatch", 400);
+  await destroyVault(db, hub, vaultsSvc, vault, now);
+}
+
+/** The deletion itself, already confirmed (by the name, or by the owner's own deletion, F6). */
+export async function destroyVault(
+  db: Db,
+  hub: Hub,
+  vaultsSvc: VaultService,
+  vault: Vault,
+  now: number,
+): Promise<void> {
   const at = new Date(now);
   const revoked = await db.transaction(async (tx) => {
     // Same row lock as commits and uploads: one in flight finishes first, later ones see "deleted".

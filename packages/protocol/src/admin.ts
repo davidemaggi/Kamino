@@ -43,6 +43,7 @@ export const UpdateUserRequest = z.object({
 export type UpdateUserRequest = z.infer<typeof UpdateUserRequest>;
 export const ResetLink = z.object({ link: z.string() });
 export const DeleteUserRequest = z.object({ confirmUsername: z.string(), sendZip: z.boolean() });
+export type DeleteUserRequest = z.infer<typeof DeleteUserRequest>;
 
 /** E-03: where a value comes from; "env" values are locked in the UI. */
 export const ConfigSource = z.enum(["env", "ui", "default"]);

@@ -5,7 +5,7 @@ import yauzl from "yauzl";
 import { readPlain } from "../src/blobs/uploads.js";
 import { FsBlobStore } from "../src/blobs/fs-store.js";
 import { HistoryService, type TreeEntry } from "../src/history/service.js";
-import { zipFileName, zipStream } from "../src/history/zip.js";
+import { folderNames, zipFileName, zipStream } from "../src/history/zip.js";
 import { ownedVault } from "../src/vaults/access.js";
 import { testApp, type TestApp } from "./helpers/app.js";
 import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
@@ -187,5 +187,19 @@ describe.skipIf(dockerUnavailable)("zip of a vault", () => {
     expect((await unzip(await toBuffer(zipStream(await h.treeAt(vc, before), open))))["a.md"]).toBe(
       "alpha",
     );
+  });
+});
+
+describe("folderNames", () => {
+  it("makes vault names safe folders and dedupes them", () => {
+    expect(folderNames(["Note", "a/b:c", "note", " .hidden. ", "", "x\u0001y", "Note"])).toEqual([
+      "Note",
+      "a_b_c",
+      "note (2)",
+      "hidden",
+      "vault",
+      "x_y",
+      "Note (3)",
+    ]);
   });
 });

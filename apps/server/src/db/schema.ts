@@ -386,3 +386,20 @@ export const emailOutbox = pgTable(
       .where(sql`${t.sentAt} is null`),
   ],
 );
+
+/**
+ * F6: the ZIP offered to a user being deleted. Encrypted with HKDF(k_system, token): only the
+ * link's token (hashed here, sent only to the user's email) can read it. Destroyed at finalize.
+ */
+export const userExports = pgTable("user_exports", {
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** Null until the ZIP is built. */
+  tokenHash: text("token_hash").unique(),
+  storedSize: bigint("stored_size", { mode: "number" }),
+  readyAt: timestamp("ready_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -1,0 +1,14 @@
+# Master key rotation (docs/self-hosting.md §6): layered on top of a scenario compose file.
+#   docker compose -f docker/compose.lan.yml -f docker/compose.rotate.yml up -d
+# docker/secrets/kamino_master_key holds the NEW key, kamino_master_key_previous the OLD one.
+services:
+  kamino:
+    environment:
+      KAMINO_MASTER_KEY_PREVIOUS_FILE: /run/secrets/kamino_master_key_previous
+    secrets:
+      - kamino_master_key
+      - kamino_master_key_previous
+
+secrets:
+  kamino_master_key_previous:
+    file: ./secrets/kamino_master_key_previous

@@ -138,6 +138,9 @@ importers:
       postgres:
         specifier: ^4.1.0
         version: 4.1.0
+      yauzl:
+        specifier: ^3.4.0
+        version: 3.4.0
       yazl:
         specifier: ^3.3.1
         version: 3.3.1
@@ -178,9 +181,6 @@ importers:
       ws:
         specifier: ^8.22.2
         version: 8.22.2
-      yauzl:
-        specifier: ^3.4.0
-        version: 3.4.0
 
   apps/web:
     dependencies:

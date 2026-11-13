@@ -100,7 +100,7 @@ Custodia:
 - Multi-stage (build su `node:24-alpine`, runtime su `alpine:3.24` con il binario `node` ufficiale ridotto con `strip`); utente non root (`node`), nessun segreto nei layer (la master key è un Docker secret; la password del database arriva da `docker/.env` a runtime).
 - `HEALTHCHECK` su `/health/live` (con `node`, senza curl).
 - Il commit mostrato da `/version` si imposta con `--build-arg KAMINO_BUILD_COMMIT=<sha>` (nei compose: variabile `KAMINO_BUILD_COMMIT`); senza, vale `unknown`.
-- L'entrypoint senza argomenti avvia il server; con argomenti esegue la CLI (`keys generate`, `keys verify`, `migrate`, `users …`).
+- L'entrypoint senza argomenti avvia il server; con argomenti esegue la CLI (`keys generate`, `keys verify`, `keys rotate`, `migrate`, `users …`, `backup create|verify|restore`).
 
 ## 4. Primo avvio e utenti
 
@@ -112,3 +112,51 @@ Custodia:
   - `… users reset-2fa <username>` toglie la verifica in due passaggi a chi ha perso il telefono e i codici di recupero (resta nel registro).
 - Le migrazioni del database partono solo dopo la verifica della master key: con una chiave sbagliata il server si ferma senza toccare lo schema.
 - Dimensione dell'immagine: **210 MB** (`docker image ls`, base Alpine 3.24 + binario `node` ridotto con `strip`) (obiettivo < 250 MB).
+
+## 5. Backup e ripristino
+
+Un backup è un unico file ZIP con il database (tutte le tabelle, in un'unica transazione coerente) e i blob cifrati. **Non contiene la master key**: senza la chiave il backup non è leggibile, quindi conserva la chiave a parte (§2). Il file è creato con permessi `600`.
+
+Creare un backup a server acceso, in una cartella dell'host montata nel container (deve essere scrivibile dall'uid 1000):
+
+```sh
+mkdir -p backups && sudo chown 1000:1000 backups   # su Docker Desktop basta mkdir
+docker compose -f docker/compose.lan.yml run --rm -T -v "$PWD/backups:/backups" kamino backup create /backups/kamino-$(date +%F).zip
+```
+
+Verificarlo (consigliato dopo ogni backup, o almeno ogni settimana): il comando ripristina il backup in un database temporaneo sullo stesso Postgres, controlla che la master key apra ogni chiave dei vault e che un campione di 20 blob si decifri con il contenuto atteso, poi cancella il database temporaneo. Serve un utente Postgres che possa creare database (quello dei compose lo può).
+
+```sh
+docker compose -f docker/compose.lan.yml run --rm -T -v "$PWD/backups:/backups" kamino backup verify /backups/kamino-2026-11-13.zip
+```
+
+Conservazione consigliata: un backup al giorno, tenuti **30 giorni**, con almeno una copia fuori dal server. Un backup fatto prima di una rotazione della master key (§6) si apre solo con la **vecchia** chiave: tienila insieme a quei backup finché non scadono.
+
+Ripristinare su un'installazione nuova (database e volume vuoti; il ripristino si rifiuta di scrivere sopra dati esistenti). Serve la stessa master key del backup in `docker/secrets/kamino_master_key`:
+
+```sh
+docker compose -f docker/compose.lan.yml up -d postgres           # solo il database, il server non deve essere partito
+docker compose -f docker/compose.lan.yml run --rm -T -v "$PWD/backups:/backups" kamino backup restore /backups/kamino-2026-11-13.zip
+docker compose -f docker/compose.lan.yml up -d                     # avvia il server sui dati ripristinati
+```
+
+Il ripristino applica le migrazioni, controlla che il backup venga dalla stessa versione dello schema, scrive i blob e poi tutte le tabelle in una transazione, e confronta il numero di righe. Le modifiche arrivate al server dopo il backup non sono nel backup; restano però nelle vault locali dei dispositivi. Il comportamento dei dispositivi già collegati dopo un ripristino è tra le prove da fare prima della 1.0: fino ad allora, in caso di dubbio, controlla la vault di un dispositivo prima di ricollegarlo.
+
+## 6. Rotazione della master key
+
+Da fare se la chiave potrebbe essere stata esposta, o periodicamente. Il server resta acceso; i contenuti non vengono ricifrati, solo le chiavi dei vault e i segreti di sistema (TOTP, password SMTP, email in coda).
+
+1. Fai un backup (§5) e conservalo con la chiave attuale.
+2. Sposta la chiave attuale in `docker/secrets/kamino_master_key_previous` e generane una nuova in `docker/secrets/kamino_master_key` (§2), con gli stessi permessi.
+3. Riavvia con entrambe le chiavi; nei log compare un avviso di rotazione in corso. Da qui i dati nuovi usano già la nuova chiave:
+   ```sh
+   docker compose -f docker/compose.lan.yml -f docker/compose.rotate.yml up -d
+   ```
+4. Esegui la rotazione (si può ripetere e interrompere senza danni):
+   ```sh
+   docker compose -f docker/compose.lan.yml -f docker/compose.rotate.yml run --rm -T kamino keys rotate
+   ```
+   Il comando stampa quante chiavi e segreti ha spostato. Se segnala **export di account eliminati** ancora scaricabili, quelli restano cifrati con la vecchia chiave: lascia la configurazione con entrambe le chiavi fino alla data indicata.
+5. Quando il comando dice `rotation complete`, riavvia senza la vecchia chiave (`docker compose -f docker/compose.lan.yml up -d`) e controlla con `keys verify`. Togli `kamino_master_key_previous` dal server, ma conserva la vecchia chiave fuori dal server finché esistono backup fatti prima della rotazione.
+
+La rotazione è registrata nel registro di amministrazione (senza alcun valore delle chiavi).

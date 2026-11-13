@@ -12,22 +12,24 @@ function readVersion(root: string): { version: string; source: string } {
 }
 
 export function main(root = resolve(fileURLToPath(import.meta.url), "../..")): number {
-  const registry = JSON.parse(
-    readFileSync(resolve(root, "release-names.json"), "utf8"),
-  ) as Registry;
-  const errors = validateRegistry(registry);
-  if (errors.length > 0) {
-    for (const e of errors) console.error(`release-names: ${e}`);
-    return 1;
-  }
-  const { version, source } = readVersion(root);
   try {
+    const registry = JSON.parse(
+      readFileSync(resolve(root, "release-names.json"), "utf8"),
+    ) as Registry;
+    if (typeof registry !== "object" || registry === null || !Array.isArray(registry.entries))
+      throw new Error('release-names.json must be an object with an "entries" array');
+    const errors = validateRegistry(registry);
+    if (errors.length > 0) {
+      for (const e of errors) console.error(`release-names: ${e}`);
+      return 1;
+    }
+    const { version, source } = readVersion(root);
     console.log(`release-names: ${version} (${source}) -> ${codenameFor(version, registry)}`);
+    return 0;
   } catch (e) {
     console.error(`release-names: ${(e as Error).message}`);
     return 1;
   }
-  return 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

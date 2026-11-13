@@ -15,6 +15,12 @@ export const REDACT_PATHS = [
   "*.password",
   "databaseUrl",
   "*.databaseUrl",
+  // Two levels deep too (e.g. `{ err: { config: { databaseUrl } } }`).
+  "*.*.masterKey",
+  "*.*.masterKeyPrevious",
+  "*.*.token",
+  "*.*.password",
+  "*.*.databaseUrl",
   "headers.authorization",
   "headers.cookie",
   "req.headers.authorization",

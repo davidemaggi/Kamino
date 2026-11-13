@@ -32,12 +32,16 @@ function formatError(): MasterKeyError {
 /** Never includes the supplied value in errors. */
 export function parseMasterKey(raw: string): Kek {
   const s = raw.trim();
-  if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(s)) throw formatError();
-  const unpadded = s.replace(/=+$/, "");
+  // One alphabet (standard or URL-safe), at most the one "=" that 32 bytes need.
+  if (!/^(?:[A-Za-z0-9+/]+|[A-Za-z0-9_-]+)=?$/.test(s)) throw formatError();
+  const unpadded = s.replace(/=$/, "");
   // 32 bytes encode to exactly 43 significant base64 characters.
   if (unpadded.length !== 43) throw formatError();
   const key = Buffer.from(unpadded, "base64");
   if (key.length !== KEY_BYTES) throw formatError();
+  // Canonical only: the last character's 2 unused bits must be zero (one key, one spelling).
+  const canonical = key.toString("base64url");
+  if (unpadded.replaceAll("+", "-").replaceAll("/", "_") !== canonical) throw formatError();
   const id = createHash("sha256").update(KEK_ID_DOMAIN).update(key).digest("hex").slice(0, 16);
   return { id, key: new Uint8Array(key) };
 }

@@ -9,10 +9,16 @@ async function ping(db: Db): Promise<boolean> {
   const timeout = new Promise<false>((resolve) => {
     timer = setTimeout(() => resolve(false), PING_TIMEOUT_MS);
   });
-  const query = db.execute(sql`select 1`).then(
-    () => true as const,
-    () => false as const,
-  );
+  // The server side gives up too, so a stuck database doesn't pile up probe queries.
+  const query = db
+    .transaction(async (tx) => {
+      await tx.execute(sql.raw(`set local statement_timeout = ${PING_TIMEOUT_MS}`));
+      await tx.execute(sql`select 1`);
+    })
+    .then(
+      () => true as const,
+      () => false as const,
+    );
   try {
     return await Promise.race([query, timeout]);
   } finally {

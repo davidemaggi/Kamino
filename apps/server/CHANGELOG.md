@@ -1,5 +1,11 @@
 # @kamino/server
 
+## 1.0.0-rc.7
+
+### Patch Changes
+
+- An upload opened before the server's container was recreated no longer fails with 500: if its staging folder is gone, the server recreates it and the device simply sends the chunks again.
+
 ## 1.0.0-rc.6
 
 ### Patch Changes

@@ -132,6 +132,9 @@ export class UploadService {
       return this.received(id);
     }
     const sealed = encryptSegment(key, ids, index, index === count - 1, body);
+    // Staging is scratch space: it may be gone (container recreated, a host folder swapped in)
+    // while the session lives on in the database. Its chunks then just count as not received.
+    await mkdir(this.dir(id), { recursive: true });
     await writeFile(`${target}.tmp`, sealed);
     await rename(`${target}.tmp`, target);
     return this.received(id);

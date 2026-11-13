@@ -1,5 +1,9 @@
 # @kamino/plugin
 
+## 1.0.0-rc.7
+
+No changes in this release.
+
 ## 1.0.0-rc.6
 
 ### Patch Changes

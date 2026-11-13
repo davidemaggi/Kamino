@@ -71,6 +71,14 @@ describe("plugin build output", () => {
     expect(bundle).not.toMatch(/require\("@codemirror\/merge"\)/);
   });
 
+  it("production bundle is minified and within budget (M7c: 1.08 MB → ~415 KB)", () => {
+    const bundle = read("dist/main.js");
+    expect(bundle.length).toBeLessThan(500_000);
+    // zod's non-English error locales are left out (scripts/zod-locales.ts).
+    expect(bundle).not.toContain("zu haben"); // German locale
+    expect(bundle.split("\n").length).toBeLessThan(500); // minified: few lines (template literals keep theirs)
+  });
+
   it("production bundle has no dev gallery", () => {
     expect(read("dist/main.js")).not.toMatch(/"dev-[a-z-]+"/);
   });

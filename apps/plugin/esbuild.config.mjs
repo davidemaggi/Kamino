@@ -3,6 +3,7 @@ import { copyFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { argv } from "node:process";
 import { build } from "esbuild";
+import { onlyEnglishZodLocale } from "./scripts/zod-locales.ts";
 import { buildConstants, PLUGIN_ROOT } from "./scripts/build-constants.ts";
 import { writeManifest } from "./scripts/write-manifest.ts";
 
@@ -34,8 +35,9 @@ await build({
     "@lezer/lr",
   ],
   define: buildConstants({ dev }),
-  // Drops `if (false) { ... }` branches, so dev-only code is not shipped.
-  minifySyntax: !dev,
+  plugins: [onlyEnglishZodLocale],
+  // Production: minified (drops `if (false) { ... }` branches too, so dev-only code is not shipped).
+  minify: !dev,
   logLevel: "warning",
 });
 

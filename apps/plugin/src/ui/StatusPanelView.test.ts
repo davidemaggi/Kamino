@@ -133,7 +133,7 @@ describe("StatusPanelView", () => {
     expect(root.innerHTML).toBe(before);
   });
 
-  it("not linked: 'Collega…' opens the welcome view", async () => {
+  it("not linked: 'Collega…' opens the welcome window", async () => {
     const { ctx, state, plugin } = makeCtx();
     state.setLinked(false);
     const { root } = await open(ctx, plugin);
@@ -141,7 +141,7 @@ describe("StatusPanelView", () => {
     buttons(root)
       .find((b) => b.textContent === "Collega…")!
       .click();
-    expect(ctx.openWelcome).toHaveBeenCalled();
+    expect(ctx.openLinkChoices).toHaveBeenCalled();
   });
 
   it("pairing requests appear on top and open the approval", async () => {

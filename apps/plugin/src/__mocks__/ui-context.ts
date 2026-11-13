@@ -46,6 +46,7 @@ export function makeCtx(overrides: Partial<UiContext> = {}) {
     openConflict: vi.fn(() => Promise.resolve()),
     openBulkResolve: vi.fn(),
     openWelcome: vi.fn(() => Promise.resolve()),
+    openLinkChoices: vi.fn(),
     openTransfer: vi.fn(() => Promise.resolve()),
     openConnect: vi.fn(),
     openClaim: vi.fn(),

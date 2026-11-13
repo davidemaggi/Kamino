@@ -41,7 +41,7 @@ export class SettingsTab extends PluginSettingTab {
         b
           .setButtonText(m.connect)
           .setCta()
-          .onClick(() => void ctx.openWelcome()),
+          .onClick(() => ctx.openLinkChoices()),
       );
     } else {
       new Setting(containerEl).setName(m.server).setDesc(link.host);

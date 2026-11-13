@@ -166,6 +166,17 @@ describe("ConnectModal, join flow", () => {
     expect(o.server.link()?.vaultId).toBe("v-work");
   });
 
+  it("a failed link shows an error instead of doing nothing", async () => {
+    const o = open("join", {}, 0);
+    await toVaults(o);
+    (o.root.querySelector('input[type="radio"][value="v-work"]') as HTMLInputElement).click();
+    await o.click("Avanti");
+    vi.spyOn(o.server, "linkDevice").mockRejectedValueOnce(new Error("boom"));
+    await o.click("Collega");
+    expect(o.root.textContent).toContain("Non è stato possibile completare il collegamento");
+    expect(o.server.link()).toBeNull();
+  });
+
   it("back returns to the previous step", async () => {
     const o = open("join");
     await toLogin(o);

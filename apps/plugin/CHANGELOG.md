@@ -1,5 +1,11 @@
 # @kamino/plugin
 
+## 1.0.0-rc.3
+
+### Patch Changes
+
+- "Link…" in the settings and in the status panel opens the three choices in a window on top, instead of a tab hidden behind the settings (or behind the drawer on mobile). A failed create or link in the connect window now shows an error instead of doing nothing.
+
 ## 1.0.0-rc.2
 
 No changes in this release.

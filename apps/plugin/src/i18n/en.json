@@ -258,7 +258,8 @@
       "required": "Fill in this field.",
       "totp_mandatory": "Two-step verification is required for administrators: turn it on in the web app (Account), then try again.",
       "rate_limited": "Too many attempts: wait a few minutes and try again.",
-      "update_required": "This plugin is too old for the server: update it, then try again."
+      "update_required": "This plugin is too old for the server: update it, then try again.",
+      "failed": "The link could not be completed. Try again; if it happens again, copy the diagnostics from the settings."
     }
   },
   "transfer": {

@@ -73,6 +73,25 @@ describe("PairingClaimModal", () => {
     expect(o.root.textContent).toContain(text);
   });
 
+  it("an unreachable server or an http link on a phone says why", async () => {
+    for (const [reason, text] of [
+      ["unreachable", "Server non raggiungibile"],
+      ["insecure_on_mobile", "Su telefono serve un indirizzo https://"],
+    ] as const) {
+      const made = makeCtx();
+      vi.spyOn(made.server, "claim").mockResolvedValueOnce({ ok: false, reason });
+      const modal = new PairingClaimModal(new App() as never, made.ctx, {
+        server: "https://sync.example",
+        token: "remote",
+      });
+      modal.open();
+      const root = (modal as unknown as { contentEl: HTMLElement }).contentEl;
+      [...root.querySelectorAll("button")].find((b) => b.textContent === "Collega")!.click();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(root.textContent).toContain(text);
+    }
+  });
+
   it("stops polling when closed", async () => {
     const o = await open();
     await o.click("Collega");

@@ -8,6 +8,10 @@ import {
   EnrollVault,
   EnrollVaultList,
   LinkDeviceResponse,
+  PairingClaimResponse,
+  PairingClaimState,
+  PairingOffer,
+  PairingState,
   PROTOCOL_VERSION,
   Snapshot,
   SyncSettings,
@@ -16,6 +20,7 @@ import {
   UploadStatus,
   type DeviceStatusReport,
   type LinkDeviceRequest,
+  type PairingClaimRequest,
   type Op,
 } from "@kamino/protocol";
 import type { Http, HttpRequest, HttpResponse } from "./ports.js";
@@ -109,6 +114,48 @@ export class Api {
       LinkDeviceResponse,
       { method: "POST", path: `/enroll/vaults/${enc(vaultId)}/devices`, json: d },
       enroll,
+    );
+  }
+
+  // --- pairing (03 §10) ---
+
+  /** This device offers a pairing of its vault. */
+  startPairing(vaultId: string): Promise<PairingOffer> {
+    return this.json(PairingOffer, { method: "POST", path: `/vaults/${enc(vaultId)}/pairings` });
+  }
+  pairing(id: string): Promise<PairingState> {
+    return this.json(PairingState, { method: "GET", path: `/pairings/${enc(id)}` });
+  }
+  answerPairing(id: string, action: "approve" | "deny" | "cancel"): Promise<PairingState> {
+    return this.json(PairingState, { method: "POST", path: `/pairings/${enc(id)}/${action}` });
+  }
+  /** The new device: no device token yet, the link's token is the proof. */
+  claim(r: PairingClaimRequest): Promise<PairingClaimResponse> {
+    return this.json(
+      PairingClaimResponse,
+      { method: "POST", path: "/pairings/claim", json: r },
+      null,
+    );
+  }
+  claimState(claimId: string, claimSecret: string): Promise<PairingClaimState> {
+    return this.json(
+      PairingClaimState,
+      {
+        method: "GET",
+        path: `/pairings/claims/${enc(claimId)}`,
+        headers: { authorization: `Claim ${claimSecret}` },
+      },
+      null,
+    );
+  }
+  async withdrawClaim(claimId: string, claimSecret: string): Promise<void> {
+    await this.send(
+      {
+        method: "POST",
+        path: `/pairings/claims/${enc(claimId)}/cancel`,
+        headers: { authorization: `Claim ${claimSecret}` },
+      },
+      null,
     );
   }
 

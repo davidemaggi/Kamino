@@ -24,7 +24,14 @@ export type RealtimeEvent =
   | { type: "protocol" }
   | { type: "resync" }
   /** 4404: the vault or the device may be gone; the engine verifies via REST. */
-  | { type: "check" };
+  | { type: "check" }
+  /** 03 §10: pairing news for this vault, handed to the host as is. */
+  | { type: "pairing"; message: PairingMessage };
+
+export type PairingMessage = Extract<
+  ServerMessage,
+  { type: "pairing_request" | "pairing_closed" | "pairing_reused" }
+>;
 
 /** Server close codes (M2a, apps/server/src/realtime). */
 const CLOSE = {
@@ -143,6 +150,11 @@ export class Realtime {
         return;
       case "device_revoked":
         this.end({ type: "revoked" });
+        return;
+      case "pairing_request":
+      case "pairing_closed":
+      case "pairing_reused":
+        this.o.onEvent({ type: "pairing", message: msg });
         return;
       case "error":
         this.o.log?.(`ws_error_${msg.code}`);

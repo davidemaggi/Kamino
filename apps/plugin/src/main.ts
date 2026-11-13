@@ -154,6 +154,7 @@ export default class SyncPlugin extends Plugin {
           const s = settings.get().sync;
           return { mode: s.mode, periodicMinutes: s.periodicMinutes };
         },
+        onPairing: (msg) => real.receive(msg),
       });
       this.host = host;
       this.register(

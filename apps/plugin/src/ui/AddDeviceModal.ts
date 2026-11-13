@@ -88,7 +88,16 @@ export class AddDeviceModal extends Modal {
   }
 
   private async offer(): Promise<void> {
-    const offer = await this.ctx.connection.startPairing();
+    let offer;
+    try {
+      offer = await this.ctx.connection.startPairing();
+    } catch {
+      if (this.closed) return;
+      this.doneText = t(this.ctx.lang).connect.errors.unreachable;
+      this.step = "done";
+      this.render();
+      return;
+    }
     if (this.closed) {
       // Closed while the offer was being created: withdraw it, register nothing.
       void this.ctx.connection.cancelPairing(offer.pairingId);

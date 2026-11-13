@@ -61,7 +61,16 @@ export interface PairingRequest {
 
 export type ClaimResult =
   | { ok: true; claimId: string; code: string; expiresAt: number; host: string }
-  | { ok: false; reason: "invalid" | "expired" | "already_claimed" };
+  | {
+      ok: false;
+      reason:
+        | "invalid"
+        | "expired"
+        | "already_claimed"
+        | "unreachable"
+        | "incompatible"
+        | "insecure_on_mobile";
+    };
 
 export type ClaimStatus = "pending" | "approved" | "denied" | "expired";
 
@@ -75,7 +84,7 @@ export type ConnectionEvent =
   | { type: "device_renamed" };
 
 export interface ConnectionService {
-  /** false = QR pairing not available yet (M6): the UI says it is coming. */
+  /** false = QR pairing not available: the UI says it is coming. */
   readonly pairingAvailable: boolean;
   link(): LinkInfo | null;
   checkServer(url: string): Promise<ServerCheck>;

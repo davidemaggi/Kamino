@@ -74,8 +74,7 @@
     "pairingRequest": "Incoming pairing request",
     "staleNext": "Newer incoming version",
     "quotaFull": "Quota almost full",
-    "smtpFail": "Test email fails",
-    "hybrid": "Real server for sign-in and account; the rest is fake."
+    "smtpFail": "Test email fails"
   },
   "auth": {
     "login": {

@@ -11,6 +11,8 @@ test("admin area on the real server: users, block, system health", async ({ page
   await page.getByRole("button", { name: "Accedi" }).click();
   await page.getByLabel("Codice", { exact: true }).fill(currentTotp());
   await page.getByRole("button", { name: "Verifica" }).click();
+  // Signed in only once the app has left the sign-in pages (no MSW start-up to hide the race).
+  await page.waitForURL((u) => !/^\/(login|2fa)/.test(u.pathname));
 
   // Users: aggregates only, never vault names.
   await page.goto("/admin/users");

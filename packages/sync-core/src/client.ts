@@ -10,6 +10,7 @@ import type {
   Snapshot,
 } from "@kamino/protocol";
 import { classify, type SyncSettings } from "./exclusions.js";
+import { cloneJson } from "./clone.js";
 import {
   collisionKey,
   conflictSiblingPath,
@@ -250,7 +251,7 @@ export function step(
 ): { state: ClientState; effects: Effect[] } {
   const s: ClientState = {
     config: state.config,
-    durable: JSON.parse(JSON.stringify(state.durable)) as Durable,
+    durable: cloneJson(state.durable),
     vol: { ...state.vol },
   };
   // States saved before M1d have no folders.

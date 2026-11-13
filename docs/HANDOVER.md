@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-13 — **P3 di M4+M5+M6 (pairing con QR e magic link) completata** sul branch `m6-pairing` (Task 14–15), revisione finale e PR. Con il suo merge il pacchetto M4–M6 è chiuso; prima di considerare M6 rilasciabile serve una prova del pairing con una persona vera su due dispositivi.
+**Ultimo aggiornamento:** 2026-11-13 — **pacchetto M4+M5+M6 chiuso** (P3 mergiata, PR #16). Le prove con persone e dispositivi veri sono rinviate dal committente alla fine di tutto lo sviluppo. **Si parte con M3** (conflitti e storico) sul branch `m3-conflicts-history`: prima il design.
 
 ## Dove siamo
 
@@ -20,10 +20,10 @@
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
 | M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · ✅ M1d (spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md`, piano `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`): mergiata (PR #12) |
 | M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ✅ M2b: mergiata (PR #13); ⏳ test sui dispositivi D-1…D-7 e settimana d'uso |
-| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | ✅ P1 area utente (Task 1–7): mergiata (PR #14) · ✅ P2 admin/quote/email (Task 8–13): mergiata (PR #15) · 🔧 P3 pairing (Task 14–15): PR su `m6-pairing`; ⏳ prova con una persona vera |
+| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | ✅ P1 area utente (Task 1–7): mergiata (PR #14) · ✅ P2 admin/quote/email (Task 8–13): mergiata (PR #15) · ✅ P3 pairing (Task 14–15): mergiata (PR #16); ⏳ prova con una persona vera (a fine sviluppo) |
 | M3…M7 | ⏳ |
 
-**Branch di lavoro:** `m6-pairing` (P3, PR in attesa di merge).
+**Branch di lavoro:** `m3-conflicts-history` (M3, design in corso).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0

@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-12 — **P1 di M4+M5+M6 (area utente sul server vero) completata** sul branch `m456-server-routes`, PR aperta in attesa di merge. Dopo il merge: P2 (admin, quote, email) su `m5-admin-email` da `main`, Task 8–13 del piano.
+**Ultimo aggiornamento:** 2026-11-13 — **P2 di M4+M5+M6 (admin, quote, email) completata** sul branch `m5-admin-email` (Task 8–13), revisione finale e PR. Dopo il merge: P3 (pairing, Task 14–15) su `m6-pairing` da `main`.
 
 ## Dove siamo
 
@@ -20,10 +20,10 @@
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
 | M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · ✅ M1d (spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md`, piano `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`): mergiata (PR #12) |
 | M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ✅ M2b: mergiata (PR #13); ⏳ test sui dispositivi D-1…D-7 e settimana d'uso |
-| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | 🔧 P1 area utente (Task 1–7): PR aperta su `m456-server-routes` · ⏳ P2 admin/quote/email (Task 8–13) · ⏳ P3 pairing (Task 14–15) |
+| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | ✅ P1 area utente (Task 1–7): mergiata (PR #14) · 🔧 P2 admin/quote/email (Task 8–13): PR su `m5-admin-email` · ⏳ P3 pairing (Task 14–15) |
 | M3…M7 | ⏳ |
 
-**Branch di lavoro:** `m456-server-routes` (P1, PR in attesa di merge); poi `m5-admin-email` e `m6-pairing`, ciascuno da `main` dopo il merge del precedente.
+**Branch di lavoro:** `m5-admin-email` (P2, PR in attesa di merge); poi `m6-pairing` da `main` dopo il merge.
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -81,7 +81,7 @@ Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del disposit
 
 ## Prossimi passi
 
-1. **Pacchetto M4+M5+M6**: P1 fatta (PR aperta). Dopo il merge: **P2** (Task 8–13: configurazione con fonte dei valori, admin utenti/inviti, quote, SMTP ed email con pg-boss, salute e audit) su `m5-admin-email`, poi **P3** (Task 14–15: pairing QR/magic link) su `m6-pairing`. Esecuzione senza checkpoint intermedi, una revisione per PR.
+1. **Pacchetto M4+M5+M6**: P1 mergiata, P2 fatta (PR aperta). Dopo il merge: **P3** (Task 14–15: pairing QR/magic link) su `m6-pairing`. Esecuzione senza checkpoint intermedi, una revisione per PR.
 2. **Test sui dispositivi** D-1…D-7 (`docs/spikes/README.md`) e la **settimana d'uso** con due desktop e un telefono, che chiude M2. Nessuna release pubblica prima.
 3. **M3** (conflitti e storico) e **M7** (hardening, release) restano milestone a sé.
 4. Minori rinviati dalle revisioni di M1d e M2b: elencati nelle rispettive sezioni qui sotto.
@@ -173,6 +173,21 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di P2 (M5: admin, quote, email)
+
+| # | Decisione | Costo se sbagliata |
+|---|---|---|
+| A1 | Impostazioni di sistema in `system_config` con la fonte di ogni valore (ambiente → UI → default); i campi impostati dall'ambiente sono bloccati nella web app. La password SMTP è cifrata con la chiave di sistema e non torna mai al client (`passwordSet`) | Basso |
+| A2 | Email da una coda durevole in Postgres (`email_outbox`), drenata da un job pg-boss ogni minuto con ritentativi; testi it/en nella lingua del destinatario (l'invito in quella di chi invita). Nei log e nei job mai indirizzi né link | Basso |
+| A3 | Quote: contano `blobs.size` dei vault attivi; si rifiutano solo i byte nuovi (`quota_exceeded`), abbassare una quota non cancella niente. **Limiti noti:** un contenuto presente in due vault conta due volte (i blob sono cifrati per vault); nella scheda admin `null` = "usa la predefinita", quindi con una quota predefinita non si può dare a un singolo utente "illimitato" | Basso: da rivedere se servono quote per utente illimitate |
+| A4 | Rotte admin solo con ruolo admin **e** TOTP attivo (`requireAdmin`); il modulo `src/admin/` non importa (neanche indirettamente) nulla che decifri: lo verifica `test/admin-architecture.test.ts`. L'admin vede solo aggregati (spazio, numero di vault/dispositivi, livello di sync peggiore) | — |
+| A5 | Ultimo admin: togliere il ruolo all'unico admin attivo → 409 `last_admin`, sotto un advisory lock (due admin che si declassano a vicenda non passano entrambi) | — |
+| A6 | Blocco: sessioni revocate e socket chiusi (`user_blocked`), i token dei dispositivi rifiutati finché lo stato non torna attivo; i dispositivi **non** vengono revocati, quindi dopo lo sblocco riprendono da soli | Basso |
+| A7 | Registro admin: mostra solo le azioni di `AuditAction` (setup e reset TOTP restano nel registro di sicurezza dell'utente) | Nessuno |
+| A8 | Eliminazione utente (F6/U-12): conferma col nome utente; account fermato subito; con export, ZIP di tutti i vault (una cartella per vault, nomi resi sicuri e senza doppioni) cifrato con STREAM sotto una chiave derivata dal token, link solo all'email dell'utente, valido 7 giorni (`/api/v1/exports/:token`, oscurato nei log). Alla scadenza (o subito senza export): DEK distrutte (crypto-shredding, i blob li toglie `vault-purge`), export distrutto, dati personali rimossi, riga anonimizzata (`deleted-<id>`) e nome utente di nuovo libero. Migrazione unica di P2: `0007` | Medio: un export perso dopo 7 giorni non si recupera (voluto) |
+| A9 | Oggetti fuori dai vault (export, sonda di salute) sotto il prefisso `SYSTEM_PREFIX` (UUID nullo), perché `FsBlobStore` accetta solo chiavi `idVault/idBlob` | Nessuno |
+| A10 | Playwright: il seed crea anche l'admin `root` con TOTP (segreto in un file temporaneo letto dal test) e l'utente `luigi`, che il test admin blocca senza disturbare `mario` usato dal test dell'area utente in parallelo | Basso |
 
 ### Decisioni di P1 (M4: area utente sul server)
 

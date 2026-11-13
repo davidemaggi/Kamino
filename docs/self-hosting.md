@@ -50,8 +50,15 @@ Nello scenario LAN `KAMINO_PUBLIC_URL` deve essere l'indirizzo IP o il nome host
 
 **Tempo reale e job.**
 - I dispositivi ricevono le modifiche su un WebSocket (`/api/v1/ws`). Un proxy davanti al server deve inoltrare l'upgrade WebSocket. Caddy, Cloudflare Tunnel e `tailscale serve` lo fanno da soli; con nginx servono `proxy_http_version 1.1` e le intestazioni `Upgrade`/`Connection`.
-- La compattazione del journal (ogni notte) e la pulizia degli upload (ogni ora) sono job in background salvati in Postgres (schema `pgboss`, creato da solo): non serve nessun servizio in più.
+- La compattazione del journal (ogni notte), la pulizia degli upload e dei vault eliminati (ogni ora), l'invio delle email (ogni minuto), gli export e le cancellazioni definitive degli utenti sono job in background salvati in Postgres (schema `pgboss`, creato da solo): non serve nessun servizio in più.
 - Più istanze del server sullo stesso database funzionano: le notifiche passano da Postgres (`LISTEN`/`NOTIFY`).
+
+**Impostazioni di sistema.** Si cambiano dalla web app (Amministrazione → Sistema) oppure con le variabili qui sotto. Una variabile impostata **vince sempre** e nella web app il campo appare bloccato ("Impostato dall'ambiente"); una variabile vuota vale come non impostata.
+
+- `KAMINO_REGISTRATION`: `closed` (default, gli utenti li crea l'amministratore) o `open`.
+- `KAMINO_DEFAULT_QUOTA_BYTES`: spazio massimo per utente, in byte; `none` = illimitato (default). La quota di un singolo utente si cambia dalla sua scheda. Conta la dimensione dei contenuti nei vault attivi; un contenuto presente in due vault conta due volte. Abbassare una quota sotto lo spazio già usato non cancella niente: vengono rifiutati solo i nuovi contenuti (`quota_exceeded`).
+- `KAMINO_MAX_RETENTION_DAYS`: storico massimo dei vault, in giorni (0–90).
+- Email (inviti, link di reset, avvisi, export di un account eliminato): `KAMINO_SMTP_HOST`, `KAMINO_SMTP_PORT`, `KAMINO_SMTP_SECURITY` (`none`, `starttls`, `tls`), `KAMINO_SMTP_USERNAME`, `KAMINO_SMTP_PASSWORD` (o `KAMINO_SMTP_PASSWORD_FILE`), `KAMINO_SMTP_FROM`, `KAMINO_SMTP_ALLOW_INVALID_CERTS` (`true` solo per server di posta interni con certificato autofirmato). Senza SMTP tutto funziona lo stesso: i link di invito e di reset si copiano dalla web app o dalla CLI. Il pulsante "Invia email di prova" verifica la configurazione. Le email in uscita restano in coda nel database e vengono ritentate se il server di posta non risponde.
 
 ## 2. La master key
 
@@ -98,7 +105,8 @@ Custodia:
 ## 4. Primo avvio e utenti
 
 - Al primo avvio, senza utenti, il server scrive **una volta** nei log il link di configurazione: `docker compose -f docker/compose.lan.yml logs kamino` e cerca `finish the setup at …/setup?token=…`. Aprilo: il codice è già compilato. Il primo utente è amministratore e deve attivare la verifica in due passaggi.
-- Finché non c'è l'invio di email (arriva più avanti), i link si creano dalla CLI:
+- Gli utenti si creano dalla web app (Amministrazione → Utenti): con SMTP configurato l'invito parte per email, altrimenti la web app mostra il link da consegnare. Lì si bloccano, si sbloccano, si genera un link di reset e si eliminano. L'eliminazione chiede di riscrivere il nome utente: l'account smette subito di funzionare e, se si sceglie di inviare l'export, l'utente riceve per email un link a un archivio ZIP di tutti i suoi vault, valido 7 giorni; poi (o subito, senza export) le chiavi dei vault vengono distrutte e i dati non sono più recuperabili. L'amministratore non vede mai nomi di vault né di file degli utenti.
+- In alternativa, o senza web app, i link si creano dalla CLI:
   - `docker compose -f docker/compose.lan.yml run --rm -T kamino users invite <username> <email>` crea l'utente e stampa il link di attivazione (7 giorni);
   - `… users reset-link <username>` stampa un link per reimpostare la password (1 ora; l'utente vede l'avviso);
   - `… users reset-2fa <username>` toglie la verifica in due passaggi a chi ha perso il telefono e i codici di recupero (resta nel registro).

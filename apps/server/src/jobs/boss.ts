@@ -9,6 +9,7 @@ export const JOBS = {
   email: "email-outbox",
   exports: "user-export",
   finalize: "user-deletion-finalize",
+  retention: "history-retention",
 } as const;
 export type JobName = keyof typeof JOBS;
 
@@ -19,6 +20,7 @@ const SCHEDULES: Record<JobName, string> = {
   email: "* * * * *", // every minute: retries with backoff (F8)
   exports: "*/10 * * * *", // ZIPs of users being deleted (F6); also queued right away
   finalize: "47 * * * *", // hourly: users whose 7 days are over (F6)
+  retention: "27 4 * * *", // daily, at night: history window and unreferenced blobs (M3)
 };
 
 export interface Jobs {

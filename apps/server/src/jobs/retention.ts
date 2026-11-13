@@ -104,6 +104,21 @@ export async function applyRetention(
         );
       let gone = 0;
       for (const f of expired) {
+        // Its (closed) conflicts and their candidates go with it: nothing could show them.
+        const closed = await tx
+          .delete(conflicts)
+          .where(and(eq(conflicts.vaultId, id), eq(conflicts.fileId, f.id)))
+          .returning({ id: conflicts.id });
+        if (closed.length > 0)
+          await tx.delete(conflictCandidates).where(
+            and(
+              eq(conflictCandidates.vaultId, id),
+              inArray(
+                conflictCandidates.conflictId,
+                closed.map((c) => c.id),
+              ),
+            ),
+          );
         const vs = await tx
           .delete(fileVersions)
           .where(and(eq(fileVersions.vaultId, id), eq(fileVersions.fileId, f.id)))

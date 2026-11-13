@@ -95,9 +95,20 @@ describe.skipIf(dockerUnavailable)("history retention and blob GC (M3a)", () => 
   });
 
   it("empties the trash after max(7 days, retention), with every version", async () => {
-    const { mac } = await world();
+    const { mac, phone } = await world();
     await put(mac, "g", "g1", "bye", null);
     await put(mac, "g", "g2", "bye bye", "g1");
+    expect(await put(phone, "g", "gp", "from phone", "g1")).toBe("conflict");
+    const [c] = await t.db.$client<{ id: string }[]>`select id from conflicts`;
+    expect(
+      await commit(phone, {
+        type: "resolve",
+        opId: `o${++op}`,
+        conflictId: c!.id,
+        expectedHeadVersionId: "g2",
+        keep: { kind: "head" },
+      }),
+    ).toBe("accepted");
     await commit(mac, { type: "delete", opId: `o${++op}`, fileId: "g", baseVersionId: "g2" });
     // Retention 1 day, but the trash keeps a file at least 7.
     let r = await applyRetention(t.db, t.blobStore, t.clock.now + 6 * DAY);
@@ -107,6 +118,9 @@ describe.skipIf(dockerUnavailable)("history retention and blob GC (M3a)", () => 
     expect(r).toMatchObject({ files: 1, versions: 1, blobs: 1 });
     expect(await versionIds()).toEqual([]);
     expect(await blobCount()).toBe(0);
+    const orphans = await t.db.$client<{ n: string }[]>`
+      select (select count(*) from conflicts) + (select count(*) from conflict_candidates) as n`;
+    expect(Number(orphans[0]!.n)).toBe(0);
     // The device that still had it creates it again: nothing is lost.
     expect(await put(mac, "g", "g3", "back", "g2")).toBe("rejected");
     expect(await put(mac, "g", "g4", "back", null)).toBe("accepted");

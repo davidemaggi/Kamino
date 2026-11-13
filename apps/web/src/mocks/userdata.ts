@@ -39,6 +39,7 @@ export interface FakePairing {
   status: "waiting" | "requested" | "approved" | "denied" | "expired" | "cancelled";
   expiresAt: number;
   request?: { deviceName: string; platform: string; pluginVersion: string; code: string };
+  reused?: boolean;
 }
 
 interface UserData {
@@ -300,6 +301,12 @@ export function simulatePairingRequest(): void {
   if (!p) return;
   p.status = "requested";
   p.request = { deviceName: "Pixel", platform: "Android", pluginVersion: "0.1.0", code: "K7RX" };
+}
+
+/** Dev panel / tests: someone else tried the same link after the request. */
+export function simulatePairingReuse(): void {
+  const p = [...ud.pairings].reverse().find((x) => x.status === "requested");
+  if (p) p.reused = true;
 }
 
 /** Dev panel / tests: the next conflict resolution answers stale_resolution. */

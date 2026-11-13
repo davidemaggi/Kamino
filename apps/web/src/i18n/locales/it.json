@@ -300,6 +300,8 @@
     "requestTitle": "Nuovo dispositivo: “{{name}}”",
     "requestMeta": "{{platform}} · plugin {{version}}",
     "requestHint": "Approva solo se sul nuovo dispositivo vedi lo stesso codice. Se non sei stato tu, rifiuta.",
+    "reusedTitle": "Il link è stato usato anche da un altro dispositivo",
+    "reusedBody": "Qualcun altro ha provato a usare lo stesso link. Approva solo se il codice coincide con quello sul tuo dispositivo; nel dubbio, rifiuta e crea un nuovo link.",
     "approve": "Approva",
     "deny": "Rifiuta",
     "approved": "Dispositivo collegato.",

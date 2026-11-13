@@ -300,6 +300,8 @@
     "requestTitle": "New device: “{{name}}”",
     "requestMeta": "{{platform}} · plugin {{version}}",
     "requestHint": "Approve only if you see the same code on the new device. If it wasn't you, deny.",
+    "reusedTitle": "The link was also used by another device",
+    "reusedBody": "Someone else tried to use the same link. Approve only if the code matches the one on your device; if in doubt, deny and create a new link.",
     "approve": "Approve",
     "deny": "Deny",
     "approved": "Device linked.",

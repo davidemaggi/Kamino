@@ -47,6 +47,21 @@ test("pairing from the web on the real server: QR link, same code, approve", asy
   // The web app shows the request with the same code.
   await expect(dialog.getByText("Nuovo dispositivo: “Pixel”")).toBeVisible();
   await expect(dialog.getByText(verificationCode, { exact: true })).toBeVisible();
+  // Someone else tries the same link: refused, and the web app warns before approving.
+  const again = await request.post(`${API}/pairings/claim`, {
+    headers: HEADERS,
+    data: {
+      token,
+      deviceName: "Other",
+      platform: "linux",
+      pluginVersion: "0.2.0",
+      protocolVersion: 1,
+    },
+  });
+  expect(again.status()).toBe(409);
+  await expect(
+    dialog.getByText("Il link è stato usato anche da un altro dispositivo"),
+  ).toBeVisible();
   await dialog.getByRole("button", { name: "Approva" }).click();
   await expect(dialog.getByText("Dispositivo collegato.")).toBeVisible();
 

@@ -80,6 +80,35 @@ describe.skipIf(dockerUnavailable)("uploads and downloads", () => {
     });
   });
 
+  // rc.5 on Android: requestUrl doesn't always send the content type the plugin asked for, and
+  // every chunk got 415. A chunk is raw bytes whatever its declared type; a bodyless POST too.
+  it("accepts chunks with any content type, and a bodyless POST with any type", async () => {
+    const hash = sha(CONTENT);
+    const s = (
+      await d.call("POST", `${base()}/uploads`, { contentHash: hash, size: CONTENT.length })
+    ).json() as { uploadId: string; chunkSize: number };
+    const types = [
+      "text/plain;charset=UTF-8",
+      "application/x-www-form-urlencoded",
+      "application/json",
+      "application/x-binary",
+    ];
+    for (const [i, type] of types.entries()) {
+      const r = await d.call(
+        "PUT",
+        `${base()}/uploads/${s.uploadId}/chunks/${i}`,
+        CONTENT.subarray(i * s.chunkSize, (i + 1) * s.chunkSize),
+        { "content-type": type },
+      );
+      expect(r.statusCode, type).toBe(200);
+    }
+    const done = await d.call("POST", `${base()}/uploads/${s.uploadId}/complete`, undefined, {
+      "content-type": "application/x-www-form-urlencoded",
+    });
+    expect(done.statusCode).toBe(200);
+    expect(done.json()).toEqual({ contentHash: hash, size: 31 });
+  });
+
   it("downloads whole and by range across segments", async () => {
     const id = await upload(CONTENT, [0, 1, 2, 3]);
     await d.call("POST", `${base()}/uploads/${id}/complete`);

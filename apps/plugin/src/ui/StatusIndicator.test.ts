@@ -1,8 +1,10 @@
+import { PRODUCT_NAME } from "@kamino/brand";
 import { DEFAULT_THRESHOLDS, describeStatus, exampleSnapshots } from "@kamino/status";
 // Mock classes imported by path: Vitest aliases "obsidian" to this same module,
 // and the mock-only fields (statusBarItems, actions, Notice.shown) stay typed.
 import { MarkdownView, Notice, Plugin } from "../__mocks__/obsidian.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BRAND_ICON } from "./brand-icon.js";
 import { levelClass } from "./status-classes.js";
 import { StatusIndicator } from "./StatusIndicator.js";
 
@@ -48,6 +50,16 @@ describe("StatusIndicator on desktop", () => {
 });
 
 describe("StatusIndicator on mobile", () => {
+  // rc.5: the mobile ribbon menu lists the icon and title given at creation (later setIcon and
+  // aria-label don't reach it): it showed a clock with no text.
+  it("creates the ribbon item with the logo and a title", () => {
+    const { plugin } = setup(true);
+    expect(plugin.ribbonCalls[0]).toEqual({
+      icon: BRAND_ICON,
+      title: `${PRODUCT_NAME}: Stato della sincronizzazione`,
+    });
+  });
+
   it("has no status bar item", () => {
     const { plugin } = setup(true);
     expect(plugin.statusBarItems).toHaveLength(0);

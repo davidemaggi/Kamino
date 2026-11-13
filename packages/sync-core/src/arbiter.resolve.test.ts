@@ -188,6 +188,34 @@ describe("arbiter: resolve (03 §9.3)", () => {
     expect(checkInvariants(s)).toEqual([]);
   });
 
+  it("on a file deleted meanwhile: keep both brings it back too, the copy goes next to it", () => {
+    const { s, conflictId } = conflicted();
+    one(s, { type: "delete", opId: id(), fileId: "f", baseVersionId: "v2" });
+    const r = one(
+      s,
+      resolve(conflictId, "v2", {
+        kind: "both",
+        candidateVersionId: "c1",
+        fileId: "sib",
+        versionId: "s1",
+        path: "Nota.md",
+      }),
+    );
+    expect(r).toMatchObject({ status: "accepted", fileId: "f", path: "Nota.md" });
+    expect(s.files.get("f")).toMatchObject({
+      deleted: false,
+      path: "Nota.md",
+      headVersionId: "v2",
+    });
+    expect(s.files.get("sib")).toMatchObject({ deleted: false, path: "Nota (1).md", headHash: H3 });
+    expect(s.journal.slice(-3).map((e) => [e.type, e.fileId, e.path])).toEqual([
+      ["file_put", "sib", "Nota (1).md"],
+      ["file_restored", "f", "Nota.md"],
+      ["conflict_resolved", "f", "Nota.md"],
+    ]);
+    expect(checkInvariants(s)).toEqual([]);
+  });
+
   it("on a file deleted meanwhile: keep candidate brings it back", () => {
     const { s, conflictId } = conflicted();
     one(s, { type: "delete", opId: id(), fileId: "f", baseVersionId: "v2" });

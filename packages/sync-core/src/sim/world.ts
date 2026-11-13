@@ -1,15 +1,23 @@
 import type { JournalEntry, Op, OpResult, Snapshot } from "@kamino/protocol";
 import {
+  conflictHead,
   folderExcluded,
   initialState,
   step,
+  type ResolveChoice,
   type ClientEvent,
   type ClientState,
   type Durable,
   type Effect,
 } from "../client.js";
 import { ALL_CONFIG, classify, DEFAULT_SETTINGS, type SyncSettings } from "../exclusions.js";
-import { collisionKey, isRepresentable, normalizePath, type Platform } from "../paths.js";
+import {
+  collisionKey,
+  conflictSiblingPath,
+  isRepresentable,
+  normalizePath,
+  type Platform,
+} from "../paths.js";
 import { checkInvariants, MemoryStore } from "../store.js";
 
 const CONFIG_DIR = ".obsidian";
@@ -76,7 +84,11 @@ export type Action =
   | { t: "quota"; on: boolean }
   | { t: "crash"; c: number }
   /** The server compacts its journal up to the head (03 §6.3): older cursors get cursor_too_old. */
-  | { t: "compact" };
+  | { t: "compact" }
+  /** The user resolves one of this device's conflicts (M3b); `pick` among them. */
+  | { t: "resolve"; c: number; pick: number; choice: ResolveChoice }
+  /** Someone resolves an open conflict from the web app (`pick` among them). */
+  | { t: "webResolve"; pick: number; keep: "head" | "candidate" | "both" };
 
 /** N clients, one server, a network that loses, duplicates and reorders, and crashes (02 §5). */
 export class World {
@@ -97,6 +109,7 @@ export class World {
   private readonly userWritten = new Map<string, number>();
   /** Contents moved by renames the watcher didn't see: delete + create, so copies are legitimate. */
   private readonly unseenMoves = new Set<string>();
+  private readonly userRestored = new Set<string>();
 
   constructor(specs: ClientSpec[]) {
     this.clients = specs.map((spec, i) => {
@@ -303,7 +316,100 @@ export class World {
       case "compact":
         this.floor = this.store.head;
         return;
+      case "resolve": {
+        const c = this.clients[a.c]!;
+        const mine = Object.values(c.state.durable.index).filter((e) => e.conflictId && !e.ignored);
+        const e = mine[a.pick % Math.max(1, mine.length)];
+        const head = e ? conflictHead(c.state, e.fileId) : null;
+        if (!e || !head) return;
+        // Keeping their own version replaces the server's: the user overwrote it (it stays in history).
+        if (a.choice === "mine") this.userRemoved.add(head.hash);
+        this.feed(
+          a.c,
+          { type: "resolve", fileId: e.fileId, choice: a.choice, head: head.versionId },
+          null,
+        );
+        return;
+      }
+      case "webResolve":
+        this.webResolve(a.pick, a.keep);
+        return;
     }
+  }
+
+  /** The web app's resolution: a resolve op committed with no device (03 §9.3). */
+  private webResolve(pick: number, keep: "head" | "candidate" | "both"): void {
+    const open = [...this.store.conflicts.values()].filter((c) => c.status === "open");
+    const c = open[pick % Math.max(1, open.length)];
+    if (!c) return;
+    const f = this.store.files.get(c.fileId);
+    const cand = c.candidates.at(-1);
+    if (!f?.headVersionId || !cand) return;
+    if (keep === "candidate" && f.headHash) this.userRemoved.add(f.headHash);
+    // Choosing a version of a deleted file brings it back, even if its content lives on elsewhere
+    // (a loser released when the file went away): the user's explicit choice, not a duplicate.
+    const candHash = this.store.versions.get(cand)?.hash;
+    if (f.deleted && keep !== "head" && candHash) this.userRestored.add(candHash);
+    const id = () => this.env.newId();
+    this.store.commit(
+      [
+        {
+          type: "resolve",
+          opId: id(),
+          conflictId: c.conflictId,
+          expectedHeadVersionId: f.headVersionId,
+          keep:
+            keep === "head"
+              ? { kind: "head" }
+              : keep === "candidate"
+                ? { kind: "candidate", candidateVersionId: cand, versionId: id() }
+                : {
+                    kind: "both",
+                    candidateVersionId: cand,
+                    fileId: id(),
+                    versionId: id(),
+                    path: conflictSiblingPath(f.path, 7),
+                  },
+        },
+      ],
+      "web",
+    );
+    for (const problem of checkInvariants(this.store)) this.violations.push(`server: ${problem}`);
+  }
+
+  /** Diagnostics for a failed run: every conflict a device still has, with the server's view. */
+  describeConflicts(): string[] {
+    const out: string[] = [];
+    this.clients.forEach((c, i) => {
+      for (const e of Object.values(c.state.durable.index))
+        if (e.conflictId && !e.ignored)
+          out.push(
+            JSON.stringify({
+              client: i,
+              platform: c.platform,
+              entry: e,
+              target: conflictHead(c.state, e.fileId),
+              server: this.store.conflicts.get(e.conflictId),
+              journal: this.store.journal.filter(
+                (j) => j.fileId === (this.store.conflicts.get(e.conflictId!)?.fileId ?? e.fileId),
+              ),
+              floor: this.floor,
+              files: [...this.store.files.values()]
+                .filter((f) => f.kind === "file")
+                .map((f) => [f.fileId, f.path, f.deleted, f.headVersionId]),
+            }),
+          );
+    });
+    return out;
+  }
+
+  /** Conflicts some device still has to resolve, and conflicts open on the server. */
+  conflicts(): { local: number; server: number } {
+    let local = 0;
+    for (const c of this.clients)
+      for (const e of Object.values(c.state.durable.index)) if (e.conflictId && !e.ignored) local++;
+    const server = [...this.store.conflicts.values()].filter((c) => c.status === "open").length;
+    return { local, server };
   }
 
   private requestId(m: Msg): string {
@@ -611,6 +717,27 @@ export class World {
     return false;
   }
 
+  /** Diagnostics for a run that never settles: what each device still wants to do. */
+  unsettled(): string {
+    return this.clients
+      .map((c, i) => {
+        const s = c.state;
+        const probe = step(s, this.syncEvent(c), { newId: () => "probe" });
+        const fx = probe.effects.filter((f) => f.type !== "persist" && f.type !== "pull");
+        const ids = new Set(
+          fx.flatMap((f) =>
+            "fileId" in f
+              ? [f.fileId]
+              : "ops" in f
+                ? f.ops.map((o) => ("fileId" in o ? o.fileId : o.conflictId))
+                : [],
+          ),
+        );
+        return `client ${i} phase=${s.vol.phase} cursor=${s.durable.cursor}/${this.store.head} fs=${c.pendingFs.length} fx=${JSON.stringify(fx)} entries=${JSON.stringify(Object.values(s.durable.index).filter((e) => ids.has(e.fileId) || (e.conflictId !== null && ids.has(e.conflictId))))}`;
+      })
+      .join("\n");
+  }
+
   /** Quiet = a dry-run sync cycle on a copy produces nothing to do but persist and pull. */
   private quiet(): boolean {
     return this.clients.every((c) => {
@@ -719,7 +846,8 @@ export class World {
       if (
         f.headHash === null ||
         !this.userWritten.has(f.headHash) ||
-        this.unseenMoves.has(f.headHash)
+        this.unseenMoves.has(f.headHash) ||
+        this.userRestored.has(f.headHash)
       )
         continue;
       const other = seen.get(f.headHash);

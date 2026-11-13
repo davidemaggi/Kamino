@@ -88,7 +88,7 @@ describe("client folders (Z9)", () => {
     const r = cycle(s, store, [], []);
     expect(r.ops.map((o) => o.type)).toEqual(["delete", "delete"]);
     expect(r.ops[0]).toMatchObject({ fileId: expect.any(String) });
-    expect(store.files.get(r.ops[1]!.fileId)?.kind).toBe("folder");
+    expect(store.files.get((r.ops[1] as FileOp).fileId)?.kind).toBe("folder");
     expect(liveFolders(store)).toEqual([]);
   });
 

@@ -472,7 +472,37 @@ function decideResolve(view: ArbiterView, op: ResolveOp): Decision {
     if (view.file(k.fileId)) return reject("invalid_request");
     const bad = pathError(k.path);
     if (bad) return reject(bad);
-    const path = view.liveAt(collisionKey(k.path)) ? freeSibling(view, k.path, k.fileId) : k.path;
+    // Keeping both of a file in the trash brings it back too (as "head" does): next to the
+    // copy, never at the same path.
+    const back = f.deleted ? backPath() : null;
+    const taken = (p: string) =>
+      view.liveAt(collisionKey(p)) !== undefined ||
+      (back !== null && collisionKey(p) === collisionKey(back));
+    let path = k.path;
+    for (let n = 1; taken(path); n++) path = conflictSiblingPath(k.path, n);
+    const restore: Mutation[] =
+      back === null
+        ? []
+        : [
+            ...(back !== f.path ? [{ type: "path", fileId: f.fileId, path: back } as const] : []),
+            { type: "undelete", fileId: f.fileId },
+            {
+              type: "journal",
+              entry: {
+                type: "file_restored",
+                fileId: f.fileId,
+                kind: "file",
+                path: back,
+                versionId: head,
+                ...(f.headHash === null ? {} : { contentHash: f.headHash }),
+                size: f.size,
+                mtime: f.mtime,
+              },
+            },
+          ];
+    const close = closing(head, f.headHash);
+    const closeEntry = close[1];
+    if (back !== null && closeEntry?.type === "journal") closeEntry.entry.path = back;
     const file: FileRecord = {
       fileId: k.fileId,
       kind: "file",
@@ -491,7 +521,7 @@ function decideResolve(view: ArbiterView, op: ResolveOp): Decision {
     };
     return accept(
       f.fileId,
-      f.path,
+      back ?? f.path,
       [
         { type: "createFile", file },
         { type: "version", fileId: k.fileId, baseVersionId: null, ...v },
@@ -508,7 +538,8 @@ function decideResolve(view: ArbiterView, op: ResolveOp): Decision {
             mtime: v.mtime,
           },
         },
-        ...closing(head, f.headHash),
+        ...restore,
+        ...close,
       ],
       head,
     );

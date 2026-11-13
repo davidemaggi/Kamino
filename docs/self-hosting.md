@@ -1,6 +1,6 @@
-# Self-hosting (bozza)
+# Self-hosting
 
-> Stato: bozza (M0). L'elenco completo delle variabili `KAMINO_*` sarà generato dallo schema di configurazione.
+> Stato: completo per la prima release (M7c). Gli esempi usano `docker/compose.lan.yml`: con un altro scenario sostituisci il file (`compose.tunnel.yml`, `compose.caddy.yml`) in tutti i comandi.
 
 Kamino è un'unica immagine (`kamino`) più PostgreSQL. Ci sono tre scenari di riferimento, ciascuno con il suo compose in `docker/` (vedi [architettura §1 e §8](02-architecture.md)).
 
@@ -160,3 +160,39 @@ Da fare se la chiave potrebbe essere stata esposta, o periodicamente. Il server 
 5. Quando il comando dice `rotation complete`, riavvia senza la vecchia chiave (`docker compose -f docker/compose.lan.yml up -d`) e controlla con `keys verify`. Togli `kamino_master_key_previous` dal server, ma conserva la vecchia chiave fuori dal server finché esistono backup fatti prima della rotazione.
 
 La rotazione è registrata nel registro di amministrazione (senza alcun valore delle chiavi).
+
+## 7. Aggiornamenti
+
+1. Fai un backup (§5) e verificalo.
+2. Aggiorna il codice e ricostruisci l'immagine:
+   ```sh
+   git pull
+   docker compose -f docker/compose.lan.yml up -d --build
+   ```
+3. All'avvio il server verifica la master key e poi applica da solo le migrazioni del database. Controlla `curl -fsS <KAMINO_PUBLIC_URL>/health/ready` e `/version`.
+
+Le migrazioni aggiungono soltanto (nessuna colonna o tabella viene tolta in una release minore), ma il ritorno a una versione precedente non è supportato: per tornare indietro si ripristina il backup del punto 1 su un'installazione vuota.
+
+Plugin e server possono avere versioni diverse: la compatibilità dipende solo dalla versione del protocollo. Se un dispositivo ha un plugin troppo vecchio (o troppo nuovo) per il server, smette di sincronizzare e lo dice chiaramente ("aggiorna il plugin o il server"); nessun dato viene perso, le modifiche locali restano in coda.
+
+## 8. Installare il plugin (BRAT)
+
+Finché il plugin non è nello store di Obsidian si installa con [BRAT](https://github.com/TfTHacker/obsidian42-brat):
+
+1. In Obsidian: Impostazioni → Plugin della community → Sfoglia → installa e attiva **BRAT**.
+2. Comando "BRAT: Add a beta plugin for testing", indirizzo del repository GitHub del progetto; BRAT scarica `main.js`, `manifest.json` e `styles.css` dall'ultima release e li aggiorna da solo.
+3. Attiva il plugin, apri le sue impostazioni e collega il dispositivo (indirizzo del server, poi accesso o codice di abbinamento da un dispositivo già collegato).
+
+Su telefono e tablet il server deve essere raggiungibile in HTTPS (scenari tunnel o Caddy).
+
+Le release si pubblicano a mano dal workflow **Release plugin** (GitHub Actions, solo da `main`), dopo `pnpm release:version` (changesets aggiorna versioni e changelog, `versions.json` riceve la nuova voce). Le versioni 0.x sono marcate come pre-release.
+
+## 9. Lista di controllo
+
+- [ ] master key generata, copia fuori dal server (§2);
+- [ ] `KAMINO_PUBLIC_URL` corretto per lo scenario, HTTPS se ci sono dispositivi mobili;
+- [ ] primo utente creato con verifica in due passaggi (§4);
+- [ ] SMTP configurato e email di prova inviata (facoltativo);
+- [ ] backup giornaliero pianificato (cron o timer di sistema) e verificato almeno una volta (§5);
+- [ ] copia dei backup fuori dal server, conservati 30 giorni;
+- [ ] procedura di ripristino provata almeno una volta su un'installazione di prova.

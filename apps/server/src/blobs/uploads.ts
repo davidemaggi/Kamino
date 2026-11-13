@@ -315,3 +315,29 @@ async function arrayOf(it: AsyncIterable<Uint8Array>): Promise<Buffer[]> {
   for await (const p of it) out.push(Buffer.from(p));
   return out;
 }
+
+/**
+ * Stores content written on the server (a manual merge from the web app) through the same
+ * upload path as a device: size and quota checks, encryption, dedup. `author` goes on the
+ * session only. Returns what a put needs.
+ */
+export async function storePlain(
+  uploads: UploadService,
+  vc: VaultCrypto,
+  author: string,
+  data: Buffer,
+): Promise<{ contentHash: string; size: number }> {
+  const contentHash = createHash("sha256").update(data).digest("hex");
+  if ((await uploads.missing(vc, [contentHash])).length === 0)
+    return { contentHash, size: data.length };
+  const s = await uploads.create(vc, author, contentHash, data.length);
+  const count = Math.max(1, Math.ceil(data.length / s.chunkSize));
+  for (let i = 0; i < count; i++)
+    await uploads.putChunk(
+      vc,
+      s.uploadId,
+      i,
+      data.subarray(i * s.chunkSize, (i + 1) * s.chunkSize),
+    );
+  return uploads.complete(vc, s.uploadId);
+}

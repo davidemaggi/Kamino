@@ -189,17 +189,4 @@ describe.skipIf(dockerUnavailable)("user area routes", () => {
     expect((await t.call(mario, "GET", `/vaults/${vaultId}`)).statusCode).toBe(404);
     expect((await mac.call("GET", `/vaults/${vaultId}/changes?after=0`)).statusCode).toBe(401);
   });
-
-  it("answers 501 to restore and resolve (read only for now)", async () => {
-    const { mario } = await world();
-    for (const url of [
-      "/versions/v1/restore",
-      "/trash/f2/restore",
-      "/conflicts/x/resolve",
-      "/conflicts/resolve-all",
-    ]) {
-      const r = await t.call(mario, "POST", url, {});
-      expect([url, r.statusCode, r.json().error.code]).toEqual([url, 501, "not_implemented"]);
-    }
-  });
 });

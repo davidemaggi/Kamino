@@ -1,11 +1,12 @@
 import type { FinalResult } from "@kamino/protocol";
-import type { ArbiterView, FileRecord, OpenConflict } from "@kamino/sync-core";
+import type { ArbiterView, ConflictRecord, FileRecord, OpenConflict } from "@kamino/sync-core";
 
 export type Need =
   | { kind: "recorded"; opId: string }
   | { kind: "file"; fileId: string }
   | { kind: "liveAt"; key: string }
   | { kind: "conflict"; fileId: string }
+  | { kind: "conflictById"; conflictId: string }
   | { kind: "descendants"; path: string }
   | { kind: "version"; versionId: string }
   | { kind: "blob"; hash: string };
@@ -23,6 +24,7 @@ export class PrefetchedView implements ArbiterView {
   readonly files = new Map<string, FileRecord | null>();
   readonly live = new Map<string, FileRecord | null>();
   readonly conflicts = new Map<string, OpenConflict | null>();
+  readonly conflictsById = new Map<string, ConflictRecord | null>();
   readonly descendants = new Map<string, boolean>();
   readonly versions = new Map<string, boolean>();
   readonly blobs = new Map<string, boolean>();
@@ -42,6 +44,11 @@ export class PrefetchedView implements ArbiterView {
   }
   openConflict(fileId: string) {
     return this.get(this.conflicts, fileId, { kind: "conflict", fileId }) ?? undefined;
+  }
+  conflict(conflictId: string) {
+    return (
+      this.get(this.conflictsById, conflictId, { kind: "conflictById", conflictId }) ?? undefined
+    );
   }
   hasLiveDescendants(path: string) {
     return this.get(this.descendants, path, { kind: "descendants", path });

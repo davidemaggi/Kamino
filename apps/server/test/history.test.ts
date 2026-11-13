@@ -151,6 +151,25 @@ describe.skipIf(dockerUnavailable)("history and trash (read only)", () => {
     expect(err).toMatchObject({ code: "history_window", status: 400 });
   });
 
+  it("caps the window at the system maximum lowered from the admin", async () => {
+    const { d, vc } = await setup();
+    await put(d, "f1", "v1", "a.md", "one", null);
+    t.clock.now += 20 * 86_400_000;
+    const tenDaysAgo = new Date(t.clock.now - 10 * 86_400_000);
+    await expect(h.treeAt(vc, tenDaysAgo)).resolves.toBeDefined();
+    const capped = new HistoryService(
+      t.db,
+      new FsBlobStore(t.dirs.blobs),
+      () => t.clock.now,
+      async () => 7,
+    );
+    await expect(capped.treeAt(vc, tenDaysAgo)).rejects.toMatchObject({ code: "history_window" });
+    // Compaction follows the same ceiling.
+    await d.call("POST", `/vaults/${d.vaultId}/ack`, { seq: 1 });
+    expect((await compactJournal(t.db, t.clock.now)).deleted).toBe(0);
+    expect((await compactJournal(t.db, t.clock.now, 7)).deleted).toBe(1);
+  });
+
   it("refuses dates before compaction, even after the retention is raised", async () => {
     const { d, vc } = await setup();
     await t.db.$client`update vaults set retention_days = 7 where id = ${d.vaultId}`;

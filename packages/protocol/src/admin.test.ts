@@ -7,6 +7,7 @@ import {
   SmtpTestResult,
   SystemConfig,
   SystemHealth,
+  UpdateUserRequest,
 } from "./index.js";
 
 const user = {
@@ -95,6 +96,13 @@ describe("admin contract", () => {
       },
     };
     expect(SystemHealth.parse(health).status).toBe("degraded");
+  });
+
+  it("quotas are whole bytes", () => {
+    expect(UpdateUserRequest.safeParse({ quotaBytes: 1.5 }).success).toBe(false);
+    expect(UpdateUserRequest.safeParse({ quotaBytes: 2 }).success).toBe(true);
+    expect(ConfigPatch.safeParse({ defaultQuotaBytes: 0.5 }).success).toBe(false);
+    expect(ConfigPatch.safeParse({ defaultQuotaBytes: null }).success).toBe(true);
   });
 
   it("new error codes", () => {

@@ -29,6 +29,14 @@ import { VaultService } from "./vaults/service.js";
 import { healthRoutes } from "./routes/health.js";
 import { versionRoutes } from "./routes/version.js";
 import { webRoutes } from "./web.js";
+import { SystemConfigService } from "./system/config.js";
+import { QuotaService } from "./quota/service.js";
+import { Outbox } from "./email/outbox.js";
+import { smtpTransport } from "./email/mailer.js";
+import { AdminUsers } from "./admin/users.js";
+import { adminRoutes } from "./routes/admin.js";
+import { exportRoutes } from "./routes/exports.js";
+import { UserDeletion } from "./users/deletion.js";
 
 export type AppDeps = {
   config: Config;
@@ -43,6 +51,10 @@ export type AppDeps = {
   uploads?: UploadService | undefined;
   sync?: SyncService | undefined;
   hub?: Hub | undefined;
+  systemConfig?: SystemConfigService | undefined;
+  outbox?: Outbox | undefined;
+  quota?: QuotaService | undefined;
+  deletion?: UserDeletion | undefined;
   /** WebSocket timings (tests shorten them); `listen: false` skips the LISTEN connection. */
   realtime?: { helloMs?: number; heartbeatMs?: number; listen?: boolean } | undefined;
   /** Application clock (tests inject a fake one). */
@@ -68,8 +80,17 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
   const auth = deps.auth ?? new AuthService(deps.db, deps.kek, PRODUCT_NAME);
   await registerAuthHttp(app, auth);
+  const systemConfig =
+    deps.systemConfig ?? new SystemConfigService(deps.db, deps.config, deps.kek, deps.now);
+  const quota = deps.quota ?? new QuotaService(deps.db, systemConfig, deps.now);
+  const now = deps.now ?? Date.now;
+  const outbox =
+    deps.outbox ?? new Outbox(deps.db, deps.kek, systemConfig, smtpTransport, now, deps.logger);
   const secure = deps.config.publicUrl.startsWith("https:");
-  await app.register(authRoutes(auth, secure), { prefix: "/api/v1" });
+  await app.register(
+    authRoutes(auth, secure, { outbox, config: systemConfig, publicUrl: deps.config.publicUrl }),
+    { prefix: "/api/v1" },
+  );
   await app.register(accountRoutes(auth), { prefix: "/api/v1" });
   const vaultsSvc = deps.vaults ?? new VaultService(deps.db, deps.kek);
   const hub = deps.hub ?? new Hub();
@@ -81,18 +102,63 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const blobStore = deps.blobStore ?? createBlobStore(deps.config.storage);
   const uploads =
     deps.uploads ??
-    new UploadService(deps.db, blobStore, deps.config.stagingDir, deps.config.maxFileBytes);
+    new UploadService(
+      deps.db,
+      blobStore,
+      deps.config.stagingDir,
+      null,
+      deps.now,
+      undefined,
+      (tx, vaultId, blobId, size) => quota.assertUpload(tx, vaultId, blobId, size),
+    );
   await app.register(transferRoutes(deps.db, vaultsSvc, uploads, blobStore), { prefix: "/api/v1" });
   const sync = deps.sync ?? new SyncService(deps.db);
   await app.register(syncRoutes(deps.db, vaultsSvc, sync), { prefix: "/api/v1" });
-  await app.register(vaultRoutes(deps.db, vaultsSvc), { prefix: "/api/v1" });
+  await app.register(vaultRoutes(deps.db, vaultsSvc, quota, systemConfig), { prefix: "/api/v1" });
   await app.register(
     userAreaRoutes({
       db: deps.db,
       vaults: vaultsSvc,
       store: blobStore,
       hub,
+      config: systemConfig,
       now: deps.now ?? Date.now,
+    }),
+    { prefix: "/api/v1" },
+  );
+  const startedAt = now();
+  const deletion =
+    deps.deletion ??
+    new UserDeletion({
+      db: deps.db,
+      kek: deps.kek,
+      auth,
+      vaults: vaultsSvc,
+      store: blobStore,
+      hub,
+      config: systemConfig,
+      outbox,
+      publicUrl: deps.config.publicUrl,
+      now,
+      log: deps.logger,
+    });
+  await app.register(exportRoutes(deletion, now), { prefix: "/api/v1" });
+  await app.register(
+    adminRoutes({
+      users: new AdminUsers(deps.db, auth, hub, systemConfig, outbox, deps.config.publicUrl, now),
+      auth,
+      config: systemConfig,
+      outbox,
+      health: {
+        db: deps.db,
+        store: blobStore,
+        config: systemConfig,
+        buildInfo: deps.buildInfo,
+        diskDir: deps.config.storage.kind === "fs" ? deps.config.storage.dir : null,
+        startedAt,
+        now,
+      },
+      deletion,
     }),
     { prefix: "/api/v1" },
   );

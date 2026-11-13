@@ -65,6 +65,8 @@ export const users = pgTable("users", {
   /** U-09: a reset started by an admin, shown to the user until the password changes. */
   adminResetAt: timestamp("admin_reset_at", { withTimezone: true }),
   deletionScheduledAt: timestamp("deletion_scheduled_at", { withTimezone: true }),
+  /** Q-01: per-user limit in bytes; null = the system default (which may itself be none). */
+  quotaBytes: bigint("quota_bytes", { mode: "number" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -347,3 +349,59 @@ export const conflictCandidates = pgTable(
   },
   (t) => [primaryKey({ columns: [t.vaultId, t.conflictId, t.versionId] })],
 );
+
+/**
+ * E-03: settings changed from the admin UI, one row per field ("registration", "smtp.host"…).
+ * Secrets (only "smtp.password" today) live in `secret_enc` under k_system, AAD
+ * system_config ‖ secret ‖ key; `value` stays null for them.
+ */
+export const systemConfig = pgTable("system_config", {
+  key: text("key").primaryKey(),
+  value: jsonb("value"),
+  secretEnc: bytea("secret_enc"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * F8: email waiting to be sent. Recipient and parameters (links included) are encrypted with
+ * k_system, AAD email_outbox ‖ column ‖ id; only the template and the attempts are in clear.
+ */
+export const emailOutbox = pgTable(
+  "email_outbox",
+  {
+    id: uuid("id").primaryKey(),
+    toEnc: bytea("to_enc").notNull(),
+    /** The recipient's account, when there is one: their pending mail goes at deletion (F6). */
+    userId: uuid("user_id").references(() => users.id),
+    template: text("template").notNull(),
+    locale: text("locale").notNull(),
+    paramsEnc: bytea("params_enc").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    nextAt: timestamp("next_at", { withTimezone: true }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    lastErrorCode: text("last_error_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("email_outbox_due")
+      .on(t.nextAt)
+      .where(sql`${t.sentAt} is null`),
+  ],
+);
+
+/**
+ * F6: the ZIP offered to a user being deleted. Encrypted with HKDF(k_system, token): only the
+ * link's token (hashed here, sent only to the user's email) can read it. Destroyed at finalize.
+ */
+export const userExports = pgTable("user_exports", {
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** Null until the ZIP is built. */
+  tokenHash: text("token_hash").unique(),
+  storedSize: bigint("stored_size", { mode: "number" }),
+  readyAt: timestamp("ready_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

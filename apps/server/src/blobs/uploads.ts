@@ -32,6 +32,10 @@ export class TransferError extends Error {
   }
 }
 
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+/** Checks run when an upload session is created, inside its transaction (quota, Q-03). */
+export type UploadGuard = (tx: Tx, vaultId: string, blobId: string, size: number) => Promise<void>;
+
 export const blobKeyOf = (vaultId: string, blobId: string) => `${vaultId}/${blobId}`;
 
 export class UploadService {
@@ -39,9 +43,11 @@ export class UploadService {
     private readonly db: Db,
     private readonly store: BlobStore,
     private readonly stagingDir: string,
-    private readonly maxFileBytes: number,
+    /** `null`: the guard checks the size (the limit can change from the UI, E-03). */
+    private readonly maxFileBytes: number | null,
     private readonly now: () => number = Date.now,
     private readonly chunkSize = CHUNK_SIZE,
+    private readonly guard: UploadGuard = async () => undefined,
   ) {}
 
   private dir(id: string): string {
@@ -60,19 +66,24 @@ export class UploadService {
   }
 
   async create(vc: VaultCrypto, deviceId: string, contentHash: string, size: number) {
-    if (size > this.maxFileBytes) throw new TransferError("file_too_large", 413);
+    if (this.maxFileBytes !== null && size > this.maxFileBytes)
+      throw new TransferError("file_too_large", 413);
     const id = uuidv7();
     const expiresAt = new Date(this.now() + SESSION_TTL_MS);
-    await this.db.insert(uploadSessions).values({
-      id,
-      vaultId: vc.vaultId,
-      deviceId,
-      contentHashEnc: vc.enc("upload_sessions", "content_hash", id, contentHash),
-      blobId: vc.blobId(contentHash),
-      size,
-      chunkSize: this.chunkSize,
-      salt: randomBytes(32),
-      expiresAt,
+    const blobId = vc.blobId(contentHash);
+    await this.db.transaction(async (tx) => {
+      await this.guard(tx, vc.vaultId, blobId, size);
+      await tx.insert(uploadSessions).values({
+        id,
+        vaultId: vc.vaultId,
+        deviceId,
+        contentHashEnc: vc.enc("upload_sessions", "content_hash", id, contentHash),
+        blobId,
+        size,
+        chunkSize: this.chunkSize,
+        salt: randomBytes(32),
+        expiresAt,
+      });
     });
     await mkdir(this.dir(id), { recursive: true });
     return { uploadId: id, chunkSize: this.chunkSize, expiresAt: expiresAt.toISOString() };

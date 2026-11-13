@@ -7,6 +7,12 @@ import { FsBlobStore } from "../../src/blobs/fs-store.js";
 import { UploadService } from "../../src/blobs/uploads.js";
 import { SyncService } from "../../src/sync/commit.js";
 import { Hub } from "../../src/realtime/hub.js";
+import { QuotaService } from "../../src/quota/service.js";
+import { SystemConfigService } from "../../src/system/config.js";
+import { Outbox } from "../../src/email/outbox.js";
+import type { Message } from "../../src/email/mailer.js";
+import { UserDeletion } from "../../src/users/deletion.js";
+import type { Config, SystemEnv } from "../../src/config/schema.js";
 import { openWs, type TestWs } from "./ws.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -29,6 +35,13 @@ export interface TestApp {
   uploads: UploadService;
   sync: SyncService;
   hub: Hub;
+  config: SystemConfigService;
+  quota: QuotaService;
+  outbox: Outbox;
+  /** Email "sent" by the fake SMTP transport (after `outbox.drain()`). */
+  mail: Message[];
+  deletion: UserDeletion;
+  blobStore: FsBlobStore;
   /** A WebSocket client on /api/v1/ws. */
   ws(opts?: { autoPong?: boolean }): Promise<TestWs>;
   /** Temporary blob and staging directories (removed on close). */
@@ -50,6 +63,8 @@ export async function testApp(
     chunkSize?: number;
     /** Reuse the blob and staging folders of a previous app (a server restart); kept on close. */
     dirs?: { blobs: string; staging: string };
+    /** System settings "from the environment" (locked in the admin UI). */
+    system?: SystemEnv;
   } = {},
 ): Promise<TestApp> {
   const db = createDb(url);
@@ -62,30 +77,59 @@ export async function testApp(
   const root = opts.dirs ? null : mkdtempSync(join(tmpdir(), "kamino-app-"));
   const dirs = opts.dirs ?? { blobs: join(root!, "blobs"), staging: join(root!, "staging") };
   const blobStore = new FsBlobStore(dirs.blobs);
+  const config: Config = {
+    publicUrl: opts.publicUrl ?? "http://localhost:8080",
+    port: 0,
+    databaseUrl: url,
+    masterKey: "",
+    logLevel: "error",
+    storage: { kind: "fs", dir: "/tmp/kamino-test-blobs" },
+    stagingDir: "/tmp/kamino-test-staging",
+    maxFileBytes: 1_000_000,
+    ...(opts.system ? { system: opts.system } : {}),
+  };
+  const systemConfig = new SystemConfigService(db, config, kek, () => clock.now);
+  const quota = new QuotaService(db, systemConfig, () => clock.now);
   // 8-byte chunks: small files already span several STREAM segments.
   const uploads = new UploadService(
     db,
     blobStore,
     dirs.staging,
-    1_000_000,
+    null,
     () => clock.now,
     opts.chunkSize ?? 8,
+    (tx, vaultId, blobId, size) => quota.assertUpload(tx, vaultId, blobId, size),
   );
   const sync = new SyncService(db, () => clock.now);
   const hub = new Hub();
-  const app = await buildApp({
-    config: {
-      publicUrl: opts.publicUrl ?? "http://localhost:8080",
-      port: 0,
-      databaseUrl: url,
-      masterKey: "",
-      logLevel: "error",
-      storage: { kind: "fs", dir: "/tmp/kamino-test-blobs" },
-      stagingDir: "/tmp/kamino-test-staging",
-      maxFileBytes: 1_000_000,
-    },
+  const logger = opts.log ? createLogger("debug", opts.log) : pino({ level: "silent" });
+  const mail: Message[] = [];
+  const outbox = new Outbox(
     db,
-    logger: opts.log ? createLogger("debug", opts.log) : pino({ level: "silent" }),
+    kek,
+    systemConfig,
+    () => ({ send: async (m) => void mail.push(m) }),
+    () => clock.now,
+    logger,
+  );
+  const deletion = new UserDeletion({
+    db,
+    kek,
+    auth,
+    vaults,
+    store: blobStore,
+    hub,
+    config: systemConfig,
+    outbox,
+    publicUrl: config.publicUrl,
+    now: () => clock.now,
+    log: logger,
+    exportSegmentBytes: 64,
+  });
+  const app = await buildApp({
+    config,
+    db,
+    logger,
     buildInfo,
     kek,
     auth,
@@ -94,6 +138,10 @@ export async function testApp(
     uploads,
     sync,
     hub,
+    systemConfig,
+    quota,
+    outbox,
+    deletion,
     realtime: { helloMs: 500, heartbeatMs: 30_000, ...opts.realtime },
     now: () => clock.now,
   });
@@ -105,6 +153,12 @@ export async function testApp(
     uploads,
     sync,
     hub,
+    config: systemConfig,
+    quota,
+    outbox,
+    mail,
+    deletion,
+    blobStore,
     ws: (o) => openWs(app, o?.autoPong ?? true),
     dirs,
     clock,

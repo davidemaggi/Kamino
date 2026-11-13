@@ -30,6 +30,8 @@ export type Config = {
   /** Local directory for upload chunks, already encrypted (C6). */
   stagingDir: string;
   maxFileBytes: number;
+  /** Fields set from the environment (absent in tests and when nothing is set). */
+  system?: SystemEnv;
 };
 
 export const DEFAULT_STORAGE_DIR = "/data/blobs";
@@ -38,3 +40,24 @@ export const DEFAULT_MAX_FILE_BYTES = 500 * 1024 * 1024;
 
 export const DEFAULT_PORT = 8080;
 export const DEFAULT_LOG_LEVEL: LogLevel = "info";
+
+/**
+ * E-03: system settings the administrator can also change from the UI. Each field present here
+ * came from the environment and is locked in the UI; absent = the UI value or the default.
+ */
+export type SystemEnv = {
+  registration?: "closed" | "open";
+  /** `null` = explicitly unlimited (`KAMINO_DEFAULT_QUOTA_BYTES=none`). */
+  defaultQuotaBytes?: number | null;
+  maxRetentionDays?: number;
+  maxFileBytes?: number;
+  smtp?: {
+    host?: string;
+    port?: number;
+    security?: "none" | "starttls" | "tls";
+    username?: string;
+    password?: string;
+    from?: string;
+    allowInvalidCerts?: boolean;
+  };
+};

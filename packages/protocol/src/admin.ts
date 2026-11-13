@@ -38,11 +38,12 @@ export const CreateUserResponse = z.object({ user: AdminUser, link: z.string().n
  */
 export const UpdateUserRequest = z.object({
   role: Role.optional(),
-  quotaBytes: z.number().min(0).nullable().optional(),
+  quotaBytes: z.number().int().min(0).nullable().optional(),
 });
 export type UpdateUserRequest = z.infer<typeof UpdateUserRequest>;
 export const ResetLink = z.object({ link: z.string() });
 export const DeleteUserRequest = z.object({ confirmUsername: z.string(), sendZip: z.boolean() });
+export type DeleteUserRequest = z.infer<typeof DeleteUserRequest>;
 
 /** E-03: where a value comes from; "env" values are locked in the UI. */
 export const ConfigSource = z.enum(["env", "ui", "default"]);
@@ -70,7 +71,7 @@ export const SystemConfig = z.object({
 export type SystemConfig = z.infer<typeof SystemConfig>;
 export const ConfigPatch = z.object({
   registration: z.enum(["closed", "open"]).optional(),
-  defaultQuotaBytes: z.number().min(0).nullable().optional(),
+  defaultQuotaBytes: z.number().int().min(0).nullable().optional(),
   maxRetentionDays: z.number().int().min(0).max(90).optional(),
   maxFileBytes: z.number().int().min(1).optional(),
   smtp: z
@@ -91,6 +92,7 @@ export const SmtpTestResult = z.union([
   z.object({ ok: z.literal(true) }),
   z.object({ ok: z.literal(false), error: z.string() }),
 ]);
+export type SmtpTestResult = z.infer<typeof SmtpTestResult>;
 
 export const HealthCheck = z.object({
   name: z.enum(["database", "storage", "disk", "jobs", "smtp"]),
@@ -140,3 +142,4 @@ export const AuditPage = z.object({
   page: z.number().int().min(1),
   pages: z.number().int().min(1),
 });
+export type AuditPage = z.infer<typeof AuditPage>;

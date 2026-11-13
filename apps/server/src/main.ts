@@ -9,9 +9,17 @@ import { ensureKeyCheck } from "./crypto/key-check.js";
 import { MasterKeyError, parseMasterKey, type Kek } from "./crypto/keyring.js";
 import { createDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
-import { startJobs } from "./jobs/boss.js";
+import { startJobs, type Jobs } from "./jobs/boss.js";
 import { compactJournal } from "./jobs/compact.js";
 import { purgeDeletedVaults } from "./jobs/purge.js";
+import { drainOutbox } from "./jobs/email.js";
+import { finalizeDeletions, runExports } from "./jobs/deletion.js";
+import { UserDeletion } from "./users/deletion.js";
+import { VaultService } from "./vaults/service.js";
+import { Hub } from "./realtime/hub.js";
+import { smtpTransport } from "./email/mailer.js";
+import { Outbox } from "./email/outbox.js";
+import { SystemConfigService } from "./system/config.js";
 import { createLogger } from "./observability/logger.js";
 import { resolveWebRoot } from "./web.js";
 
@@ -59,6 +67,29 @@ async function main(): Promise<void> {
   }
 
   const auth = new AuthService(db, kek, PRODUCT_NAME);
+  const systemConfig = new SystemConfigService(db, config, kek);
+  // The drain is queued right after an enqueue; `jobs` exists only once pg-boss has started.
+  const started: { jobs?: Jobs } = {};
+  const outbox = new Outbox(db, kek, systemConfig, smtpTransport, Date.now, logger, () =>
+    started.jobs?.kick("email"),
+  );
+  const store = createBlobStore(config.storage);
+  const vaults = new VaultService(db, kek);
+  const hub = new Hub();
+  const deletion = new UserDeletion({
+    db,
+    kek,
+    auth,
+    vaults,
+    store,
+    hub,
+    config: systemConfig,
+    outbox,
+    publicUrl: config.publicUrl,
+    now: Date.now,
+    log: logger,
+    kick: (job) => started.jobs?.kick(job),
+  });
   const setupToken = await auth.ensureSetupToken();
   // 04 §8: the only token ever logged, once, while the server has no users.
   if (setupToken)
@@ -70,21 +101,31 @@ async function main(): Promise<void> {
     buildInfo,
     kek,
     auth,
+    systemConfig,
+    outbox,
+    vaults,
+    hub,
+    blobStore: store,
+    deletion,
     webRoot: resolveWebRoot(),
   });
 
   // ADR 0008: compaction (daily) and upload cleanup (hourly, C10), after the key check.
-  const store = createBlobStore(config.storage);
   const uploads = new UploadService(db, store, config.stagingDir, config.maxFileBytes);
   const jobs = await startJobs(
     config.databaseUrl,
     {
-      compact: () => compactJournal(db, Date.now()),
+      compact: async () =>
+        compactJournal(db, Date.now(), (await systemConfig.effective()).maxRetentionDays),
       sweep: () => uploads.sweep(),
       purge: () => purgeDeletedVaults(db, store),
+      email: () => drainOutbox(outbox),
+      exports: () => runExports(deletion),
+      finalize: () => finalizeDeletions(deletion),
     },
     logger,
   );
+  started.jobs = jobs;
 
   const shutdown = async (): Promise<void> => {
     try {

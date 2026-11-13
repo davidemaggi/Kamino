@@ -14,6 +14,7 @@ import type { Hub } from "../realtime/hub.js";
 import { ownedVault } from "../vaults/access.js";
 import { deleteVault } from "../vaults/delete.js";
 import type { Vault, VaultService } from "../vaults/service.js";
+import type { SystemConfigService } from "../system/config.js";
 import { parse } from "./auth.js";
 import { vaultDto } from "./vaults.js";
 
@@ -29,10 +30,12 @@ export function userAreaRoutes(deps: {
   vaults: VaultService;
   store: BlobStore;
   hub: Hub;
+  config: SystemConfigService;
   now: () => number;
 }) {
-  const { db, vaults: vaultsSvc, store, hub, now } = deps;
-  const history = new HistoryService(db, store, now);
+  const { db, vaults: vaultsSvc, store, hub, config, now } = deps;
+  const maxDays = async () => (await config.effective()).maxRetentionDays;
+  const history = new HistoryService(db, store, now, maxDays);
   const conflictsSvc = new ConflictService(db, store, vaultsSvc);
 
   const owned = async (req: FastifyRequest, reply: FastifyReply, vaultId: string) => {
@@ -70,7 +73,7 @@ export function userAreaRoutes(deps: {
     app.get<{ Params: IdParams }>("/vaults/:id", async (req, reply) => {
       const o = await owned(req, reply, req.params.id);
       if (!o) return reply;
-      return vaultDto(db, vaultsSvc, o.vault);
+      return vaultDto(db, vaultsSvc, o.vault, await maxDays());
     });
 
     app.patch<{ Params: IdParams }>("/vaults/:id", async (req, reply) => {
@@ -78,8 +81,11 @@ export function userAreaRoutes(deps: {
       if (!o) return reply;
       const b = parse(VaultPatch, req, reply);
       if (!b) return reply;
+      const max = await maxDays();
+      if (b.retentionDays !== undefined && b.retentionDays > max)
+        throw new ApiError("invalid_request", 400);
       const v = await vaultsSvc.update(o.vault, b);
-      return vaultDto(db, vaultsSvc, v);
+      return vaultDto(db, vaultsSvc, v, max);
     });
 
     app.delete<{ Params: IdParams }>("/vaults/:id", async (req, reply) => {

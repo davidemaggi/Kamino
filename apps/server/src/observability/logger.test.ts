@@ -43,6 +43,7 @@ describe("redactUrl", () => {
   it("removes tokens from invitation paths and token query parameters", () => {
     expect(redactUrl("/api/v1/invites/abc123")).toBe("/api/v1/invites/[token]");
     expect(redactUrl("/api/v1/invites/abc123/accept")).toBe("/api/v1/invites/[token]/accept");
+    expect(redactUrl("/api/v1/exports/abc123")).toBe("/api/v1/exports/[token]");
     expect(redactUrl("/setup?token=xyz&x=1")).toBe("/setup?token=[token]&x=1");
     expect(redactUrl("/reset/abc123")).toBe("/reset/[token]");
     expect(redactUrl("/invite/abc123")).toBe("/invite/[token]");

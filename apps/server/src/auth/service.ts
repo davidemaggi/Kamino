@@ -1,5 +1,5 @@
 import type { Me, SecurityEventType, SessionInfo } from "@kamino/protocol";
-import { and, count, desc, eq, gt, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { systemKey } from "../crypto/dek.js";
 import { decryptField, encryptField } from "../crypto/field.js";
 import type { Kek } from "../crypto/keyring.js";
@@ -650,6 +650,38 @@ export class AuthService {
     });
   }
 
+  /**
+   * "Forgot password" by email: a one-hour reset link for an active user, null otherwise (the route
+   * answers the same either way). Unlike `resetLink`, it is not shown as an admin reset.
+   */
+  async forgotLink(email: string): Promise<{ token: string; user: User } | null> {
+    const u = (
+      await this.db
+        .select()
+        .from(users)
+        .where(eq(users.emailKey, keyOf(email)))
+    )[0];
+    if (!u || u.status !== "active") return null;
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(oneTimeTokens)
+        .set({ usedAt: this.date() })
+        .where(
+          and(
+            eq(oneTimeTokens.userId, u.id),
+            eq(oneTimeTokens.kind, "password_reset"),
+            isNull(oneTimeTokens.usedAt),
+          ),
+        );
+      const token = await this.createToken(
+        "password_reset",
+        { userId: u.id, ttlMs: TTL.password_reset },
+        tx,
+      );
+      return { token, user: u };
+    });
+  }
+
   async resetPassword(token: string, password: string, ctx: Ctx): Promise<User> {
     if (isWeakPassword(password)) throw new AuthError("password_weak", 400);
     const passwordHash = await hashPassword(password);
@@ -659,7 +691,8 @@ export class AuthService {
       const [u] = await tx
         .update(users)
         .set({ passwordHash, adminResetAt: null, updatedAt: this.date() })
-        .where(eq(users.id, row.userId ?? ""))
+        // An account being deleted (or gone) can't be brought back with an old link.
+        .where(and(eq(users.id, row.userId ?? ""), inArray(users.status, ["active", "blocked"])))
         .returning();
       if (!u) throw new AuthError("token_invalid", 400);
       await this.revokeOtherSessions(u.id, null, tx);
@@ -668,13 +701,20 @@ export class AuthService {
     });
   }
 
-  async invite(username: string, email: string, by: string): Promise<string> {
+  /** `action`: "user_invited" when the link goes by email, "user_created" when the admin hands it over. */
+  async invite(
+    username: string,
+    email: string,
+    by: string,
+    role: User["role"] = "user",
+    action: "user_invited" | "user_created" = "user_invited",
+  ): Promise<string> {
     return this.db.transaction(async (tx) => {
       const u = await this.insertUser(
-        { username, email, role: "user", status: "invited", passwordHash: null },
+        { username, email, role, status: "invited", passwordHash: null },
         tx,
       );
-      await this.audit(by, "user_invited", username, tx);
+      await this.audit(by, action, username, tx);
       return this.createToken(
         "invite",
         { userId: u.id, email, ttlMs: TTL.invite, createdBy: by },

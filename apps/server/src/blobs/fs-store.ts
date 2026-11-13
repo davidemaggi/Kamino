@@ -49,8 +49,10 @@ export class FsBlobStore implements BlobStore {
   async size(key: string): Promise<number | null> {
     try {
       return (await stat(this.path(key))).size;
-    } catch {
-      return null;
+    } catch (e) {
+      // Only "not there" is an answer; an unreadable or unmounted directory is an error.
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw e;
     }
   }
 

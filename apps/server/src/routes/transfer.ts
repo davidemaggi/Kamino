@@ -1,3 +1,4 @@
+import { RateLimiter } from "../auth/rate-limit.js";
 import { BlobsCheckRequest, ContentHash, UploadCreateRequest } from "@kamino/protocol";
 import { and, eq } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
@@ -40,6 +41,9 @@ export function transferRoutes(
   store: BlobStore,
 ) {
   const guard = deviceGuard(db);
+  // M7a A2 (T-13): upload sessions per device. A first link of a big vault stays well below; the
+  // engine backs off on 429 anyway. Disk use is bounded by the quota reservation, not by this.
+  const limiter = new RateLimiter<"upload">({ upload: { max: 1800, windowMs: 60_000 } });
   const cryptoFor = async (req: FastifyRequest): Promise<VaultCrypto> => {
     const v = await vaultsSvc.byId(req.device!.vaultId);
     if (!v || v.status !== "active") throw new AuthError("not_found", 404);
@@ -68,6 +72,7 @@ export function transferRoutes(
       "/vaults/:vaultId/uploads",
       { preHandler: guard },
       async (req, reply) => {
+        limiter.check("upload", req.device!.id);
         const b = parse(UploadCreateRequest, req, reply);
         if (!b) return reply;
         return uploads.create(await cryptoFor(req), req.device!.id, b.contentHash, b.size);

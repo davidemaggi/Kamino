@@ -31,6 +31,7 @@ import { VaultService } from "./vaults/service.js";
 import { healthRoutes } from "./routes/health.js";
 import { versionRoutes } from "./routes/version.js";
 import { webRoutes } from "./web.js";
+import { securityHeaders } from "./http/security.js";
 import { SystemConfigService } from "./system/config.js";
 import { QuotaService } from "./quota/service.js";
 import { Outbox } from "./email/outbox.js";
@@ -65,6 +66,12 @@ export type AppDeps = {
   webRoot?: string | undefined;
 };
 
+declare module "fastify" {
+  interface FastifyInstance {
+    routeList: { method: string; url: string }[];
+  }
+}
+
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // Widen pino's Logger so the instance type stays the default FastifyInstance.
   const loggerInstance: FastifyBaseLogger = deps.logger;
@@ -80,6 +87,13 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
           ? (_addr: string, hop: number) => hop < tp
           : tp,
   });
+  securityHeaders(app, deps.config.publicUrl);
+  // M7a A3: every registered route, so the authorization matrix test can't miss a new one.
+  const routes: { method: string; url: string }[] = [];
+  app.addHook("onRoute", (r) => {
+    for (const m of [r.method].flat()) if (m !== "HEAD") routes.push({ method: m, url: r.url });
+  });
+  app.decorate("routeList", routes);
   const auth = deps.auth ?? new AuthService(deps.db, deps.kek, PRODUCT_NAME);
   await registerAuthHttp(app, auth);
   const systemConfig =

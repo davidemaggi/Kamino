@@ -151,6 +151,17 @@ describe.skipIf(dockerUnavailable)("user area routes", () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  it("limits ZIP exports per user (M7a A2)", async () => {
+    const { mario, vaultId } = await world();
+    for (let i = 0; i < 10; i++)
+      expect((await t.call(mario, "GET", `/vaults/${vaultId}/zip`)).statusCode).toBe(200);
+    const r = await t.call(mario, "GET", `/vaults/${vaultId}/zip`);
+    expect([r.statusCode, r.json().error.code]).toEqual([429, "rate_limited"]);
+    expect(Number(r.headers["retry-after"])).toBeGreaterThan(0);
+    t.clock.now += 15 * 60_000;
+    expect((await t.call(mario, "GET", `/vaults/${vaultId}/zip`)).statusCode).toBe(200);
+  });
+
   it("answers 404 to everyone else, admins included (T-02)", async () => {
     const { luigi, vaultId } = await world();
     const conflictId = (await t.db.$client<{ id: string }[]>`select id from conflicts`)[0]!.id;

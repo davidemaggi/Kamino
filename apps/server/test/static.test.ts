@@ -109,4 +109,48 @@ describe("web static serving", () => {
     expect((await bare.inject({ method: "GET", url: "/" })).statusCode).toBe(404);
     expect((await bare.inject({ method: "GET", url: "/health/live" })).statusCode).toBe(200);
   });
+
+  describe("security headers (M7a A1)", () => {
+    it("the web app gets a strict CSP and the usual headers", async () => {
+      const res = await app.inject({ method: "GET", url: "/" });
+      const csp = String(res.headers["content-security-policy"]);
+      expect(csp).toContain("default-src 'self'");
+      expect(csp).toContain("script-src 'self'");
+      expect(csp).not.toMatch(/script-src[^;]*unsafe/);
+      expect(csp).toContain("frame-ancestors 'none'");
+      expect(csp).toContain("object-src 'none'");
+      expect(res.headers["x-content-type-options"]).toBe("nosniff");
+      expect(res.headers["referrer-policy"]).toBe("no-referrer");
+      expect(res.headers["x-frame-options"]).toBe("DENY");
+      expect(res.headers["cross-origin-opener-policy"]).toBe("same-origin");
+      // Plain HTTP (LAN scenario): no HSTS.
+      expect(res.headers["strict-transport-security"]).toBeUndefined();
+    });
+
+    it("API answers are never cached, errors included", async () => {
+      const res = await app.inject({ method: "GET", url: "/api/nothing-here" });
+      expect(res.statusCode).toBe(404);
+      expect(res.headers["cache-control"]).toBe("no-store");
+      expect(res.headers["x-content-type-options"]).toBe("nosniff");
+      const ok = await app.inject({ method: "GET", url: "/version" });
+      expect(ok.headers["cache-control"]).toBe("no-store");
+    });
+
+    it("HSTS only behind an HTTPS public URL", async () => {
+      const https = await buildApp({
+        kek,
+        config: { ...config, publicUrl: "https://sync.example.com" },
+        db,
+        logger,
+        buildInfo,
+        webRoot: root,
+      });
+      try {
+        const res = await https.inject({ method: "GET", url: "/" });
+        expect(res.headers["strict-transport-security"]).toBe("max-age=31536000");
+      } finally {
+        await https.close();
+      }
+    });
+  });
 });

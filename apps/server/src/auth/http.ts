@@ -11,6 +11,7 @@ import {
   type User,
 } from "./service.js";
 import { ApiError } from "../http/errors.js";
+import { RateLimited } from "./rate-limit.js";
 import { TransferError } from "../blobs/uploads.js";
 
 /** What an admin without TOTP may still do (U-07): see who they are, enable TOTP, sign out. */
@@ -94,6 +95,7 @@ export async function registerAuthHttp(app: FastifyInstance, service: AuthServic
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof AuthError) return fail(reply, err.status, err.code);
     if (err instanceof TransferError) return fail(reply, err.status, err.code);
+    if (err instanceof RateLimited) return fail(reply, 429, err.code, err.retryAfterSec);
     if (err instanceof ApiError) return fail(reply, err.status, err.code);
     // Fastify parse errors keep their 4xx status; never log request contents.
     const e = err as { name?: string; code?: unknown; statusCode?: number };

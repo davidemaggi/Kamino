@@ -2,6 +2,7 @@ import { ResolveAllRequest, ResolveRequest, VaultDelete, VaultPatch } from "@kam
 import { and, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { requireUser } from "../auth/http.js";
+import { RateLimiter } from "../auth/rate-limit.js";
 import { readPlain, type UploadService } from "../blobs/uploads.js";
 import type { BlobStore } from "../blobs/store.js";
 import { ResolutionService } from "../conflicts/resolve.js";
@@ -45,6 +46,11 @@ export function userAreaRoutes(deps: {
   const maxDays = async () => (await config.effective()).maxRetentionDays;
   const history = new HistoryService(db, store, now, maxDays);
   const conflictsSvc = new ConflictService(db, store, vaultsSvc);
+  // M7a A2 (T-13): the expensive web operations, per user. Generous for a person, tight for a script.
+  const limiter = new RateLimiter<"zip" | "write">(
+    { zip: { max: 10, windowMs: 15 * 60_000 }, write: { max: 60, windowMs: 60_000 } },
+    now,
+  );
 
   const owned = async (req: FastifyRequest, reply: FastifyReply, vaultId: string) => {
     const s = requireUser(req, reply);
@@ -152,6 +158,7 @@ export function userAreaRoutes(deps: {
       async (req, reply) => {
         const o = await owned(req, reply, req.params.id);
         if (!o) return reply;
+        limiter.check("zip", o.userId);
         const raw = req.query.at;
         const at = raw ? new Date(raw) : null;
         if (at && Number.isNaN(at.getTime())) throw new ApiError("invalid_request", 400);
@@ -172,6 +179,7 @@ export function userAreaRoutes(deps: {
     app.post<{ Params: IdParams }>("/versions/:id/restore", async (req, reply) => {
       const s = requireUser(req, reply);
       if (!s) return reply;
+      limiter.check("write", s.user.id);
       const v = await vaultHolding(s.user.id, fileVersions, req.params.id);
       await restorer.version(vaultsSvc.cryptoOf(v), req.params.id);
       return reply.code(204).send();
@@ -180,6 +188,7 @@ export function userAreaRoutes(deps: {
     app.post<{ Params: IdParams }>("/trash/:id/restore", async (req, reply) => {
       const s = requireUser(req, reply);
       if (!s) return reply;
+      limiter.check("write", s.user.id);
       const v = await vaultHolding(s.user.id, files, req.params.id);
       await restorer.trash(vaultsSvc.cryptoOf(v), req.params.id);
       return reply.code(204).send();
@@ -188,6 +197,7 @@ export function userAreaRoutes(deps: {
     app.post("/conflicts/resolve-all", async (req, reply) => {
       const s = requireUser(req, reply);
       if (!s) return reply;
+      limiter.check("write", s.user.id);
       const b = parse(ResolveAllRequest, req, reply);
       if (!b) return reply;
       const mine = await vaultsSvc.listForUser(s.user.id);
@@ -197,6 +207,7 @@ export function userAreaRoutes(deps: {
     app.post<{ Params: IdParams }>("/conflicts/:id/resolve", async (req, reply) => {
       const s = requireUser(req, reply);
       if (!s) return reply;
+      limiter.check("write", s.user.id);
       const b = parse(ResolveRequest, req, reply);
       if (!b) return reply;
       const v = await conflictsSvc.vaultOf(s.user.id, req.params.id);

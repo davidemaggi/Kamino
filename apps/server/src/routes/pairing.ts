@@ -23,16 +23,19 @@ export function pairingRoutes(deps: {
 }) {
   const { pairing } = deps;
   const guard = deviceGuard(deps.db, deps.now);
-  const limiter = new RateLimiter<"claim" | "poll">(
+  type Bucket = "claim" | "poll" | "offer";
+  const limiter = new RateLimiter<Bucket>(
     {
       claim: { max: 20, windowMs: 15 * 60_000 },
+      // Per user: an offer may send an email.
+      offer: { max: 30, windowMs: 15 * 60_000 },
       // The plugin polls every 2 s for at most 10 minutes: 300 requests per claim.
       poll: { max: 900, windowMs: 15 * 60_000 },
     },
     deps.now,
   );
-  const limited = (bucket: "claim" | "poll", req: FastifyRequest, reply: FastifyReply) => {
-    const r = limiter.hit(bucket, req.ip);
+  const limited = (bucket: Bucket, req: FastifyRequest, reply: FastifyReply, key = req.ip) => {
+    const r = limiter.hit(bucket, key);
     if (r.ok) return false;
     void fail(reply, 429, "rate_limited", r.retryAfterSec);
     return true;
@@ -63,6 +66,7 @@ export function pairingRoutes(deps: {
         if (a.deviceVaultId !== undefined && a.deviceVaultId !== req.params.id)
           return fail(reply, 404, "not_found");
         const { vault } = await ownedVault(deps.vaults, a.userId, req.params.id);
+        if (limited("offer", req, reply, a.userId)) return reply;
         return pairing.offer(
           vault,
           { userId: a.userId, ...(req.device ? { deviceId: req.device.id } : {}) },

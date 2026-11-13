@@ -8,6 +8,7 @@ export const INFO = {
   pathmac: "kamino/v1/pathmac",
   blobid: "kamino/v1/blobid",
   blob: "kamino/v1/blob",
+  pairing: "kamino/v1/pairing",
 } as const;
 
 /** HKDF-SHA-256. */

@@ -2,7 +2,7 @@ import { PRODUCT_NAME } from "@kamino/brand";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { registerAuthHttp } from "./auth/http.js";
-import { PairingService } from "./pairing/service.js";
+import { pairingKey, PairingService } from "./pairing/service.js";
 import { pairingRoutes } from "./routes/pairing.js";
 import { AuthService } from "./auth/service.js";
 import type { BuildInfo } from "./build-info.js";
@@ -149,7 +149,15 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     pairingRoutes({
       db: deps.db,
       vaults: vaultsSvc,
-      pairing: new PairingService(deps.db, vaultsSvc, hub, outbox, deps.config.publicUrl, now),
+      pairing: new PairingService(
+        deps.db,
+        vaultsSvc,
+        hub,
+        outbox,
+        deps.config.publicUrl,
+        pairingKey(deps.kek),
+        now,
+      ),
       now,
     }),
     { prefix: "/api/v1" },

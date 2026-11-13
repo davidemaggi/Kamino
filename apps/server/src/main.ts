@@ -3,6 +3,7 @@ import { buildApp } from "./app.js";
 import { AuthService } from "./auth/service.js";
 import { createBlobStore } from "./blobs/store.js";
 import { UploadService } from "./blobs/uploads.js";
+import { sweepPairings } from "./pairing/service.js";
 import { buildInfo } from "./build-info.js";
 import { ConfigError, loadConfig } from "./config/load.js";
 import { ensureKeyCheck } from "./crypto/key-check.js";
@@ -117,7 +118,11 @@ async function main(): Promise<void> {
     {
       compact: async () =>
         compactJournal(db, Date.now(), (await systemConfig.effective()).maxRetentionDays),
-      sweep: () => uploads.sweep(),
+      // Abandoned uploads (C10), and pairings a day past their expiry.
+      sweep: async () => {
+        await uploads.sweep();
+        await sweepPairings(db, Date.now());
+      },
       purge: () => purgeDeletedVaults(db, store),
       email: () => drainOutbox(outbox),
       exports: () => runExports(deletion),

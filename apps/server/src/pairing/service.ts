@@ -1,14 +1,18 @@
 import { PROTOCOL_ACTION } from "@kamino/brand";
-import type {
-  DevicePlatform,
-  PairingClaimRequest,
-  PairingClaimState,
-  PairingOffer,
-  PairingState,
+import {
+  PROTOCOL_MIN_SUPPORTED,
+  PROTOCOL_VERSION,
+  type DevicePlatform,
+  type PairingClaimRequest,
+  type PairingClaimState,
+  type PairingOffer,
+  type PairingState,
 } from "@kamino/protocol";
-import { and, eq, gt, inArray } from "drizzle-orm";
-import { createHash, randomInt } from "node:crypto";
+import { and, eq, gt, inArray, lt } from "drizzle-orm";
+import { createHmac, randomInt } from "node:crypto";
 import { hashToken, randomToken, uuidv7 } from "../auth/tokens.js";
+import { hkdf, INFO } from "../crypto/kdf.js";
+import type { Kek } from "../crypto/keyring.js";
 import type { Db } from "../db/client.js";
 import { pairings, users } from "../db/schema.js";
 import type { Outbox } from "../email/outbox.js";
@@ -35,14 +39,32 @@ export type PairingActor = { userId: string; deviceVaultId?: string };
 const closed = () => new ApiError("pairing_closed", 409);
 const OPEN = ["waiting", "requested"] as const;
 
+/** Rows are kept this long after their expiry, then swept. */
+export const PAIRING_KEEP_MS = 24 * 3_600_000;
+
+/** The key of `deviceTokenOf`, from the master key: the claim secret alone is not a credential. */
+export function pairingKey(kek: Kek): Buffer {
+  return hkdf(kek.key, INFO.pairing);
+}
+
 /**
- * The device token of a claim, derived from its secret: the server stores only its hash (taken
- * at claim time, when the secret is known) and recomputes it when the new device polls.
+ * The device token of a claim, derived (HMAC under a server key) from its secret: the server
+ * stores only its hash, taken at claim time when the secret is known, and recomputes it when the
+ * new device polls. It is handed out only within the flow's ten minutes.
  */
-export function deviceTokenOf(claimSecret: string): string {
-  return createHash("sha256")
-    .update(`kamino/v1/pairing-device-token\u0000${claimSecret}`)
+export function deviceTokenOf(key: Uint8Array, claimSecret: string): string {
+  return createHmac("sha256", key)
+    .update(`pairing-device-token\u0000${claimSecret}`)
     .digest("base64url");
+}
+
+/** Hourly (with the uploads' sweep): drops pairings a day past their expiry. */
+export async function sweepPairings(db: Db, now: number): Promise<{ deleted: number }> {
+  const r = await db
+    .delete(pairings)
+    .where(lt(pairings.expiresAt, new Date(now - PAIRING_KEEP_MS)))
+    .returning({ id: pairings.id });
+  return { deleted: r.length };
 }
 
 function verificationCode(): string {
@@ -63,6 +85,7 @@ export class PairingService {
     private readonly hub: Hub,
     private readonly outbox: Outbox,
     private readonly publicUrl: string,
+    private readonly key: Uint8Array,
     private readonly now: () => number = Date.now,
   ) {}
 
@@ -159,6 +182,9 @@ export class PairingService {
     if (!p) throw new ApiError("token_invalid", 400);
     if (p.status === "cancelled" || p.status === "denied" || this.expired(p))
       throw new ApiError("token_expired", 410);
+    // A plugin that couldn't sync once approved must not be paired at all.
+    if (r.protocolVersion < PROTOCOL_MIN_SUPPORTED || r.protocolVersion > PROTOCOL_VERSION)
+      throw new ApiError("protocol_unsupported", 426);
     const claimId = uuidv7(this.now());
     const claimSecret = randomToken();
     const request: StoredRequest = {
@@ -174,18 +200,21 @@ export class PairingService {
         status: "requested",
         claimId,
         claimSecretHash: hashToken(claimSecret),
-        deviceTokenHash: hashToken(deviceTokenOf(claimSecret)),
+        deviceTokenHash: hashToken(deviceTokenOf(this.key, claimSecret)),
         request,
       })
       .where(and(eq(pairings.id, p.id), eq(pairings.status, "waiting")))
       .returning({ id: pairings.id });
     if (won.length === 0) {
-      // The link was already used: the origin is told, so it doesn't approve a stranger blindly.
-      await this.db
+      // The link was already used: while the request awaits an answer the origin is told, so it
+      // doesn't approve a stranger blindly. A flow already answered has nothing left to warn of.
+      const marked = await this.db
         .update(pairings)
         .set({ reusedAt: new Date(this.now()) })
-        .where(eq(pairings.id, p.id));
-      this.hub.sendToVault(p.vaultId, { type: "pairing_reused", pairingId: p.id });
+        .where(and(eq(pairings.id, p.id), eq(pairings.status, "requested")))
+        .returning({ id: pairings.id });
+      if (marked.length > 0)
+        this.hub.sendToVault(p.vaultId, { type: "pairing_reused", pairingId: p.id });
       throw new ApiError("pairing_already_claimed", 409);
     }
     this.hub.sendToVault(p.vaultId, {
@@ -287,7 +316,10 @@ export class PairingService {
     return p;
   }
 
-  /** The new device's polling: on approval the device token is handed over once. */
+  /**
+   * The new device's polling. On approval the device token is handed out, and again on later
+   * polls within the flow's ten minutes, so a lost answer is recovered; after that, "consumed".
+   */
   async poll(claimId: string, claimSecret: string): Promise<PairingClaimState> {
     const p = await this.claimOf(claimId, claimSecret);
     switch (p.status) {
@@ -295,15 +327,14 @@ export class PairingService {
         return { status: this.expired(p) ? "expired" : "pending" };
       case "denied":
         return { status: "denied" };
-      case "consumed":
-        return { status: "consumed" };
-      case "approved": {
-        const won = await this.db
-          .update(pairings)
-          .set({ status: "consumed" })
-          .where(and(eq(pairings.id, p.id), eq(pairings.status, "approved")))
-          .returning({ id: pairings.id });
-        if (won.length === 0) return { status: "consumed" };
+      case "approved":
+      case "consumed": {
+        if (this.expired(p)) return { status: "consumed" };
+        if (p.status === "approved")
+          await this.db
+            .update(pairings)
+            .set({ status: "consumed" })
+            .where(and(eq(pairings.id, p.id), eq(pairings.status, "approved")));
         const vault = await this.vaults.byId(p.vaultId);
         const [u] = await this.db
           .select({ username: users.username })
@@ -313,7 +344,7 @@ export class PairingService {
         return {
           status: "approved",
           deviceId: p.deviceId!,
-          deviceToken: deviceTokenOf(claimSecret),
+          deviceToken: deviceTokenOf(this.key, claimSecret),
           username: u.username,
           vault: { id: vault.id, name: this.vaults.nameOf(vault) },
         };

@@ -117,3 +117,39 @@ export function conflictSiblingPath(path: string, n: number): string {
   const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
   return `${dir}${stem} (${n})${ext}`;
 }
+
+/** The word in a conflict copy's name, in the user's language (03 §9.3). */
+export const CONFLICT_COPY_LABEL = { it: "conflitto", en: "conflict" } as const;
+
+/** "2026-11-13 1530": no ":" so the name is valid on every platform. */
+export function conflictStamp(d: Date, utc: boolean): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  const [y, mo, da, h, mi] = utc
+    ? [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()]
+    : [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes()];
+  return `${y}-${p(mo)}-${p(da)} ${p(h)}${p(mi)}`;
+}
+
+/**
+ * "Nota.md" → "Nota (conflitto - iPhone - 2026-11-13 1530).md": the name of the copy that keeps
+ * the losing side next to the winner. The device name is made safe for any file system.
+ */
+export function conflictCopyPath(
+  path: string,
+  label: string,
+  device: string,
+  stamp: string,
+): string {
+  let safe = "";
+  for (const ch of device) {
+    const cp = ch.codePointAt(0) ?? 0;
+    safe += cp < 32 || '/\\:*?"<>|'.includes(ch) ? "-" : ch;
+  }
+  safe = [...safe.trim()].slice(0, 40).join("").trim() || "?";
+  const slash = path.lastIndexOf("/");
+  const dir = path.slice(0, slash + 1);
+  const name = path.slice(slash + 1);
+  const dot = name.lastIndexOf(".");
+  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+  return `${dir}${stem} (${label} - ${safe} - ${stamp})${ext}`;
+}

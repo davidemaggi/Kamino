@@ -2,6 +2,8 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   CONFIG_PREFIX,
+  conflictCopyPath,
+  conflictStamp,
   collisionKey,
   conflictSiblingPath,
   isCanonical,
@@ -115,5 +117,19 @@ describe("conflictSiblingPath", () => {
     expect(conflictSiblingPath("Nota.tar.gz", 2)).toBe("Nota.tar (2).gz");
     expect(conflictSiblingPath(".env", 1)).toBe(".env (1)");
     expect(conflictSiblingPath("Makefile", 3)).toBe("Makefile (3)");
+  });
+});
+
+describe("conflict copy names", () => {
+  it("label, safe device name and a stamp with no colon", () => {
+    const at = new Date(Date.UTC(2026, 10, 13, 15, 30));
+    expect(conflictStamp(at, true)).toBe("2026-11-13 1530");
+    expect(conflictCopyPath("a/Nota.md", "conflitto", "iPhone", "2026-11-13 1530")).toBe(
+      "a/Nota (conflitto - iPhone - 2026-11-13 1530).md",
+    );
+    expect(conflictCopyPath(".env", "conflict", 'Mac: "work"/x', "s")).toBe(
+      ".env (conflict - Mac- -work--x - s)",
+    );
+    expect(conflictCopyPath("n.md", "conflict", "  ", "s")).toBe("n (conflict - ? - s).md");
   });
 });

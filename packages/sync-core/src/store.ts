@@ -23,6 +23,7 @@ export interface StoredConflict {
   baseVersionId: string | null;
   headVersionId: string;
   candidates: string[];
+  status: "open" | "resolved";
 }
 
 /** In-memory server: the simulator's backend and, in M1c, the oracle for the real server's tests. */
@@ -44,10 +45,23 @@ export class MemoryStore {
       for (const f of this.files.values()) if (!f.deleted && collisionKey(f.path) === key) return f;
       return undefined;
     },
-    // In M1a every stored conflict is open (resolution comes with M3).
     openConflict: (fileId) => {
-      for (const c of this.conflicts.values()) if (c.fileId === fileId) return c;
+      for (const c of this.conflicts.values())
+        if (c.fileId === fileId && c.status === "open") return c;
       return undefined;
+    },
+    conflict: (conflictId) => {
+      const c = this.conflicts.get(conflictId);
+      if (!c) return undefined;
+      return {
+        conflictId: c.conflictId,
+        fileId: c.fileId,
+        open: c.status === "open",
+        candidates: c.candidates.map((versionId) => {
+          const v = this.versions.get(versionId)!;
+          return { versionId, hash: v.hash, size: v.size, mtime: v.mtime };
+        }),
+      };
     },
     hasLiveDescendants: (path) => {
       const prefix = `${collisionKey(path)}/`;
@@ -129,10 +143,14 @@ export class MemoryStore {
           baseVersionId: m.baseVersionId,
           headVersionId: m.headVersionId,
           candidates: [m.candidate],
+          status: "open",
         });
         return;
       case "addCandidate":
         this.conflicts.get(m.conflictId)!.candidates.push(m.versionId);
+        return;
+      case "resolveConflict":
+        this.conflicts.get(m.conflictId)!.status = "resolved";
         return;
     }
   }
@@ -159,10 +177,12 @@ export class MemoryStore {
           size: f.size,
           mtime: f.mtime,
         })),
-      openConflicts: [...this.conflicts.values()].map((c) => ({
-        conflictId: c.conflictId,
-        fileId: c.fileId,
-      })),
+      openConflicts: [...this.conflicts.values()]
+        .filter((c) => c.status === "open")
+        .map((c) => ({
+          conflictId: c.conflictId,
+          fileId: c.fileId,
+        })),
     };
   }
 
@@ -194,9 +214,10 @@ export function checkInvariants(s: MemoryStore): string[] {
   if (s.journal.length !== s.head) out.push(`head ${s.head} but ${s.journal.length} entries`);
   const perFile = new Set<string>();
   for (const c of s.conflicts.values()) {
+    for (const v of c.candidates) if (!s.versions.has(v)) out.push(`candidate ${v} not stored`);
+    if (c.status !== "open") continue;
     if (perFile.has(c.fileId)) out.push(`two open conflicts on ${c.fileId}`);
     perFile.add(c.fileId);
-    for (const v of c.candidates) if (!s.versions.has(v)) out.push(`candidate ${v} not stored`);
   }
   return out;
 }

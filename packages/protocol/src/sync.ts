@@ -40,12 +40,51 @@ export const DeleteOp = z.object({
   fileId: SyncId,
   baseVersionId: SyncId.nullable(),
 });
-export const Op = z.discriminatedUnion("type", [PutOp, MkdirOp, MoveOp, DeleteOp]);
+/**
+ * Closes an open conflict (03 §9.3). `expectedHeadVersionId` is the head the resolver saw: if it
+ * changed meanwhile the op is rejected with `stale_resolution`. What wins:
+ * - `head`: the current version stays, nothing new is written;
+ * - `candidate`: a new current version (`versionId`, base = head) with a candidate's content;
+ * - `content`: a new current version with content already uploaded (manual merge);
+ * - `both`: the head stays and a candidate becomes a new file next to it (`fileId`, `path`;
+ *   the server adds " (n)" if the path is taken).
+ * Every content is already on the server before the op: nothing is lost whatever wins.
+ */
+export const ResolveKeep = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("head") }),
+  z.object({ kind: z.literal("candidate"), candidateVersionId: SyncId, versionId: SyncId }),
+  z.object({
+    kind: z.literal("content"),
+    versionId: SyncId,
+    contentHash: ContentHash,
+    size: z.number().int().min(0),
+    mtime: z.number().int(),
+  }),
+  z.object({
+    kind: z.literal("both"),
+    candidateVersionId: SyncId,
+    fileId: SyncId,
+    versionId: SyncId,
+    path: SyncPath,
+  }),
+]);
+export const ResolveOp = z.object({
+  type: z.literal("resolve"),
+  opId: SyncId,
+  conflictId: SyncId,
+  expectedHeadVersionId: SyncId,
+  keep: ResolveKeep,
+});
+export type ResolveKeep = z.infer<typeof ResolveKeep>;
+export type ResolveOp = z.infer<typeof ResolveOp>;
+export const Op = z.discriminatedUnion("type", [PutOp, MkdirOp, MoveOp, DeleteOp, ResolveOp]);
 export type PutOp = z.infer<typeof PutOp>;
 export type MkdirOp = z.infer<typeof MkdirOp>;
 export type MoveOp = z.infer<typeof MoveOp>;
 export type DeleteOp = z.infer<typeof DeleteOp>;
 export type Op = z.infer<typeof Op>;
+/** The ops that change files and folders: what a client's queue holds. */
+export type FileOp = PutOp | MkdirOp | MoveOp | DeleteOp;
 
 /** `seq` = journal entry of the op, or the current head when the op added none (e.g. delete of a deleted file). */
 export const AcceptedResult = z.object({

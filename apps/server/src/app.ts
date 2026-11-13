@@ -7,7 +7,7 @@ import { pairingRoutes } from "./routes/pairing.js";
 import { AuthService } from "./auth/service.js";
 import type { BuildInfo } from "./build-info.js";
 import type { Config } from "./config/schema.js";
-import type { Kek } from "./crypto/keyring.js";
+import type { Keyring } from "./crypto/keyring.js";
 import type { Db } from "./db/client.js";
 import type { Logger } from "./observability/logger.js";
 import { accountRoutes } from "./routes/account.js";
@@ -46,7 +46,8 @@ export type AppDeps = {
   db: Db;
   logger: Logger;
   buildInfo: BuildInfo;
-  kek: Kek;
+  /** Current master key, plus the previous one during a rotation (04 §5.2). */
+  kek: Keyring;
   /** Injected by tests (fake clock); built from db + kek otherwise. */
   auth?: AuthService | undefined;
   vaults?: VaultService | undefined;
@@ -173,6 +174,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         deps.config.publicUrl,
         pairingKey(deps.kek),
         now,
+        deps.kek.previous ? pairingKey(deps.kek.previous) : undefined,
       ),
       now,
     }),

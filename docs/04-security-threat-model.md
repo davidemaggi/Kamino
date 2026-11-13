@@ -86,12 +86,12 @@ KEK └── HKDF ──▶ k_system: cifratura dei segreti di sistema (TOTP, p
 
 ### 5.2 Rotazione della master key
 
-`kamino keys rotate --new-key-file <path>` (o con `KAMINO_MASTER_KEY_PREVIOUS` + nuova chiave all'avvio):
-1. il server carica vecchia e nuova KEK;
-2. ricifra (re-wrap) tutte le DEK e i segreti di sistema con la nuova KEK, in transazioni a lotti;
-3. aggiorna `kekId`; finché restano DEK con il vecchio `kekId`, entrambe le chiavi sono accettate;
-4. al termine stampa la conferma e l'istruzione di rimuovere la vecchia chiave.
-I contenuti non vengono ricifrati. Operazione ripetibile e riprendibile.
+Procedura (implementata in M7b; la variante `--new-key-file` prevista all'inizio è stata scartata perché, a server acceso con la sola chiave vecchia, i vault creati durante la rotazione resterebbero sotto la vecchia KEK):
+1. si riavvia il server con la nuova chiave in `KAMINO_MASTER_KEY` e la vecchia in `KAMINO_MASTER_KEY_PREVIOUS` (o le varianti `*_FILE`). All'avvio il controllo della chiave aggiunge il `key_check` della nuova accanto a quello della vecchia; da qui ogni scrittura usa la nuova, le letture provano la nuova e poi la vecchia;
+2. `kamino keys rotate` (stesso ambiente, server acceso) ricifra (re-wrap) le DEK con `kekId` vecchio e i segreti di sistema sotto `k_system` vecchio (segreti TOTP, password SMTP, destinatari e parametri delle email in coda), riga per riga in transazioni a lotti; un aggiornamento passa solo se la riga contiene ancora il valore letto;
+3. se tutto è passato alla nuova chiave, ritira il `key_check` vecchio e scrive `master_key_rotated` nell'audit; se qualcosa non si apre con nessuna delle due, non ritira nulla ed esce con errore;
+4. stampa i conteggi e l'istruzione di rimuovere `KAMINO_MASTER_KEY_PREVIOUS`. Eccezione: gli ZIP di export degli account in cancellazione (§7) hanno una chiave derivata dal token del link, che non è salvato, quindi non si possono ricifrare; il comando indica fino a quando tenere la vecchia chiave.
+I contenuti non vengono ricifrati. Operazione ripetibile e riprendibile. Con la sola chiave nuova il server rifiuta di partire finché il `key_check` vecchio è attivo; con la sola vecchia, dopo la rotazione, pure. I backup precedenti alla rotazione richiedono la vecchia chiave.
 
 ### 5.3 Rotazione della DEK di un vault
 

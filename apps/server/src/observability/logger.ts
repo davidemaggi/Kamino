@@ -7,6 +7,8 @@ export type { Logger };
 export const REDACT_PATHS = [
   "masterKey",
   "*.masterKey",
+  "masterKeyPrevious",
+  "*.masterKeyPrevious",
   "token",
   "*.token",
   "password",

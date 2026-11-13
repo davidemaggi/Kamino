@@ -232,6 +232,7 @@ export function loadConfig(
 
   const databaseUrl = readSecret(env, "DATABASE_URL", readFile, issues);
   const masterKey = readSecret(env, "MASTER_KEY", readFile, issues);
+  const previous = readSecret(env, "MASTER_KEY_PREVIOUS", readFile, issues, false);
 
   if (issues.length > 0 || !databaseUrl || !masterKey) throw new ConfigError(issues);
 
@@ -241,6 +242,7 @@ export function loadConfig(
       port,
       databaseUrl: databaseUrl.value,
       masterKey: masterKey.value,
+      ...(previous ? { masterKeyPrevious: previous.value } : {}),
       logLevel,
       ...(trustProxy !== undefined ? { trustProxy } : {}),
       storage,
@@ -253,6 +255,7 @@ export function loadConfig(
       port: portRaw === undefined ? "default" : "env",
       databaseUrl: databaseUrl.source,
       masterKey: masterKey.source,
+      masterKeyPrevious: previous ? previous.source : "default",
       logLevel: levelRaw === undefined ? "default" : "env",
       trustProxy: proxyRaw === undefined ? "default" : "env",
       storage:

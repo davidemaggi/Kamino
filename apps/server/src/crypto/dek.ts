@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { aadOf, open, seal } from "./aead.js";
 import { hkdf, INFO } from "./kdf.js";
-import type { Kek } from "./keyring.js";
+import { keksOf, type Kek, type Keyring } from "./keyring.js";
 
 export const DEK_BYTES = 32;
 
@@ -37,4 +37,9 @@ export function vaultKeys(dek: Uint8Array): VaultKeys {
 /** Key for system secrets (TOTP secrets, SMTP password). */
 export function systemKey(kek: Kek): Buffer {
   return hkdf(kek.key, INFO.system);
+}
+
+/** System keys to try when reading: current first, then the previous one during a rotation. */
+export function systemKeys(ring: Keyring): Buffer[] {
+  return keksOf(ring).map(systemKey);
 }

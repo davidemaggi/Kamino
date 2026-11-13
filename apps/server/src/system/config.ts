@@ -2,9 +2,9 @@ import type { ConfigPatch, ConfigSource, SystemConfig } from "@kamino/protocol";
 import { inArray, sql } from "drizzle-orm";
 import { uuidv7 } from "../auth/tokens.js";
 import type { Config, SystemEnv } from "../config/schema.js";
-import { systemKey } from "../crypto/dek.js";
-import { decryptField, encryptField } from "../crypto/field.js";
-import type { Kek } from "../crypto/keyring.js";
+import { systemKey, systemKeys } from "../crypto/dek.js";
+import { decryptFieldAny, encryptField } from "../crypto/field.js";
+import type { Keyring } from "../crypto/keyring.js";
 import type { Db } from "../db/client.js";
 import { auditLog, systemConfig } from "../db/schema.js";
 import { ApiError } from "../http/errors.js";
@@ -102,15 +102,18 @@ export class SystemConfigService {
   private readonly env: Partial<Plain> & { password?: string };
   private readonly defaults: Plain;
   private readonly key: Buffer;
+  /** Current system key, then the previous one during a rotation (04 §5.2). */
+  private readonly readKeys: Buffer[];
 
   constructor(
     private readonly db: Db,
     config: Config,
-    kek: Kek,
+    kek: Keyring,
     private readonly now: () => number = Date.now,
   ) {
     this.env = envValues(config.system);
     this.key = systemKey(kek);
+    this.readKeys = systemKeys(kek);
     this.defaults = {
       registration: "closed",
       defaultQuotaBytes: null,
@@ -151,7 +154,7 @@ export class SystemConfigService {
       password = this.env.password;
       passwordSource = "env";
     } else if (stored) {
-      password = decryptField(this.key, this.ref(), stored).toString("utf8");
+      password = decryptFieldAny(this.readKeys, this.ref(), stored).toString("utf8");
       passwordSource = "ui";
     }
     return { values: values as Plain, sources, password, passwordSource };

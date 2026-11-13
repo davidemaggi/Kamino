@@ -1,3 +1,4 @@
+import { ApiError } from "../http/errors.js";
 export interface Limit {
   max: number;
   windowMs: number;
@@ -31,5 +32,17 @@ export class RateLimiter<B extends string> {
       };
     cur.count++;
     return { ok: true };
+  }
+
+  /** Like `hit`, but throws `RateLimited` (a 429 with `Retry-After`) when over the limit. */
+  check(bucket: B, key: string): void {
+    const r = this.hit(bucket, key);
+    if (!r.ok) throw new RateLimited(r.retryAfterSec);
+  }
+}
+
+export class RateLimited extends ApiError {
+  constructor(readonly retryAfterSec: number) {
+    super("rate_limited", 429);
   }
 }

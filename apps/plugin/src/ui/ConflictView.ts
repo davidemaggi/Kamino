@@ -100,7 +100,10 @@ export class ConflictView extends ItemView {
 
     const d = this.detail;
     if (!d) {
-      h(root, "p", { text: m.gone });
+      const elsewhere = this.ctx.source
+        .conflicts()
+        .some((c) => c.id === this.conflictId && c.elsewhere);
+      h(root, "p", { text: elsewhere ? m.elsewhere : m.gone });
       if (this.draft !== null) {
         h(root, "p", { cls: `${P}__muted`, text: m.unsavedMerge });
         h(root, "pre", { cls: `${P}__text`, text: this.draft });
@@ -110,7 +113,7 @@ export class ConflictView extends ItemView {
     }
 
     const now = this.ctx.now();
-    const when = (at: number) => formatWhen(at, now, this.ctx.lang);
+    const when = (at: number | null) => formatWhen(at, now, this.ctx.lang);
     h(root, "h2", { text: basename(d.path) });
     const summary = d.kind === "both_created" ? m.summaryCreated : m.summaryEdit;
     h(root, "p", {
@@ -213,7 +216,7 @@ export class ConflictView extends ItemView {
   private renderBinary(root: HTMLElement, d: Extract<ConflictDetail, { binary: true }>): void {
     const m = t(this.ctx.lang).conflict;
     const grid = h(root, "div", { cls: `${P}__binary` });
-    const card = (title: string, info: BinaryInfo, device: string, at: number) => {
+    const card = (title: string, info: BinaryInfo, device: string, at: number | null) => {
       const box = h(grid, "section", { cls: `${P}__file` });
       h(box, "h3", { text: title });
       if (info.previewUrl) h(box, "img", { attrs: { src: info.previewUrl, alt: title } });

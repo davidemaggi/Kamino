@@ -25,6 +25,7 @@ const PATHS = [
 /** Folders users create and move to (Z9): nested, case variants, excluded areas. */
 const DIRS = ["d", "D", "n", "n/m", "x", "x/y", "q/r", ".trash"];
 const HASHES = ["0", "1", "2", "3", "4"].map((c) => c.repeat(64));
+const CHOICES = ["mine", "incoming", "both"] as const;
 const PLATFORMS: Platform[] = ["linux", "windows", "macos", "android", "ios"];
 const PATTERNS: string[][] = [[], [".trash/**"], ["d/**"], ["x/**", ".trash/**"], ["b.md"]];
 
@@ -42,6 +43,7 @@ const actionArb = (clients: number): fc.Arbitrary<Action> => {
   const dir = fc.constantFrom(...DIRS);
   const crashAt = fc.option(fc.nat(8), { freq: 4 });
   const hash = fc.constantFrom(...HASHES);
+  const choice = fc.constantFrom(...CHOICES);
   return fc.oneof(
     { weight: 4, arbitrary: fc.record({ t: fc.constant("write" as const), c, path, hash }) },
     {
@@ -84,6 +86,18 @@ const actionArb = (clients: number): fc.Arbitrary<Action> => {
     { weight: 1, arbitrary: fc.record({ t: fc.constant("quota" as const), on: fc.boolean() }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("crash" as const), c }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("compact" as const) }) },
+    {
+      weight: 2,
+      arbitrary: fc.record({ t: fc.constant("resolve" as const), c, pick: fc.nat(3), choice }),
+    },
+    {
+      weight: 1,
+      arbitrary: fc.record({
+        t: fc.constant("webResolve" as const),
+        pick: fc.nat(3),
+        keep: fc.constantFrom("head" as const, "candidate" as const, "both" as const),
+      }),
+    },
     { weight: 2, arbitrary: fc.record({ t: fc.constant("mkdir" as const), c, path: dir }) },
     { weight: 1, arbitrary: fc.record({ t: fc.constant("rmdir" as const), c, pick: fc.nat(9) }) },
     {
@@ -105,20 +119,41 @@ const scenarioArb = fc
     fc.tuple(
       fc.constant(specs),
       fc.array(actionArb(specs.length), { minLength: 20, maxLength: 150, size: "max" }),
+      fc.array(fc.constantFrom(...CHOICES), { minLength: 8, maxLength: 8 }),
     ),
   );
+
+/** Every device resolves its conflicts until none is left (a resolution may meet a newer edit). */
+function resolveEverything(w: World, choices: readonly (typeof CHOICES)[number][]): void {
+  for (let round = 0; round < 8 && w.conflicts().local > 0; round++) {
+    w.clients.forEach((_, c) => {
+      for (let k = 0; k < 4; k++)
+        w.act({ t: "resolve", c, pick: k, choice: choices[(round + c + k) % choices.length]! });
+    });
+    expect(w.settle(), w.unsettled()).toBe(true);
+  }
+}
 
 describe("simulator (02 §5)", () => {
   it("every client converges to the server and nothing is ever lost", () => {
     fc.assert(
-      fc.property(scenarioArb, ([specs, actions]) => {
+      fc.property(scenarioArb, ([specs, actions, choices]) => {
         const w = new World(specs);
         for (const a of actions) w.act(a);
-        expect(w.settle()).toBe(true);
+        expect(w.settle(), w.unsettled()).toBe(true);
+        expect(w.check()).toEqual([]);
+        // M3b: once every conflict is resolved on its device, all converge and nothing is lost.
+        resolveEverything(w, choices);
+        expect(w.conflicts().local, w.describeConflicts().join("\n")).toBe(0);
         expect(w.check()).toEqual([]);
       }),
       // SIM_NO_SHRINK=1: report the first failure as is (shrinking a non-settling run is slow).
-      { numRuns: RUNS, endOnFailure: env["SIM_NO_SHRINK"] === "1" },
+      {
+        numRuns: RUNS,
+        endOnFailure: env["SIM_NO_SHRINK"] === "1",
+        // SIM_SEED / SIM_PATH: replay a reported failure.
+        ...(env["SIM_SEED"] ? { seed: Number(env["SIM_SEED"]), path: env["SIM_PATH"] ?? "0" } : {}),
+      },
     );
   }, 120_000);
 
@@ -132,7 +167,7 @@ describe("simulator (02 §5)", () => {
     while (w.net.length > 0) w.act({ t: "deliver", k: 0, crashAt: null });
     w.act({ t: "write", c: 0, path: "Nota.md", hash: "1".repeat(64) });
     w.act({ t: "write", c: 1, path: "nota.md", hash: "2".repeat(64) });
-    expect(w.settle()).toBe(true);
+    expect(w.settle(), w.unsettled()).toBe(true);
     expect(w.check()).toEqual([]);
     // Both writes survive: one live, the other as a conflict candidate.
     expect(w.store.versions.size).toBe(2);
@@ -161,7 +196,7 @@ describe("simulator (02 §5)", () => {
       { t: "write", c: 1, path: "é.md", hash: h("0") },
     ] as const)
       w.act(a);
-    expect(w.settle()).toBe(true);
+    expect(w.settle(), w.unsettled()).toBe(true);
     expect(w.check()).toEqual([]);
     expect([...w.store.files.values()].find((f) => f.headHash === h("1"))!.path).not.toBe("A.md");
   });
@@ -199,7 +234,7 @@ describe("simulator (02 §5)", () => {
       { t: "deliver", k: 0, crashAt: null },
     ] as const)
       w.act(a);
-    expect(w.settle()).toBe(true);
+    expect(w.settle(), w.unsettled()).toBe(true);
     expect(w.check()).toEqual([]);
     expect(
       [...w.store.files.values()].filter((f) => f.headHash === h("3") && !f.deleted),
@@ -228,7 +263,7 @@ describe("simulator (02 §5)", () => {
       { t: "rename", c: 0, pick: 0, to: "a.md", watched: false },
     ] as const)
       w.act(a);
-    expect(w.settle()).toBe(true);
+    expect(w.settle(), w.unsettled()).toBe(true);
     expect(w.check()).toEqual([]);
   });
   // fast-check counterexample: two versions of a new file in one pull; the second arrived
@@ -253,7 +288,7 @@ describe("simulator (02 §5)", () => {
       { t: "edit", c: 0, pick: 0, hash: h("0") },
     ] as const)
       w.act(a);
-    expect(w.settle()).toBe(true);
+    expect(w.settle(), w.unsettled()).toBe(true);
     expect(w.check()).toEqual([]);
   });
   // fast-check counterexample: a deletion and a resurrection of the same file in one pull;
@@ -286,7 +321,7 @@ describe("simulator (02 §5)", () => {
       { t: "remove", c: 1, pick: 2 },
     ] as const)
       w.act(a);
-    expect(w.settle()).toBe(true);
+    expect(w.settle(), w.unsettled()).toBe(true);
     expect(w.check()).toEqual([]);
   });
   // fast-check counterexample: a file renamed elsewhere to a name Windows can't use stayed under
@@ -311,7 +346,7 @@ describe("simulator (02 §5)", () => {
       { t: "rename", c: 1, pick: 0, to: "con.md", watched: true },
     ] as const)
       w.act(a);
-    expect(w.settle()).toBe(true);
+    expect(w.settle(), w.unsettled()).toBe(true);
     expect(w.check()).toEqual([]);
   });
   // Exact counterexamples found once scenarios got long (size "max"), replayed as they were.
@@ -319,7 +354,7 @@ describe("simulator (02 §5)", () => {
     const [[specs, actions]] = JSON.parse(json) as [[ClientSpec[], Action[]]];
     const w = new World(specs);
     for (const a of actions) w.act(a);
-    expect(w.settle()).toBe(true);
+    expect(w.settle(), w.unsettled()).toBe(true);
     expect(w.check()).toEqual([]);
   });
 });

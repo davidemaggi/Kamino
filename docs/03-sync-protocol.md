@@ -133,6 +133,8 @@ GET /api/v1/vaults/:vaultId/snapshot   → { head, files: [{ fileId, kind, path,
 
 Letto in un'unica transazione consistente: lo stato corrisponde esattamente a `head`. Usato per il primo collegamento di un dispositivo e quando il cursore è troppo vecchio.
 
+`openConflicts: [{ conflictId, fileId, headVersionId, contentHash }]` porta la versione corrente del file anche se è nel cestino (M3b): un file cancellato a conflitto aperto non è in `files`, e il dispositivo perdente per risolverlo deve nominare la versione che ha visto (`expectedHeadVersionId`).
+
 ### 6.3 Compattazione del journal
 
 Il journal conserva le voci almeno fino al minimo tra i cursori dei dispositivi attivi e almeno per la finestra di retention dello storico. Dispositivi inattivi da più di 90 giorni non trattengono il journal. Un dispositivo con `cursor` più vecchio della voce più vecchia conservata riceve `cursor_too_old` e procede con una **riconciliazione completa** (§8) partendo dallo snapshot; il suo indice locale (con le basi note) gli permette di distinguere le proprie modifiche locali da quelle remote senza perdite.
@@ -256,7 +258,7 @@ keep: { kind: "head" }                                           // la versione 
 ```
 
 - La nuova versione corrente ha base = testa attuale (come un `put`); se il file era nel cestino torna in vita (`file_restored`). Poi la voce `conflict_resolved { conflictId, fileId, versionId, contentHash }`, con la versione scelta.
-- `head` su un file cancellato mentre il conflitto era aperto: il file torna in vita con quella versione (`file_restored`, path occupato → `(1)`), così il contenuto scelto non resta nel cestino a scadere.
+- `head` o `both` su un file cancellato mentre il conflitto era aperto: il file torna in vita con quella versione (`file_restored`, path occupato → `(1)`), così il contenuto scelto non resta nel cestino a scadere.
 - `both`: la versione corrente resta; la candidata diventa un **nuovo file** affiancato `Nota (conflitto - <dispositivo> - <AAAA-MM-GG HHmm>).md` (suffisso nella lingua dell'utente; path occupato → `(1)`, `(2)`…). Journal: `file_put` del nuovo file, poi `conflict_resolved` con la testa.
 - Se nel frattempo la versione corrente è cambiata (`expectedHeadVersionId` superato) o il conflitto è già chiuso → `rejected { code: stale_resolution }`: la UI si aggiorna mostrando il nuovo contenuto in arrivo.
 - Dal plugin, `content` carica prima il contenuto (§4).
@@ -266,6 +268,13 @@ keep: { kind: "head" }                                           // la versione 
   1. se la copia locale coincide con la versione scelta → allineato;
   2. se la copia locale coincide con una candidata già sul server → scarica la nuova versione corrente;
   3. altrimenti (modifiche locali fatte **dopo** l'apertura del conflitto, mai caricate) → **prima** carica la copia locale come file affiancato (`keep_both` implicito, con suffisso di conflitto) e solo dopo scarica la nuova versione corrente. Nessuna modifica locale viene mai sovrascritta senza essere stata salvata sul server.
+
+> **Implementazione (M3b, client).** Scostamenti e precisazioni rispetto a quanto sopra, verificati dal simulatore (proprietà: nessun contenuto locale sparisce, nessun duplicato spurio, convergenza, anche con crash):
+> - **Caso 3:** la copia locale non diventa un file affiancato: sale con un normale `put` sulla sua base di prima, che apre un **nuovo conflitto** sul file. Il contenuto è comunque sul server (candidata) e l'utente lo rivede nella vista conflitto, invece di ritrovarsi un file in più. Vale anche per una modifica fatta mentre la propria risoluzione era in viaggio: non viene sovrascritta dalla versione scelta.
+> - **Risoluzione dal plugin:** "la mia" = copia locale attuale; se diversa da ogni versione del server sale come `content` (A4: nessuna perdita), altrimenti `head`. "In arrivo" con una copia locale mai caricata: prima un `put` (la copia diventa candidata, nello storico), poi `head`. "Entrambe": la copia diventa il file affiancato `Nota (conflict - <questo dispositivo> - <data locale>).md`. Unione manuale: il testo si scrive nel file locale (solo se è ancora quello visto), poi "la mia". Il `conflictId` si toglie solo alla conferma del server; offline la scelta resta in coda e il conflitto resta in elenco.
+> - **Chi vede cosa:** risolve solo il dispositivo che ha una candidata (o la web app). Gli altri vedono il conflitto (da `conflict_opened`/`conflict_resolved` e dallo snapshot) con l'invito a risolverlo altrove. Un file escluso dalla sync su questo dispositivo non si risolve da qui.
+> - **File sparito:** un perdente il cui file è stato cancellato (o mai visto qui) viene "liberato": il conflitto si chiude localmente e la copia sale come file proprio. Se la copia locale è già sul server (candidata) e il file è nel cestino, va nel cestino locale invece di risalire come duplicato. Scegliere poi dalla web app una versione di quel file lo riporta in vita: è una scelta esplicita, anche se lo stesso contenuto vive già in un altro file.
+> - **Cestino interrotto:** se un crash perde lo spostamento nel cestino di una copia già al sicuro, la scansione successiva lo ripete (solo se il contenuto è ancora quello: una modifica dell'utente non va mai nel cestino).
 
 ### 9.4 Regole automatiche (nessuna domanda all'utente, nessuna perdita)
 

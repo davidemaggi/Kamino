@@ -179,7 +179,18 @@ export const SnapshotFile = z.object({
 export const Snapshot = z.object({
   head: z.number().int().min(0),
   files: z.array(SnapshotFile),
-  openConflicts: z.array(z.object({ conflictId: SyncId, fileId: SyncId })),
+  /**
+   * With the file's current version (M3b): a file deleted while the conflict is open is not in
+   * `files`, and a device resolving it must name the version it saw.
+   */
+  openConflicts: z.array(
+    z.object({
+      conflictId: SyncId,
+      fileId: SyncId,
+      headVersionId: SyncId,
+      contentHash: ContentHash.nullable(),
+    }),
+  ),
 });
 export type SnapshotFile = z.infer<typeof SnapshotFile>;
 export type Snapshot = z.infer<typeof Snapshot>;

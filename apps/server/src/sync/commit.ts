@@ -498,11 +498,22 @@ export class SyncService {
           .select()
           .from(conflicts)
           .where(and(eq(conflicts.vaultId, v), eq(conflicts.status, "open")));
-        return {
-          head: h?.head ?? 0,
-          files: out,
-          openConflicts: open.map((c) => ({ conflictId: c.id, fileId: c.fileId })),
-        };
+        const openConflicts: Snapshot["openConflicts"] = [];
+        for (const c of open) {
+          // The file may be in the trash (not in `files`): its current version is named here.
+          const [r] = await tx
+            .select()
+            .from(files)
+            .where(and(eq(files.vaultId, v), eq(files.id, c.fileId)));
+          const rec = r ? await this.fileRecord(tx, vc, r) : null;
+          openConflicts.push({
+            conflictId: c.id,
+            fileId: c.fileId,
+            headVersionId: rec?.headVersionId ?? c.headVersionId,
+            contentHash: rec?.headHash ?? null,
+          });
+        }
+        return { head: h?.head ?? 0, files: out, openConflicts };
       },
       { isolationLevel: "repeatable read", accessMode: "read only" },
     );

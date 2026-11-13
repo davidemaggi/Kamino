@@ -44,6 +44,8 @@ export class FakeServer {
   /** Compacted journal: pulls after an older position get 410 cursor_too_old. */
   floor = 0;
   requests = 0;
+  /** Device names for GET /vault/devices. */
+  readonly deviceNames = new Map<string, string>();
   /** GET /changes calls (pulls). */
   pulls = 0;
   private next = 1;
@@ -220,6 +222,25 @@ export class FakeServer {
       if (after < this.floor) return err(410, "cursor_too_old");
       return { status: 200, json: this.store.changes(after, 50) };
     }
+    if (r.method === "GET" && path === "/vault/devices")
+      return {
+        status: 200,
+        json: [...this.deviceNames].map(([id, name]) => ({
+          id,
+          vaultId: "v",
+          vaultName: "Vault",
+          name,
+          platform: "linux",
+          pluginVersion: "0.0.0",
+          lastSeenAt: new Date(0).toISOString(),
+          lastSyncAt: null,
+          lag: 0,
+          pending: 0,
+          lastError: null,
+          level: "safe",
+          revoked: false,
+        })),
+      };
     if (r.method === "GET" && path === "/vaults/v/snapshot")
       return { status: 200, json: this.store.snapshot() };
     if (r.method === "POST" && path === "/vaults/v/ack") {

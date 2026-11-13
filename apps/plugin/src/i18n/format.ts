@@ -1,4 +1,5 @@
 import type { Lang } from "@kamino/status";
+import { t } from "./index.js";
 
 /** Replaces {name} placeholders; unknown placeholders are left as they are. */
 export function fmt(template: string, params: Record<string, string | number>): string {
@@ -7,8 +8,9 @@ export function fmt(template: string, params: Record<string, string | number>): 
   );
 }
 
-/** "10:45" today, "7 nov, 10:45" on other days. `timeZone` is for tests. */
-export function formatWhen(at: number, now: number, lang: Lang, timeZone?: string): string {
+/** "10:45" today, "7 nov, 10:45" on other days; null = not known here. `timeZone` is for tests. */
+export function formatWhen(at: number | null, now: number, lang: Lang, timeZone?: string): string {
+  if (at === null) return t(lang).conflict.unknownTime;
   const tz = timeZone ? { timeZone } : {};
   const day = (d: number) =>
     new Intl.DateTimeFormat("en-CA", {

@@ -102,7 +102,7 @@ describe("client", () => {
     const store = new MemoryStore();
     let { state: s, ops } = push(joined(), store, [scanItem("a.md", H1)]);
     expect(ops).toMatchObject([{ type: "put", baseVersionId: null }]);
-    const fileId = ops[0]!.fileId;
+    const fileId = (ops[0] as FileOp).fileId;
     expect(s.durable.index[fileId]).toMatchObject({
       confirmed: true,
       baseHash: H1,
@@ -448,7 +448,7 @@ describe("client", () => {
     const first: OpResult = {
       status: "accepted",
       seq: 1,
-      fileId: p.ops[0]!.fileId,
+      fileId: (p.ops[0] as FileOp).fileId,
       versionId: (p.ops[0] as { versionId: string }).versionId,
       path: "a.md",
     };

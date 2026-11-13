@@ -4,8 +4,8 @@ export type ConflictKind = "concurrent_edit" | "both_created";
 
 export interface VersionInfo {
   device: string;
-  /** epoch ms */
-  at: number;
+  /** epoch ms; null when not known on this device. */
+  at: number | null;
 }
 
 export interface ConflictSummary {
@@ -15,6 +15,8 @@ export interface ConflictSummary {
   binary: boolean;
   mine: VersionInfo;
   incoming: VersionInfo;
+  /** Not resolvable on this device (it has the server's side): from the other one or the web. */
+  elsewhere?: boolean;
 }
 
 export interface BinaryInfo {

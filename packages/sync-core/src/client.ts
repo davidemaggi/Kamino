@@ -3,8 +3,10 @@ import type {
   ErrorCode,
   JournalEntry,
   FileOp,
+  Op,
   OpResult,
   RejectedResult,
+  ResolveOp,
   Snapshot,
 } from "@kamino/protocol";
 import { classify, type SyncSettings } from "./exclusions.js";
@@ -62,6 +64,25 @@ export interface Entry {
   ignored: boolean;
   /** A trash was issued expecting this content; the next scan tells whether it happened. */
   trashing: string | null;
+  /** This device's content as a candidate of the open conflict (absent in states before M3b). */
+  candidate: { versionId: string; hash: string } | null;
+  /** The user's choice for the open conflict, until the server confirms it (absent before M3b). */
+  resolving: Resolving | null;
+}
+
+/**
+ * How the user resolves a conflict on this device (03 §9.3). "mine" = the content on disk now
+ * (also a merge the user saved there), "incoming" = the server's current version, "both" = the
+ * server's version at the path and the local content as a copy next to it.
+ */
+export type ResolveChoice = "mine" | "incoming" | "both";
+
+export interface Resolving {
+  choice: ResolveChoice;
+  /** The server version the user saw: if it changed meanwhile, the choice is shown again. */
+  head: string;
+  /** For "both": where the copy goes (the server picks a free name next to it if taken). */
+  copyPath: string | null;
 }
 
 /**
@@ -99,7 +120,9 @@ export interface Durable {
   /** Absent in states saved before M1d. */
   folders: Record<string, FolderEntry>;
   /** Ops sent with unknown outcome: resent identical (same opId) before anything else. */
-  sent: FileOp[];
+  sent: Op[];
+  /** Open conflicts of the vault: conflict id → the file it is on (absent before M3b). */
+  conflictFiles: Record<string, string>;
   cursor: number;
   joined: boolean;
 }
@@ -162,7 +185,9 @@ export type ClientEvent =
   /** `hash` = the content of the write effect this completes. */
   | { type: "written"; fileId: string; hash: string; ok: boolean }
   | { type: "renamed"; fileId: string; to: string; ok: boolean }
-  | { type: "trashed"; fileId: string; ok: boolean };
+  | { type: "trashed"; fileId: string; ok: boolean }
+  /** The user resolved the conflict of this file; `head` = the server version they saw. */
+  | { type: "resolve"; fileId: string; choice: ResolveChoice; head: string; copyPath?: string };
 
 export type NotifyKind = "conflict" | "blocked" | "restored" | "renamed" | "update_required";
 
@@ -170,7 +195,7 @@ export type NotifyKind = "conflict" | "blocked" | "restored" | "renamed" | "upda
 export type Effect =
   | { type: "persist" }
   | { type: "snapshot"; requestId: string }
-  | { type: "push"; requestId: string; ops: FileOp[]; hashes: string[] }
+  | { type: "push"; requestId: string; ops: Op[]; hashes: string[] }
   | { type: "pull"; requestId: string; after: number }
   /** Write only if the file at `path` still has hash `expect` (null = must not exist). */
   | { type: "write"; fileId: string; path: string; hash: string; expect: string | null }
@@ -197,7 +222,7 @@ interface Ctx {
 export function initialState(config: ClientConfig): ClientState {
   return {
     config,
-    durable: { index: {}, folders: {}, sent: [], cursor: 0, joined: false },
+    durable: { index: {}, folders: {}, sent: [], conflictFiles: {}, cursor: 0, joined: false },
     vol: { phase: "idle", requestId: null, stopped: null },
   };
 }
@@ -230,6 +255,12 @@ export function step(
   };
   // States saved before M1d have no folders.
   if (!(s.durable as Partial<Durable>).folders) s.durable.folders = {};
+  // States saved before M3b have no conflict resolution fields.
+  if (!(s.durable as Partial<Durable>).conflictFiles) s.durable.conflictFiles = {};
+  for (const e of Object.values(s.durable.index)) {
+    e.candidate ??= null;
+    e.resolving ??= null;
+  }
   const c: Ctx = { s, env, fx: [] };
   switch (event.type) {
     case "sync":
@@ -268,6 +299,9 @@ export function step(
     case "trashed":
       onTrashed(c, event.fileId, event.ok);
       break;
+    case "resolve":
+      onResolve(c, event);
+      break;
   }
   return { state: s, effects: [{ type: "persist" }, ...c.fx] };
 }
@@ -275,6 +309,9 @@ export function step(
 // ---------- helpers ----------
 
 const entries = (s: ClientState): Entry[] => Object.values(s.durable.index);
+/** An op about this file or folder is waiting for its outcome. */
+const sentFor = (s: ClientState, fileId: string) =>
+  s.durable.sent.some((op) => op.type !== "resolve" && op.fileId === fileId);
 const caseInsensitive = (p: Platform) => p !== "linux";
 const diskKey = (s: ClientState, path: string) =>
   caseInsensitive(s.config.platform) ? collisionKey(path) : path;
@@ -329,6 +366,8 @@ function newLocalEntry(fileId: string, item: ScanItem): Entry {
     renaming: null,
     ignored: false,
     trashing: null,
+    candidate: null,
+    resolving: null,
   };
 }
 
@@ -367,6 +406,8 @@ function remoteEntry(
     renaming: null,
     ignored: false,
     trashing: null,
+    candidate: null,
+    resolving: null,
   };
 }
 
@@ -610,8 +651,7 @@ function pruneLeftovers(s: ClientState): void {
     );
 }
 
-const inFlight = (s: ClientState, fileId: string) =>
-  s.durable.sent.some((op) => op.fileId === fileId);
+const inFlight = (s: ClientState, fileId: string) => sentFor(s, fileId);
 
 function applyFolderScan(c: Ctx, paths: string[]): void {
   const { s } = c;
@@ -1034,7 +1074,10 @@ function applyScan(c: Ctx, scan: ScanItem[], unreadable: string[] = []): void {
     if (seen.has(e) && e.renaming?.target && e.path !== e.renaming.target) e.renaming.target = null;
     if (seen.has(e)) {
       // Still there: an issued trash did not happen (retried) or the user changed it (synced).
-      if (e.trashing) e.trashing = null;
+      if (e.trashing) {
+        if (e.localHash === e.trashing) trash(c, e);
+        else e.trashing = null;
+      }
       continue;
     }
     if (e.pendingWrite) {
@@ -1052,9 +1095,9 @@ function applyScan(c: Ctx, scan: ScanItem[], unreadable: string[] = []): void {
       continue;
     }
     e.localHash = null;
+    if (refetchIfNeverHere(c, e)) continue;
     // Created and deleted here before the server ever knew it.
-    if (!e.confirmed && !s.durable.sent.some((op) => op.fileId === e.fileId))
-      delete s.durable.index[e.fileId];
+    if (!e.confirmed && !sentFor(s, e.fileId)) delete s.durable.index[e.fileId];
   }
 }
 
@@ -1069,7 +1112,7 @@ function onLocalRename(c: Ctx, from: string, to: string): void {
   const previous = ownerOf(c.s, to, e);
   if (previous) {
     previous.localHash = null;
-    if (!previous.confirmed && !c.s.durable.sent.some((op) => op.fileId === previous.fileId))
+    if (!previous.confirmed && !sentFor(c.s, previous.fileId))
       delete c.s.durable.index[previous.fileId];
   }
   e.path = to;
@@ -1080,13 +1123,19 @@ function onLocalRename(c: Ctx, from: string, to: string): void {
 // ---------- push ----------
 
 /** Ops for every difference between this device and the server (Z8): one per file, deletes → moves → puts. */
-export function nextOps(s: ClientState, env: ClientEnv): FileOp[] {
+export function nextOps(s: ClientState, env: ClientEnv): Op[] {
   if (s.durable.sent.length > 0) return s.durable.sent;
   const deletes: FileOp[] = [];
   const moves: FileOp[] = [];
   const puts: FileOp[] = [];
+  const resolves: Op[] = [];
   for (const e of entries(s)) {
-    if (e.conflictId || e.pendingWrite || e.blocked || e.trashing || e.ignored) continue;
+    if (e.pendingWrite || e.blocked || e.trashing || e.ignored) continue;
+    if (e.conflictId) {
+      const op = e.resolving ? resolveOp(s, env, e) : null;
+      if (op) resolves.push(op);
+      continue;
+    }
     if (!e.confirmed) {
       if (e.localHash !== null)
         puts.push({
@@ -1143,10 +1192,287 @@ export function nextOps(s: ClientState, env: ClientEnv): FileOp[] {
   }
   // Files leave a folder before it goes; a moved folder before its files; folders before files.
   const f = nextFolderOps(s, env);
-  return [...deletes, ...f.deletes, ...f.moves, ...moves, ...f.mkdirs, ...puts].slice(
+  return [...deletes, ...f.deletes, ...f.moves, ...moves, ...f.mkdirs, ...puts, ...resolves].slice(
     0,
     s.config.batchSize,
   );
+}
+
+// ---------- conflict resolution (M3b, 03 §9.3) ----------
+
+/**
+ * The server file the conflict of `e` is on: the file itself, or, when two devices created the
+ * same path (both_created), the file already there, which this device knows but couldn't write.
+ */
+function conflictTarget(s: ClientState, e: Entry): Entry | undefined {
+  if (e.confirmed) return e;
+  const known = e.conflictId === null ? undefined : s.durable.conflictFiles[e.conflictId];
+  if (known !== undefined) {
+    const t = s.durable.index[known];
+    return t?.confirmed ? t : undefined;
+  }
+  // Not seen in the journal yet: the live file at the same path.
+  const key = collisionKey(e.path);
+  return entries(s).find(
+    (o) =>
+      o !== e &&
+      o.confirmed &&
+      !o.headDeleted &&
+      o.remotePath !== null &&
+      collisionKey(o.remotePath) === key,
+  );
+}
+
+/** The target has its own file on this device (e.g. moved since, or a case variant). */
+const onDisk = (t: Entry) => t.localHash !== null || t.pendingWrite !== null;
+
+/**
+ * The server version the conflict of this file is on, as this device knows it (what the user
+ * sees as "incoming"), or null when it can't be resolved from here yet.
+ */
+export function conflictHead(
+  s: ClientState,
+  fileId: string,
+): { fileId: string; versionId: string; hash: string } | null {
+  const e = s.durable.index[fileId];
+  if (!e?.conflictId) return null;
+  const t = conflictTarget(s, e);
+  if (!t || t.head === null || t.headHash === null) return null;
+  return { fileId: t.fileId, versionId: t.head, hash: t.headHash };
+}
+
+function onResolve(c: Ctx, ev: Extract<ClientEvent, { type: "resolve" }>): void {
+  const e = c.s.durable.index[ev.fileId];
+  // Excluded here: this device leaves the file alone, the conflict is resolved elsewhere.
+  if (!e?.conflictId || e.ignored) return;
+  const t = conflictTarget(c.s, e);
+  if (t?.head !== ev.head) {
+    // The server moved on since the user looked: show it again.
+    c.fx.push({ type: "notify", kind: "conflict", fileId: e.fileId });
+    return;
+  }
+  e.resolving = { choice: ev.choice, head: ev.head, copyPath: ev.copyPath ?? null };
+  e.blocked = null;
+}
+
+/**
+ * The next op for a resolution. The local content is never lost (A4): before a choice that
+ * replaces it on disk, it goes to the server as a candidate of the same conflict (a put on the
+ * old base), unless the server already has it.
+ */
+function resolveOp(s: ClientState, env: ClientEnv, e: Entry): Op | null {
+  const r = e.resolving;
+  const t = conflictTarget(s, e);
+  if (!r || !e.conflictId || !t || t.head === null) return null;
+  const resolve = (keep: ResolveOp["keep"]): ResolveOp => ({
+    type: "resolve",
+    opId: env.newId(),
+    conflictId: e.conflictId!,
+    expectedHeadVersionId: r.head,
+    keep,
+  });
+  const l = e.localHash;
+  // Nothing here, or the same as the server: keeping the server's version loses nothing.
+  if (l === null || l === t.headHash) return resolve({ kind: "head" });
+  if (r.choice === "mine")
+    return resolve({
+      kind: "content",
+      versionId: env.newId(),
+      contentHash: l,
+      size: e.size,
+      mtime: e.mtime,
+    });
+  if (l !== e.candidate?.hash)
+    return {
+      type: "put",
+      opId: env.newId(),
+      fileId: e.fileId,
+      versionId: env.newId(),
+      path: e.path,
+      baseVersionId: e.confirmed ? e.base : null,
+      contentHash: l,
+      size: e.size,
+      mtime: e.mtime,
+    };
+  if (r.choice === "incoming") return resolve({ kind: "head" });
+  return resolve({
+    kind: "both",
+    candidateVersionId: e.candidate.versionId,
+    fileId: env.newId(),
+    versionId: env.newId(),
+    path: r.copyPath ?? conflictSiblingPath(e.path, 1),
+  });
+}
+
+function onResolveResult(c: Ctx, op: ResolveOp, res: AcceptedResult | RejectedResult): void {
+  const e = entries(c.s).find((x) => x.conflictId === op.conflictId && x.resolving);
+  if (!e) return; // already applied (the same result from the response and the journal)
+  if (res.status === "accepted") {
+    resolved(c, e, op, res);
+    return;
+  }
+  e.blocked = res.code; // not retried in this cycle
+  switch (res.code) {
+    case "stale_resolution":
+      // Closed elsewhere (the journal tells how) or the server changed since the user looked.
+      e.resolving = null;
+      c.fx.push({ type: "notify", kind: "conflict", fileId: e.fileId });
+      return;
+    case "not_found":
+      // The conflict is gone: back to the usual rules (a stale put opens a new one).
+      clearConflict(e);
+      refetchIfNeverHere(c, e);
+      return;
+    case "invalid_request":
+      e.candidate = null; // not a candidate of this conflict: the content goes up again
+      return;
+    case "blob_missing":
+      return; // retried at the next cycle with the content on disk then
+    default:
+      e.resolving = null;
+      c.fx.push({ type: "notify", kind: "blocked", fileId: e.fileId, code: res.code });
+  }
+}
+
+/**
+ * The local content of a both_created loser becomes the content of the file it collided with:
+ * same path, and from now on one file.
+ */
+function adoptLocal(c: Ctx, e: Entry, t: Entry): void {
+  t.localHash = e.localHash;
+  t.size = e.size;
+  t.mtime = e.mtime;
+  t.path = e.path;
+  t.materialized = e.localHash !== null;
+  t.base = null;
+  t.baseHash = null;
+  delete c.s.durable.index[e.fileId];
+}
+
+/**
+ * A local file deleted before any server version was on this device (base null: it collided
+ * with the server's file and never went up). The user removed their content, not the server's
+ * version, which they never had: it is downloaded, not deleted. True when handled.
+ */
+function refetchIfNeverHere(c: Ctx, e: Entry): boolean {
+  if (!e.confirmed || e.base !== null || e.localHash !== null || e.conflictId) return false;
+  e.materialized = false;
+  materialize(c, e);
+  return true;
+}
+
+function clearConflict(e: Entry): void {
+  e.conflictId = null;
+  e.resolving = null;
+  e.candidate = null;
+}
+
+function resolved(
+  c: Ctx,
+  e: Entry,
+  op: ResolveOp,
+  res: Pick<AcceptedResult, "seq" | "fileId" | "path">,
+): void {
+  // Local contents the server has: the candidate (or the archive put that became it). An edit
+  // made while the resolution was on its way is not among them.
+  const safe = e.candidate?.hash ?? null;
+  clearConflict(e);
+  const t = e.confirmed ? e : c.s.durable.index[res.fileId];
+  if (!t) return; // its put meets the server again: nothing is lost
+  // A both_created loser: its content is on the server now (head, candidate or copy).
+  const separate = t !== e && onDisk(t);
+  if (t !== e && !separate) adoptLocal(c, e, t);
+  const k = op.keep;
+  if (k.kind === "content") {
+    // The local content became the new version, unless the file is on disk here apart from the
+    // loser: then what is on disk is the old head, caught up like any remote change.
+    if (!separate) {
+      t.base = k.versionId;
+      t.baseHash = k.contentHash;
+    }
+    if (res.seq >= t.headSeq) {
+      t.head = k.versionId;
+      t.headHash = k.contentHash;
+      t.headSeq = res.seq;
+      t.headDeleted = false;
+    }
+    if (separate) catchUp(c, t);
+  } else {
+    // The server's version stays (a file in the trash comes back); a copy arrives with the pull.
+    if (res.seq >= t.headSeq) {
+      t.headSeq = res.seq;
+      t.headDeleted = false;
+    }
+    if (!separate) keepServerVersion(c, t, safe);
+  }
+  if (separate) trash(c, e);
+  if (res.path !== t.remotePath) followRemotePath(c, t, res.path, res.seq);
+  else if (t.path !== t.remotePath && !t.renaming && t.remotePath !== null) {
+    // Adopted from a loser whose path differs from the server's: the file follows the server.
+    t.renaming = { path: t.remotePath, target: null };
+    follow(c, t);
+  }
+}
+
+/**
+ * The server's current version replaces what is on disk, only if the local content is `safe`
+ * (known to be on the server). The write expects it: if the user changes it meanwhile, nothing
+ * is overwritten and the change goes up on the old base (a new conflict), as an edit made while
+ * the resolution was on its way does.
+ */
+function keepServerVersion(c: Ctx, t: Entry, safe: string | null): void {
+  if (t.localHash === null) {
+    t.materialized = false;
+    materialize(c, t);
+  } else if (t.localHash === t.headHash) {
+    t.base = t.head;
+    t.baseHash = t.headHash;
+  } else if (t.localHash === safe) write(c, t);
+  // Otherwise an edit the server doesn't have: it goes up on its old base (a new conflict).
+}
+
+/**
+ * The conflict was closed elsewhere (another device, the web app). If the local content is on
+ * the server, this device follows the outcome; if it isn't (changed since), it goes up as usual
+ * on its old base and opens a new conflict: nothing is lost, and the user sees it.
+ */
+function closedElsewhere(c: Ctx, e: Entry, targetId: string | undefined): void {
+  const cand = e.candidate;
+  const t = e.confirmed
+    ? e
+    : ((targetId === undefined ? undefined : c.s.durable.index[targetId]) ??
+      conflictTarget(c.s, e));
+  clearConflict(e);
+  const l = e.localHash;
+  if (!t || t.headHash === null || t.headDeleted) {
+    // The file is gone since (deleted, or never seen here). The local content is on the server
+    // (a candidate, maybe the copy of a "keep both"): to the trash rather than up again.
+    // Same for the file itself, deleted since: its content is safe, it follows the deletion.
+    if (l !== null && (l === cand?.hash || l === t?.headHash)) trash(c, e);
+    return;
+  }
+  if (l === null) {
+    // A deletion here: sent as usual (the server restores if needed), unless nothing to delete.
+    if (t === e) {
+      refetchIfNeverHere(c, e);
+      return;
+    }
+    delete c.s.durable.index[e.fileId];
+    materialize(c, t);
+    return;
+  }
+  if (l !== t.headHash && l !== cand?.hash) return;
+  if (t !== e) {
+    if (onDisk(t)) {
+      trash(c, e); // its content is on the server, and the file is here under another name
+      return;
+    }
+    adoptLocal(c, e, t);
+    if (t.remotePath !== null && t.path !== t.remotePath && !t.renaming)
+      t.renaming = { path: t.remotePath, target: null };
+  }
+  keepServerVersion(c, t, l);
+  follow(c, t);
 }
 
 function startPush(c: Ctx): boolean {
@@ -1156,7 +1482,17 @@ function startPush(c: Ctx): boolean {
   s.durable.sent = ops;
   s.vol.phase = "pushing";
   s.vol.requestId = c.env.newId();
-  const hashes = [...new Set(ops.flatMap((op) => (op.type === "put" ? [op.contentHash] : [])))];
+  const hashes = [
+    ...new Set(
+      ops.flatMap((op) =>
+        op.type === "put"
+          ? [op.contentHash]
+          : op.type === "resolve" && op.keep.kind === "content"
+            ? [op.keep.contentHash]
+            : [],
+      ),
+    ),
+  ];
   c.fx.push({ type: "push", requestId: s.vol.requestId, ops, hashes });
   return true;
 }
@@ -1174,8 +1510,12 @@ function onPushResult(c: Ctx, results: OpResult[]): void {
   if (!startPush(c)) startPull(c);
 }
 
-function applyResult(c: Ctx, op: FileOp, r: OpResult): void {
+function applyResult(c: Ctx, op: Op, r: OpResult): void {
   const res = r.status === "duplicate" ? r.original : r;
+  if (op.type === "resolve") {
+    if (res.status !== "conflict") onResolveResult(c, op, res);
+    return;
+  }
   if (isFolderOp(c.s, op)) {
     if (res.status === "accepted") onFolderAccepted(c, op, res);
     else if (res.status === "rejected") onFolderRejected(c, op, res);
@@ -1185,8 +1525,12 @@ function applyResult(c: Ctx, op: FileOp, r: OpResult): void {
   if (!e) return;
   if (res.status === "accepted") onAccepted(c, e, op, res);
   else if (res.status === "conflict") {
+    // A resolution's own put (A4) joins the same conflict: nothing new to tell the user.
+    const quiet = e.resolving !== null && e.conflictId === res.conflictId;
+    if (!quiet) e.resolving = null;
     e.conflictId = res.conflictId;
-    c.fx.push({ type: "notify", kind: "conflict", fileId: e.fileId });
+    if (op.type === "put") e.candidate = { versionId: op.versionId, hash: op.contentHash };
+    if (!quiet) c.fx.push({ type: "notify", kind: "conflict", fileId: e.fileId });
   } else onRejected(c, e, op, res);
 }
 
@@ -1194,6 +1538,9 @@ function applyResult(c: Ctx, op: FileOp, r: OpResult): void {
 function onAccepted(c: Ctx, e: Entry, op: FileOp, res: Pick<AcceptedResult, "seq" | "path">): void {
   const wasConfirmed = e.confirmed;
   e.confirmed = true;
+  // A both_created loser whose put went through as a file of its own (the other file left the
+  // path meanwhile): its content is safe there, the old conflict is not this file's any more.
+  if (!wasConfirmed && e.conflictId) clearConflict(e);
   if (op.type === "put") {
     e.base = op.versionId;
     e.baseHash = op.contentHash;
@@ -1304,18 +1651,34 @@ function onPullResult(c: Ctx, journal: JournalEntry[], hasMore: boolean): void {
 /** 03 §6.4. Returns false when sync must stop (unknown, non-ignorable entry). */
 function applyEntry(c: Ctx, entry: JournalEntry): boolean {
   const { s } = c;
+  if (entry.conflictId !== undefined) {
+    if (entry.type === "conflict_opened") s.durable.conflictFiles[entry.conflictId] = entry.fileId;
+    else if (entry.type === "conflict_resolved") delete s.durable.conflictFiles[entry.conflictId];
+  }
   const own =
     entry.opId === undefined ? undefined : s.durable.sent.find((op) => op.opId === entry.opId);
-  if (own && isFolderOp(s, own)) {
+  if (own?.type === "resolve") {
+    // Our resolution went through but its response was lost. Its other entries (a file back
+    // from the trash, the copy) follow the usual rules below.
+    if (entry.type === "conflict_resolved") {
+      onResolveResult(c, own, {
+        status: "accepted",
+        seq: entry.seq,
+        fileId: entry.fileId,
+        path: entry.path,
+      });
+      return true;
+    }
+  } else if (own && isFolderOp(s, own)) {
     onFolderAccepted(c, own, { seq: entry.seq, path: entry.path, fileId: entry.fileId });
     return true;
-  }
-  if (own) {
+  } else if (own) {
     // Our op went through but its response was lost: the journal tells us. Still resent (duplicate).
     const e = s.durable.index[own.fileId];
-    if (e && entry.type === "conflict_opened" && entry.conflictId !== undefined)
+    if (e && entry.type === "conflict_opened" && entry.conflictId !== undefined) {
       e.conflictId = entry.conflictId;
-    else if (e) onAccepted(c, e, own, { seq: entry.seq, path: entry.path });
+      if (own.type === "put") e.candidate = { versionId: own.versionId, hash: own.contentHash };
+    } else if (e) onAccepted(c, e, own, { seq: entry.seq, path: entry.path });
     return true;
   }
   // This device's own entries go through the same rules: the journal positions make them no-ops
@@ -1337,10 +1700,14 @@ function applyEntry(c: Ctx, entry: JournalEntry): boolean {
     case "file_deleted":
       onRemoteDelete(c, entry);
       return true;
+    case "conflict_resolved":
+      for (const e of entries(s))
+        if (e.conflictId !== null && e.conflictId === entry.conflictId)
+          closedElsewhere(c, e, entry.fileId);
+      return true;
     case "folder_created":
     case "folder_deleted":
     case "conflict_opened":
-    case "conflict_resolved":
     case "vault_settings_changed":
       return true;
     default:
@@ -1401,7 +1768,22 @@ function catchUp(c: Ctx, e: Entry): void {
   if (e.localHash === e.baseHash && e.headHash !== null && e.headHash !== e.localHash) write(c, e);
 }
 
+/**
+ * The file a both_created loser collided with was deleted before this device ever had it: there
+ * is nothing here to resolve against. The loser's content goes up again as a file of its own
+ * (its earlier content stays a candidate of that conflict, for the web app).
+ */
+function releaseLosers(c: Ctx, fileId: string, conflictId?: string): void {
+  if (c.s.durable.index[fileId]) return;
+  for (const e of entries(c.s)) {
+    if (e.confirmed || e.conflictId === null) continue;
+    if (e.conflictId === conflictId || c.s.durable.conflictFiles[e.conflictId] === fileId)
+      clearConflict(e);
+  }
+}
+
 function onRemoteDelete(c: Ctx, entry: JournalEntry): void {
+  releaseLosers(c, entry.fileId);
   const e = c.s.durable.index[entry.fileId];
   // Stale: this device already knows a later state (e.g. its own edit resurrected the file).
   if (!e || entry.seq <= e.headSeq) return;
@@ -1461,6 +1843,11 @@ function trash(c: Ctx, e: Entry): void {
 /** The file left the disk through our trash. */
 function trashDone(c: Ctx, e: Entry): void {
   e.trashing = null;
+  if (!e.confirmed) {
+    // A both_created loser whose content reached the server another way (M3b).
+    delete c.s.durable.index[e.fileId];
+    return;
+  }
   if (e.headDeleted) {
     bury(e);
     return;
@@ -1534,6 +1921,22 @@ function reconcileKnown(c: Ctx, snap: Snapshot): void {
       });
     else if (!r) onRemoteDelete(c, { ...at, type: "file_deleted", fileId: e.fileId, path: e.path });
   }
+  // A file in the trash is not in `files`: its current version comes with its open conflict,
+  // which a resolution must name.
+  for (const oc of snap.openConflicts) {
+    const t = s.durable.index[oc.fileId];
+    if (!t?.confirmed || live.has(oc.fileId) || snap.head < t.headSeq) continue;
+    t.head = oc.headVersionId;
+    t.headHash = oc.contentHash;
+    t.headSeq = snap.head;
+    t.headDeleted = true;
+  }
+  for (const oc of snap.openConflicts)
+    if (!live.has(oc.fileId)) releaseLosers(c, oc.fileId, oc.conflictId);
+  // Conflicts closed while this device was away.
+  const open = new Set(snap.openConflicts.map((x) => x.conflictId));
+  for (const e of entries(s))
+    if (e.conflictId !== null && !open.has(e.conflictId)) closedElsewhere(c, e, undefined);
   for (const f of folderList(s)) {
     if (f.aliasOf) {
       // Its twin moved or went while this device was away: a real folder again.
@@ -1581,6 +1984,9 @@ function onSnapshot(c: Ctx, snap: Snapshot): void {
   const { s } = c;
   idle(s);
   reconcileKnown(c, snap);
+  s.durable.conflictFiles = Object.fromEntries(
+    snap.openConflicts.map((x) => [x.conflictId, x.fileId]),
+  );
   const remote = new Map<string, Snapshot["files"][number]>();
   for (const f of snap.files)
     if (

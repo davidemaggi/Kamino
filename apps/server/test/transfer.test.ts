@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { parseRange } from "../src/routes/transfer.js";
@@ -107,6 +107,24 @@ describe.skipIf(dockerUnavailable)("uploads and downloads", () => {
     });
     expect(done.statusCode).toBe(200);
     expect(done.json()).toEqual({ contentHash: hash, size: 31 });
+  });
+
+  // rc.6: sessions opened before a container was recreated outlived their staging directory, and
+  // every chunk got 500 (ENOENT). Staging is scratch space: the chunks are simply sent again.
+  it("a session whose staging directory vanished still takes chunks", async () => {
+    const id = await upload(CONTENT, [0]);
+    rmSync(join(t.dirs.staging, id), { recursive: true, force: true });
+    expect((await d.call("GET", `${base()}/uploads/${id}`)).json().received).toEqual([]);
+    for (const i of [0, 1, 2, 3]) {
+      const r = await d.call(
+        "PUT",
+        `${base()}/uploads/${id}/chunks/${i}`,
+        CONTENT.subarray(i * 8, (i + 1) * 8),
+        octet,
+      );
+      expect(r.statusCode, `chunk ${i}`).toBe(200);
+    }
+    expect((await d.call("POST", `${base()}/uploads/${id}/complete`)).statusCode).toBe(200);
   });
 
   it("downloads whole and by range across segments", async () => {

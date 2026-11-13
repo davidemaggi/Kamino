@@ -51,13 +51,6 @@ export function transferRoutes(
   };
 
   return async (app: FastifyInstance) => {
-    // Chunks are raw bytes (C6); one chunk at most plus some slack.
-    app.addContentTypeParser(
-      "application/octet-stream",
-      { parseAs: "buffer", bodyLimit: CHUNK_SIZE + 1024 },
-      (_req, body, done) => done(null, body),
-    );
-
     app.post<{ Params: VaultParams }>(
       "/vaults/:vaultId/blobs/check",
       { preHandler: guard },
@@ -79,20 +72,33 @@ export function transferRoutes(
       },
     );
 
-    app.put<{ Params: VaultParams & { uploadId: string; index: string } }>(
-      "/vaults/:vaultId/uploads/:uploadId/chunks/:index",
-      { preHandler: guard },
-      async (req) => {
-        if (!Buffer.isBuffer(req.body)) throw new TransferError("invalid_request", 415);
-        const received = await uploads.putChunk(
-          await cryptoFor(req),
-          req.params.uploadId,
-          Number(req.params.index),
-          req.body,
-        );
-        return { received };
-      },
-    );
+    // A chunk is raw bytes whatever its declared type: on Android, Obsidian's requestUrl doesn't
+    // always send the type the plugin asked for (rc.5: every chunk got 415). Own scope, so these
+    // parsers don't touch the JSON routes.
+    await app.register(async (chunks) => {
+      chunks.removeAllContentTypeParsers();
+      chunks.addContentTypeParser(
+        "*",
+        { parseAs: "buffer", bodyLimit: CHUNK_SIZE + 1024 },
+        (_req, body, done) => done(null, body),
+      );
+      chunks.put<{ Params: VaultParams & { uploadId: string; index: string } }>(
+        "/vaults/:vaultId/uploads/:uploadId/chunks/:index",
+        { preHandler: guard },
+        async (req) => {
+          // No body and no type at all: Fastify doesn't parse, an empty chunk.
+          const body = req.body === undefined ? Buffer.alloc(0) : req.body;
+          if (!Buffer.isBuffer(body)) throw new TransferError("invalid_request", 415);
+          const received = await uploads.putChunk(
+            await cryptoFor(req),
+            req.params.uploadId,
+            Number(req.params.index),
+            body,
+          );
+          return { received };
+        },
+      );
+    });
 
     app.get<{ Params: VaultParams & { uploadId: string } }>(
       "/vaults/:vaultId/uploads/:uploadId",

@@ -89,6 +89,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
           : tp,
   });
   securityHeaders(app, deps.config.publicUrl);
+  // A bodyless request may still declare a type (Android's requestUrl does): nothing to parse, so
+  // no 415 for it. A real body of an unknown type is still refused.
+  app.addContentTypeParser("*", { parseAs: "buffer" }, (_req, body, done) => {
+    if ((body as Buffer).length === 0) return done(null, undefined);
+    done(Object.assign(new Error("Unsupported Media Type"), { statusCode: 415 }), undefined);
+  });
   // M7a A3: every registered route, so the authorization matrix test can't miss a new one.
   const routes: { method: string; url: string }[] = [];
   app.addHook("onRoute", (r) => {

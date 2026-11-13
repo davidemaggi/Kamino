@@ -1,6 +1,7 @@
 CREATE TABLE "email_outbox" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"to_enc" "bytea" NOT NULL,
+	"user_id" uuid,
 	"template" text NOT NULL,
 	"locale" text NOT NULL,
 	"params_enc" "bytea" NOT NULL,
@@ -30,5 +31,6 @@ CREATE TABLE "user_exports" (
 );
 --> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "quota_bytes" bigint;--> statement-breakpoint
+ALTER TABLE "email_outbox" ADD CONSTRAINT "email_outbox_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_exports" ADD CONSTRAINT "user_exports_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "email_outbox_due" ON "email_outbox" USING btree ("next_at") WHERE "email_outbox"."sent_at" is null;

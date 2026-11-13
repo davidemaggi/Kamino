@@ -1,5 +1,5 @@
 import type { SmtpTestResult } from "@kamino/protocol";
-import { and, asc, eq, isNull, lt, lte } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lt, lte, or } from "drizzle-orm";
 import { uuidv7 } from "../auth/tokens.js";
 import { systemKey } from "../crypto/dek.js";
 import { decryptField, encryptField } from "../crypto/field.js";
@@ -18,6 +18,19 @@ const BACKOFF_MS = [1, 5, 15, 30, 60, 120, 240, 360].map((m) => m * 60_000);
 /** A claimed row is invisible to other drains for this long (a crashed send retries after it). */
 const LEASE_MS = 10 * 60_000;
 const BATCH = 20;
+/** Sent rows are kept this long (count of attempts, error codes), then deleted. */
+const KEEP_SENT_MS = 30 * 24 * 3600_000;
+/** Never given up: losing this email means losing the user's data (F6). */
+const PERSISTENT: readonly Template[] = ["export_ready"];
+const EMPTY = Buffer.alloc(0);
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+export interface EnqueueOptions {
+  /** Written in the caller's transaction: the email exists if and only if the change does. */
+  tx?: Tx;
+  /** The recipient's account (their pending mail is deleted with it). */
+  userId?: string;
+}
 
 export const smtpNotConfigured = () => new ApiError("smtp_not_configured", 409);
 
@@ -47,11 +60,13 @@ export class Outbox {
     template: Template,
     locale: Locale,
     params: Record<string, string>,
+    opts: EnqueueOptions = {},
   ): Promise<void> {
     if (!(await this.config.smtp())) throw smtpNotConfigured();
     const id = uuidv7(this.now());
-    await this.db.insert(emailOutbox).values({
+    await (opts.tx ?? this.db).insert(emailOutbox).values({
       id,
+      userId: opts.userId ?? null,
       toEnc: encryptField(this.key, { table: "email_outbox", column: "to", rowId: id }, to),
       template,
       locale,
@@ -68,6 +83,14 @@ export class Outbox {
 
   /** Sends what is due; without SMTP the rows wait (no attempt is counted). */
   async drain(): Promise<void> {
+    await this.db
+      .delete(emailOutbox)
+      .where(
+        and(
+          isNotNull(emailOutbox.sentAt),
+          lt(emailOutbox.sentAt, new Date(this.now() - KEEP_SENT_MS)),
+        ),
+      );
     const smtp = await this.config.smtp();
     if (!smtp) return;
     const now = new Date(this.now());
@@ -79,7 +102,7 @@ export class Outbox {
           and(
             isNull(emailOutbox.sentAt),
             lte(emailOutbox.nextAt, now),
-            lt(emailOutbox.attempts, MAX_ATTEMPTS),
+            or(lt(emailOutbox.attempts, MAX_ATTEMPTS), eq(emailOutbox.template, PERSISTENT[0]!)),
           ),
         )
         .orderBy(asc(emailOutbox.nextAt))
@@ -109,27 +132,56 @@ export class Outbox {
           ).toString("utf8"),
         ) as Record<string, string>;
         await transport.send({ to, ...render(r.template as Template, r.locale as Locale, params) });
+        // Sent: the recipient and the parameters (links, tokens) are not needed any more.
         await this.db
           .update(emailOutbox)
-          .set({ sentAt: new Date(this.now()), attempts: r.attempts + 1, lastErrorCode: null })
+          .set({
+            sentAt: new Date(this.now()),
+            attempts: r.attempts + 1,
+            lastErrorCode: null,
+            toEnc: EMPTY,
+            paramsEnc: EMPTY,
+          })
           .where(eq(emailOutbox.id, r.id));
       } catch (e) {
         const attempts = r.attempts + 1;
         const code = errorCode(e);
+        const givenUp = attempts >= MAX_ATTEMPTS && !PERSISTENT.includes(r.template as Template);
         await this.db
           .update(emailOutbox)
           .set({
             attempts,
             lastErrorCode: code,
             nextAt: new Date(this.now() + BACKOFF_MS[Math.min(attempts, BACKOFF_MS.length) - 1]!),
+            // Given up: the links in it must not stay readable in the database.
+            ...(givenUp ? { toEnc: EMPTY, paramsEnc: EMPTY } : {}),
           })
           .where(eq(emailOutbox.id, r.id));
-        this.log.warn(
-          { template: r.template, attempts, code, givenUp: attempts >= MAX_ATTEMPTS },
-          "email not sent",
-        );
+        this.log.warn({ template: r.template, attempts, code, givenUp }, "email not sent");
       }
     }
+  }
+
+  /** Whether an email of this template to this user has been sent, and when. */
+  async sentAt(userId: string, template: Template, db: Db | Tx = this.db): Promise<Date | null> {
+    const [r] = await db
+      .select({ at: emailOutbox.sentAt })
+      .from(emailOutbox)
+      .where(
+        and(
+          eq(emailOutbox.userId, userId),
+          eq(emailOutbox.template, template),
+          isNotNull(emailOutbox.sentAt),
+        ),
+      )
+      .orderBy(asc(emailOutbox.sentAt))
+      .limit(1);
+    return r?.at ?? null;
+  }
+
+  /** At the deletion of an account: whatever is still waiting for it goes too. */
+  async forgetUser(userId: string, db: Db | Tx = this.db): Promise<void> {
+    await db.delete(emailOutbox).where(eq(emailOutbox.userId, userId));
   }
 
   /** E-04: a synchronous send, with the technical error (never the password) on failure. */

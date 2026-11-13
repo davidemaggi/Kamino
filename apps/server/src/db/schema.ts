@@ -371,6 +371,8 @@ export const emailOutbox = pgTable(
   {
     id: uuid("id").primaryKey(),
     toEnc: bytea("to_enc").notNull(),
+    /** The recipient's account, when there is one: their pending mail goes at deletion (F6). */
+    userId: uuid("user_id").references(() => users.id),
     template: text("template").notNull(),
     locale: text("locale").notNull(),
     paramsEnc: bytea("params_enc").notNull(),

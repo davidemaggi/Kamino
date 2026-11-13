@@ -61,7 +61,13 @@ export class HistoryService {
     private readonly db: Db,
     private readonly store: BlobStore,
     private readonly now: () => number = Date.now,
+    /** The system ceiling (E-03): the window is the vault's retention, capped by it. */
+    private readonly maxRetentionDays: () => Promise<number> = async () => Infinity,
   ) {}
+
+  private async retentionOf(days: number): Promise<number> {
+    return Math.min(days, await this.maxRetentionDays());
+  }
 
   private pathOf(vc: VaultCrypto, row: { id: string; pathEnc: Uint8Array }): string {
     return vc.dec("files", "path", `${vc.vaultId}:${row.id}`, row.pathEnc);
@@ -172,7 +178,8 @@ export class HistoryService {
       .select({ retentionDays: vaults.retentionDays })
       .from(vaults)
       .where(eq(vaults.id, v));
-    const keepMs = Math.max(TRASH_MIN_DAYS, vault?.retentionDays ?? 0) * DAY_MS;
+    const keepMs =
+      Math.max(TRASH_MIN_DAYS, await this.retentionOf(vault?.retentionDays ?? 0)) * DAY_MS;
     const rows = await this.db
       .select({
         id: files.id,
@@ -225,7 +232,7 @@ export class HistoryService {
     const compactedUntil = vault.floor > 0 ? (vault.floorAt?.getTime() ?? now) : 0;
     if (
       when &&
-      (when.getTime() < now - vault.retentionDays * DAY_MS ||
+      (when.getTime() < now - (await this.retentionOf(vault.retentionDays)) * DAY_MS ||
         when.getTime() < vault.createdAt.getTime() ||
         when.getTime() < compactedUntil)
     )

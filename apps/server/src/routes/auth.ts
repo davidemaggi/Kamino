@@ -104,9 +104,8 @@ export function authRoutes(auth: AuthService, secure: boolean, mail?: ForgotMail
           found.user.email,
           "reset",
           found.user.locale === "en" ? "en" : "it",
-          {
-            link: `${mail.publicUrl}/reset/${found.token}`,
-          },
+          { link: `${mail.publicUrl}/reset/${found.token}` },
+          { userId: found.user.id },
         );
       return { smtp: true };
     });

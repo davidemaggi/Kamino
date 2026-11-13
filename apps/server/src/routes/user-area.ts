@@ -35,7 +35,7 @@ export function userAreaRoutes(deps: {
 }) {
   const { db, vaults: vaultsSvc, store, hub, config, now } = deps;
   const maxDays = async () => (await config.effective()).maxRetentionDays;
-  const history = new HistoryService(db, store, now);
+  const history = new HistoryService(db, store, now, maxDays);
   const conflictsSvc = new ConflictService(db, store, vaultsSvc);
 
   const owned = async (req: FastifyRequest, reply: FastifyReply, vaultId: string) => {

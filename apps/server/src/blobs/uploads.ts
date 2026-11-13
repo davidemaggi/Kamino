@@ -43,7 +43,8 @@ export class UploadService {
     private readonly db: Db,
     private readonly store: BlobStore,
     private readonly stagingDir: string,
-    private readonly maxFileBytes: number,
+    /** `null`: the guard checks the size (the limit can change from the UI, E-03). */
+    private readonly maxFileBytes: number | null,
     private readonly now: () => number = Date.now,
     private readonly chunkSize = CHUNK_SIZE,
     private readonly guard: UploadGuard = async () => undefined,
@@ -65,7 +66,8 @@ export class UploadService {
   }
 
   async create(vc: VaultCrypto, deviceId: string, contentHash: string, size: number) {
-    if (size > this.maxFileBytes) throw new TransferError("file_too_large", 413);
+    if (this.maxFileBytes !== null && size > this.maxFileBytes)
+      throw new TransferError("file_too_large", 413);
     const id = uuidv7();
     const expiresAt = new Date(this.now() + SESSION_TTL_MS);
     const blobId = vc.blobId(contentHash);

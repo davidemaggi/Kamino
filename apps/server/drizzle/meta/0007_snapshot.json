@@ -1,5 +1,5 @@
 {
-  "id": "68060a91-4cbe-4b66-a139-672d64426580",
+  "id": "0e64f550-b0ae-46d6-8515-de244432bf1c",
   "prevId": "1cf2c731-4adb-4113-8d8b-32a6e18404e2",
   "version": "7",
   "dialect": "postgresql",
@@ -496,6 +496,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "template": {
           "name": "template",
           "type": "text",
@@ -565,7 +571,17 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "email_outbox_user_id_users_id_fk": {
+          "name": "email_outbox_user_id_users_id_fk",
+          "tableFrom": "email_outbox",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

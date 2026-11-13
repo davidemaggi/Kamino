@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import yauzl from "yauzl";
-import { auditLog, blobs, users, vaults } from "../src/db/schema.js";
+import { auditLog, blobs, emailOutbox, userExports, users, vaults } from "../src/db/schema.js";
 import { purgeDeletedVaults } from "../src/jobs/purge.js";
 import { DELETION_GRACE_MS } from "../src/users/deletion.js";
-import { login, rootAdmin } from "./helpers/admin.js";
+import { login, rootAdmin, secondAdmin } from "./helpers/admin.js";
 import { testApp, type Agent, type TestApp } from "./helpers/app.js";
 import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
 import { linkDevice, PW, putFile, raw, user } from "./helpers/sync.js";
@@ -151,6 +151,81 @@ describe.skipIf(dockerUnavailable)("user deletion", () => {
     expect(JSON.stringify(audit)).not.toContain(link[1]);
     expect(log.join("\n")).not.toContain(link[1]);
     expect(log.join("\n")).not.toContain("mario@example.com");
+  });
+
+  it("the grace period runs from the delivery of the link; sent mail keeps no link", async () => {
+    const { t, admin } = await fresh(true);
+    const d = await linkDevice(t, await user(t, "mario"));
+    await putFile(d, "a.md", Buffer.from("alpha"));
+    const id = await idOf(t, "mario");
+    await del(t, admin, id, { confirmUsername: "mario", sendZip: true });
+    await t.deletion.runExports();
+    // The email doesn't go out (SMTP down, outbox not drained): nothing is destroyed.
+    t.clock.now += DELETION_GRACE_MS + 3600_000;
+    expect(await t.deletion.finalizeDue()).toBe(0);
+    expect((await t.auth.byUsername("mario"))!.status).toBe("pending_deletion");
+    await t.outbox.drain();
+    const sentAt = t.clock.now;
+    const token = /\/exports\/([A-Za-z0-9_-]+)/.exec(t.mail.at(-1)!.text)![1]!;
+    // Sent: the recipient and the link are wiped from the outbox.
+    const [row] = await t.db.select().from(emailOutbox).where(eq(emailOutbox.userId, id));
+    expect([row!.toEnc.length, row!.paramsEnc.length]).toEqual([0, 0]);
+    // Seven full days from delivery, even before the job moves the date.
+    t.clock.now = sentAt + DELETION_GRACE_MS - 60_000;
+    expect((await raw(t, "GET", `/exports/${token}`)).statusCode).toBe(200);
+    expect(await t.deletion.finalizeDue()).toBe(0);
+    const [e] = await t.db.select().from(userExports).where(eq(userExports.userId, id));
+    expect(e!.expiresAt.getTime()).toBe(sentAt + DELETION_GRACE_MS);
+    t.clock.now = sentAt + DELETION_GRACE_MS;
+    expect(await t.deletion.finalizeDue()).toBe(1);
+    expect(await t.db.select().from(emailOutbox).where(eq(emailOutbox.userId, id))).toEqual([]);
+    expect((await raw(t, "GET", `/exports/${token}`)).statusCode).toBe(410);
+  });
+
+  it("one user's broken export doesn't hold back the others", async () => {
+    const { t, admin } = await fresh(true);
+    const m = await linkDevice(t, await user(t, "mario"));
+    await putFile(m, "a.md", Buffer.from("alpha"));
+    const l = await linkDevice(t, await user(t, "luigi"));
+    await putFile(l, "b.md", Buffer.from("beta"));
+    for (const name of ["mario", "luigi"])
+      await del(t, admin, await idOf(t, name), { confirmUsername: name, sendZip: true });
+    const [b] = await t.db.select().from(blobs).where(eq(blobs.vaultId, m.vaultId));
+    await t.blobStore.delete(`${m.vaultId}/${b!.blobId}`);
+    await t.deletion.runExports();
+    await t.outbox.drain();
+    expect(t.mail.map((x) => x.to)).toEqual(["luigi@example.com"]);
+    // Mario's export waits for a fix; it is retried by the next run.
+    const pending = await t.db
+      .select()
+      .from(userExports)
+      .where(eq(userExports.userId, await idOf(t, "mario")));
+    expect(pending[0]!.readyAt).toBeNull();
+  });
+
+  it("an old reset link dies with the account", async () => {
+    const { t, admin } = await fresh(false);
+    await user(t, "mario");
+    const token = await t.auth.resetLink("mario", "root");
+    await del(t, admin, await idOf(t, "mario"), { confirmUsername: "mario", sendZip: false });
+    const r = await t.call({}, "POST", "/auth/reset", { token, password: `${PW}-new` });
+    expect(r.statusCode).toBe(400);
+  });
+
+  it("two admins deleting or blocking each other can't leave the server without one", async () => {
+    const { t, admin } = await fresh(false);
+    const anna = await secondAdmin(t, admin, "anna");
+    const rootId = await idOf(t, "root");
+    const annaId = await idOf(t, "anna");
+    const results = await Promise.all([
+      t.call(admin, "POST", `/admin/users/${annaId}/block`),
+      del(t, anna, rootId, { confirmUsername: "root", sendZip: false }),
+    ]);
+    const codes = results.map((r) => r.statusCode).sort();
+    expect(codes[0]).toBeLessThan(300);
+    expect(codes[1]).toBe(409);
+    const active = await t.db.select().from(users).where(eq(users.role, "admin"));
+    expect(active.filter((u) => u.status === "active" && !u.deletionScheduledAt)).toHaveLength(1);
   });
 
   it("without a zip, finalizes right away", async () => {

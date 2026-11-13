@@ -42,6 +42,18 @@ describe.skipIf(dockerUnavailable)("quotas", () => {
     expect((await createUpload(d, bytes(1, "d"))).statusCode).toBe(413);
   });
 
+  it("the same content uploaded by two devices is reserved once", async () => {
+    const enroll = await user(t, "mario");
+    const mac = await linkDevice(t, enroll);
+    const phone = await linkDevice(t, enroll, mac.vaultId, "iPhone");
+    await setQuota("mario", 100);
+    expect((await createUpload(mac, bytes(60, "a"))).statusCode).toBe(200);
+    // The phone starts the same content: it doesn't need room a second time.
+    expect((await createUpload(phone, bytes(60, "a"))).statusCode).toBe(200);
+    expect((await createUpload(phone, bytes(40, "b"))).statusCode).toBe(200);
+    expect((await createUpload(phone, bytes(1, "c"))).statusCode).toBe(413);
+  });
+
   it("with a full quota, deletes, renames and already stored content still go through", async () => {
     const d = await linkDevice(t, await user(t, "mario"));
     const a = bytes(50, "a");
@@ -100,5 +112,12 @@ describe.skipIf(dockerUnavailable)("quotas", () => {
     const r = await createUpload(d, bytes(11, "a"));
     expect(r.statusCode).toBe(413);
     expect(r.json()).toMatchObject({ error: { code: "file_too_large" } });
+  });
+
+  it("raising the file size limit from the UI lets bigger files in", async () => {
+    const d = await linkDevice(t, await user(t, "mario"));
+    expect((await createUpload(d, bytes(1_500_000, "a"))).statusCode).toBe(413);
+    await t.config.patch({ maxFileBytes: 2_000_000 }, "root");
+    expect((await createUpload(d, bytes(1_500_000, "a"))).statusCode).toBe(200);
   });
 });

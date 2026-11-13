@@ -10,6 +10,28 @@ import type { SystemConfigService } from "../system/config.js";
 import { userStats, type UserStats } from "./stats.js";
 
 export const lastAdmin = () => new ApiError("last_admin", 409);
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/**
+ * Called in the transaction that would take an admin away (demotion, block, deletion): serializes
+ * those changes and refuses the one that would leave no active admin. Two admins acting on each
+ * other at the same time can't both succeed.
+ */
+export async function assertOtherAdmin(tx: Tx, userId: string): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext('admin-roles'))`);
+  const others = await tx
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        eq(users.role, "admin"),
+        eq(users.status, "active"),
+        isNull(users.deletionScheduledAt),
+        ne(users.id, userId),
+      ),
+    );
+  if (others.length === 0) throw lastAdmin();
+}
 /** Acting on a user being deleted (or on yourself) is refused like the web app expects. */
 const refused = (status: number) => new ApiError("forbidden", status);
 const localeOf = (u: User) => (u.locale === "en" ? "en" : "it");
@@ -102,13 +124,16 @@ export class AdminUsers {
       byEmail ? "user_invited" : "user_created",
     );
     const link = `${this.publicUrl}/invite/${token}`;
+    const u = (await this.auth.byUsername(req.username))!;
     // The invitation is written in the language of whoever invites (the new user has none yet).
     if (byEmail)
-      await this.outbox.enqueue(req.email, "invite", localeOf(by), {
-        username: req.username,
-        link,
-      });
-    const u = (await this.auth.byUsername(req.username))!;
+      await this.outbox.enqueue(
+        req.email,
+        "invite",
+        localeOf(by),
+        { username: req.username, link },
+        { userId: u.id },
+      );
     return { user: await this.get(u.id), link: byEmail ? null : link };
   }
 
@@ -122,20 +147,7 @@ export class AdminUsers {
         .where(and(sql`${users.id}::text = ${id}`, ne(users.status, "deleted")));
       if (!u) throw notFound();
       if (req.role !== undefined && req.role !== u.role) {
-        if (req.role === "user") {
-          const others = await tx
-            .select({ id: users.id })
-            .from(users)
-            .where(
-              and(
-                eq(users.role, "admin"),
-                eq(users.status, "active"),
-                isNull(users.deletionScheduledAt),
-                ne(users.id, u.id),
-              ),
-            );
-          if (others.length === 0) throw lastAdmin();
-        }
+        if (req.role === "user") await assertOtherAdmin(tx, u.id);
         await tx.update(users).set({ role: req.role }).where(eq(users.id, u.id));
         await this.auth.audit(
           by.username,
@@ -162,6 +174,7 @@ export class AdminUsers {
   async block(by: User, id: string): Promise<AdminUser> {
     const u = await this.guarded(by, id);
     await this.db.transaction(async (tx) => {
+      if (u.role === "admin") await assertOtherAdmin(tx, u.id);
       await tx
         .update(users)
         .set({ status: "blocked", updatedAt: new Date(this.now()) })
@@ -195,7 +208,13 @@ export class AdminUsers {
     if (statusOf(u) === "deleting") throw refused(409);
     const token = await this.auth.resetLink(u.username, by.username);
     if (await this.config.smtp())
-      await this.outbox.enqueue(u.email, "admin_reset", localeOf(u), { username: u.username });
+      await this.outbox.enqueue(
+        u.email,
+        "admin_reset",
+        localeOf(u),
+        { username: u.username },
+        { userId: u.id },
+      );
     return { link: `${this.publicUrl}/reset/${token}` };
   }
 

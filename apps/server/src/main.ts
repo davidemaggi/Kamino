@@ -87,6 +87,7 @@ async function main(): Promise<void> {
     outbox,
     publicUrl: config.publicUrl,
     now: Date.now,
+    log: logger,
     kick: (job) => started.jobs?.kick(job),
   });
   const setupToken = await auth.ensureSetupToken();
@@ -114,7 +115,8 @@ async function main(): Promise<void> {
   const jobs = await startJobs(
     config.databaseUrl,
     {
-      compact: () => compactJournal(db, Date.now()),
+      compact: async () =>
+        compactJournal(db, Date.now(), (await systemConfig.effective()).maxRetentionDays),
       sweep: () => uploads.sweep(),
       purge: () => purgeDeletedVaults(db, store),
       email: () => drainOutbox(outbox),

@@ -38,7 +38,7 @@ export const CreateUserResponse = z.object({ user: AdminUser, link: z.string().n
  */
 export const UpdateUserRequest = z.object({
   role: Role.optional(),
-  quotaBytes: z.number().min(0).nullable().optional(),
+  quotaBytes: z.number().int().min(0).nullable().optional(),
 });
 export type UpdateUserRequest = z.infer<typeof UpdateUserRequest>;
 export const ResetLink = z.object({ link: z.string() });
@@ -71,7 +71,7 @@ export const SystemConfig = z.object({
 export type SystemConfig = z.infer<typeof SystemConfig>;
 export const ConfigPatch = z.object({
   registration: z.enum(["closed", "open"]).optional(),
-  defaultQuotaBytes: z.number().min(0).nullable().optional(),
+  defaultQuotaBytes: z.number().int().min(0).nullable().optional(),
   maxRetentionDays: z.number().int().min(0).max(90).optional(),
   maxFileBytes: z.number().int().min(1).optional(),
   smtp: z

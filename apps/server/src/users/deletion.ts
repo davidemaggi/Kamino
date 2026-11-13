@@ -2,6 +2,7 @@ import type { DeleteUserRequest } from "@kamino/protocol";
 import { and, eq, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { Readable } from "node:stream";
+import { assertOtherAdmin } from "../admin/users.js";
 import type { AuthService, User } from "../auth/service.js";
 import { hashToken, randomToken, uuidv7 } from "../auth/tokens.js";
 import { SYSTEM_PREFIX, type BlobStore } from "../blobs/store.js";
@@ -30,6 +31,7 @@ import type { Outbox } from "../email/outbox.js";
 import { folderNames, zipParts, type ZipPart } from "../history/zip.js";
 import { HistoryService } from "../history/service.js";
 import { ApiError, notFound } from "../http/errors.js";
+import type { Logger } from "../observability/logger.js";
 import type { Hub } from "../realtime/hub.js";
 import type { SystemConfigService } from "../system/config.js";
 import { destroyVault } from "../vaults/delete.js";
@@ -55,8 +57,19 @@ export interface DeletionDeps {
   outbox: Outbox;
   publicUrl: string;
   now: () => number;
+  log?: Logger;
+  /** STREAM segment of the export (tests use a small one to cross segment boundaries). */
+  exportSegmentBytes?: number;
   /** Queues the export or the finalize job right away (main: pg-boss; tests run them by hand). */
   kick?: (job: "exports" | "finalize") => void;
+}
+
+/** What may be logged about a failure: an error class or code, never a message (it can hold paths). */
+function failureCode(e: unknown): string {
+  if (e instanceof ApiError) return e.code;
+  const code = (e as { code?: unknown } | null)?.code;
+  if (typeof code === "string" && /^[A-Za-z0-9_]{1,40}$/.test(code)) return code;
+  return e instanceof Error ? e.name : "unknown";
 }
 
 /** Splits a byte stream into fixed segments, flagging the last one (STREAM needs to know it). */
@@ -110,11 +123,14 @@ export class UserDeletion {
     const at = now();
     const deleteAt = new Date(at + (r.sendZip ? DELETION_GRACE_MS : 0));
     await db.transaction(async (tx) => {
+      if (u.role === "admin") await assertOtherAdmin(tx, u.id);
       await tx
         .update(users)
         .set({ status: "pending_deletion", deletionScheduledAt: deleteAt, updatedAt: new Date(at) })
         .where(eq(users.id, u.id));
       await this.d.auth.revokeOtherSessions(u.id, null, tx);
+      // Pending invitation or reset links die with the account.
+      await tx.delete(oneTimeTokens).where(eq(oneTimeTokens.userId, u.id));
       if (r.sendZip)
         await tx
           .insert(userExports)
@@ -133,7 +149,7 @@ export class UserDeletion {
       .from(userExports)
       .innerJoin(users, eq(users.id, userExports.userId))
       .where(and(isNull(userExports.readyAt), eq(users.status, "pending_deletion")));
-    for (const e of due) await this.runExport(e.id);
+    for (const e of due) await this.each("export", () => this.runExport(e.id));
     return due.length;
   }
 
@@ -159,12 +175,13 @@ export class UserDeletion {
     const key = blobKey(this.exportKey(token), salt);
     const ids = EXPORT_IDS(row.id);
     let storedSize = 0;
+    const segment = this.d.exportSegmentBytes ?? SEGMENT;
     async function* sealed(): AsyncIterable<Uint8Array> {
-      const h = header(salt, SEGMENT);
+      const h = header(salt, segment);
       storedSize += h.length;
       yield h;
       let i = 0;
-      for await (const s of segments(zipParts(parts) as AsyncIterable<Buffer>, SEGMENT)) {
+      for await (const s of segments(zipParts(parts) as AsyncIterable<Buffer>, segment)) {
         const c = encryptSegment(key, ids, i++, s.last, s.data);
         storedSize += c.length;
         yield c;
@@ -172,17 +189,30 @@ export class UserDeletion {
     }
     // The object key depends only on the row: a crashed run is overwritten by the next one.
     await store.put(storeKeyOf(row.id), sealed());
-    await db
-      .update(userExports)
-      .set({ tokenHash: hashToken(token), storedSize, readyAt: new Date(now()) })
-      .where(eq(userExports.id, row.id));
+    // The user gets at least the full grace period from now (the build may have waited for SMTP).
+    const readyAt = now();
+    const expiresAt = new Date(Math.max(row.expiresAt.getTime(), readyAt + DELETION_GRACE_MS));
     const locale = u.locale === "en" ? "en" : "it";
-    await this.d.outbox.enqueue(u.email, "export_ready", locale, {
-      username: u.username,
-      link: `${this.d.publicUrl}/api/v1/exports/${token}`,
-      expires: row.expiresAt.toLocaleDateString(locale === "en" ? "en-GB" : "it-IT", {
-        timeZone: "UTC",
-      }),
+    // One transaction: if the email can't be queued, the export stays "not ready" and is rebuilt.
+    await db.transaction(async (tx) => {
+      await tx
+        .update(userExports)
+        .set({ tokenHash: hashToken(token), storedSize, readyAt: new Date(readyAt), expiresAt })
+        .where(eq(userExports.id, row.id));
+      await tx.update(users).set({ deletionScheduledAt: expiresAt }).where(eq(users.id, u.id));
+      await this.d.outbox.enqueue(
+        u.email,
+        "export_ready",
+        locale,
+        {
+          username: u.username,
+          link: `${this.d.publicUrl}/api/v1/exports/${token}`,
+          expires: expiresAt.toLocaleDateString(locale === "en" ? "en-GB" : "it-IT", {
+            timeZone: "UTC",
+          }),
+        },
+        { tx, userId: u.id },
+      );
     });
   }
 
@@ -193,7 +223,12 @@ export class UserDeletion {
       .select()
       .from(userExports)
       .where(and(eq(userExports.tokenHash, hashToken(token)), isNotNull(userExports.readyAt)));
-    if (!row || row.storedSize === null || row.expiresAt.getTime() <= now()) throw exportExpired();
+    if (!row || row.storedSize === null) throw exportExpired();
+    if (row.expiresAt.getTime() <= now()) {
+      // Not yet extended by the job: the grace period also counts from the email's delivery.
+      const sent = await this.d.outbox.sentAt(row.userId, "export_ready");
+      if (!sent || sent.getTime() + DELETION_GRACE_MS <= now()) throw exportExpired();
+    }
     const objectKey = storeKeyOf(row.id);
     const first = Buffer.concat(await collect(store.getRange(objectKey, 0, HEADER_BYTES)));
     const segmentSize = first.readUInt32BE(33);
@@ -224,16 +259,50 @@ export class UserDeletion {
           lte(users.deletionScheduledAt, new Date(this.d.now())),
         ),
       );
-    for (const u of due) await this.finalize(u.id);
-    return due.length;
+    let done = 0;
+    for (const u of due) if (await this.each("finalize", () => this.finalize(u.id))) done++;
+    return done;
   }
 
-  /** Idempotent: every step can run again after a crash. The blobs go with the purge job. */
-  async finalize(userId: string): Promise<void> {
+  /** One user's failure (an unreadable blob…) must not hold back everyone after them. */
+  private async each(job: string, run: () => Promise<boolean | void>): Promise<boolean> {
+    try {
+      return (await run()) !== false;
+    } catch (e) {
+      this.d.log?.error({ job, code: failureCode(e) }, "user deletion step failed");
+      return false;
+    }
+  }
+
+  /**
+   * With an export, the grace period runs from the delivery of its link: an email stuck in the
+   * outbox (SMTP down or removed) postpones the deletion instead of destroying unseen data.
+   */
+  private async exportDeadline(userId: string): Promise<number | null | "waiting"> {
+    const [e] = await this.d.db.select().from(userExports).where(eq(userExports.userId, userId));
+    if (!e) return null;
+    const sent = await this.d.outbox.sentAt(userId, "export_ready");
+    if (!e.readyAt || !sent) return "waiting";
+    return Math.max(e.expiresAt.getTime(), sent.getTime() + DELETION_GRACE_MS);
+  }
+
+  /**
+   * Idempotent: every step can run again after a crash. The blobs go with the purge job.
+   * Returns false when it is not time yet.
+   */
+  async finalize(userId: string): Promise<boolean> {
     const { db, vaults: vaultsSvc, store, hub, now } = this.d;
     const [u] = await db.select().from(users).where(eq(users.id, userId));
-    if (!u || u.status !== "pending_deletion") return;
-    if (u.deletionScheduledAt && u.deletionScheduledAt.getTime() > now()) return;
+    if (!u || u.status !== "pending_deletion") return false;
+    if (u.deletionScheduledAt && u.deletionScheduledAt.getTime() > now()) return false;
+    const deadline = await this.exportDeadline(u.id);
+    if (deadline === "waiting") return false;
+    if (deadline !== null && deadline > now()) {
+      const at = new Date(deadline);
+      await db.update(users).set({ deletionScheduledAt: at }).where(eq(users.id, u.id));
+      await db.update(userExports).set({ expiresAt: at }).where(eq(userExports.userId, u.id));
+      return false;
+    }
     for (const v of await vaultsSvc.listForUser(u.id))
       await destroyVault(db, hub, vaultsSvc, v, now());
     for (const e of await db.select().from(userExports).where(eq(userExports.userId, u.id))) {
@@ -242,6 +311,7 @@ export class UserDeletion {
     }
     const anon = `deleted-${u.id}`;
     await db.transaction(async (tx) => {
+      await this.d.outbox.forgetUser(u.id, tx);
       await tx.delete(webSessions).where(eq(webSessions.userId, u.id));
       await tx.delete(recoveryCodes).where(eq(recoveryCodes.userId, u.id));
       await tx.delete(securityEvents).where(eq(securityEvents.userId, u.id));
@@ -264,6 +334,7 @@ export class UserDeletion {
         })
         .where(eq(users.id, u.id));
     });
+    return true;
   }
 }
 

@@ -75,20 +75,24 @@ export function zipParts(parts: ZipPart[]): Readable {
   return out;
 }
 
-/** A vault name usable as a folder on every OS; duplicates get " (2)", " (3)"… */
+/** Reserved device names on Windows, with or without an extension. */
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+
+/** A vault name usable as a folder on every OS; duplicates get " (2)", " (3)"… never colliding. */
 export function folderNames(names: string[]): string[] {
-  const seen = new Map<string, number>();
+  const used = new Set<string>();
   return names.map((raw) => {
-    const base =
+    let base =
       [...raw]
         .map((c) => (c.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(c) ? "_" : c))
         .join("")
         .replace(/^[.\s]+|[.\s]+$/g, "")
         .slice(0, 100) || "vault";
-    const key = base.toLowerCase();
-    const n = (seen.get(key) ?? 0) + 1;
-    seen.set(key, n);
-    return n === 1 ? base : `${base} (${n})`;
+    if (WINDOWS_RESERVED.test(base)) base = `_${base}`;
+    let name = base;
+    for (let n = 2; used.has(name.toLowerCase()); n++) name = `${base} (${n})`;
+    used.add(name.toLowerCase());
+    return name;
   });
 }
 

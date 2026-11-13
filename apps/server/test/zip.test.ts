@@ -202,4 +202,14 @@ describe("folderNames", () => {
       "Note (3)",
     ]);
   });
+
+  it("never gives two vaults the same folder, and avoids Windows device names", () => {
+    expect(folderNames(["a", "a", "a (2)", "CON", "nul.txt"])).toEqual([
+      "a",
+      "a (2)",
+      "a (2) (2)",
+      "_CON",
+      "_nul.txt",
+    ]);
+  });
 });

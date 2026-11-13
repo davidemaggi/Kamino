@@ -14,6 +14,8 @@ const DAY_MS = 86_400_000;
 export async function compactJournal(
   db: Db,
   now: number,
+  /** The system ceiling (E-03): a lowered maximum applies to vaults set above it. */
+  maxRetentionDays = Infinity,
 ): Promise<{ vaults: number; deleted: number }> {
   const list = await db.select({ id: vaults.id }).from(vaults).where(eq(vaults.status, "active"));
   let deleted = 0;
@@ -45,7 +47,10 @@ export async function compactJournal(
         .select({ max: max(journal.seq) })
         .from(journal)
         .where(
-          and(eq(journal.vaultId, id), lte(journal.at, new Date(now - v.retentionDays * DAY_MS))),
+          and(
+            eq(journal.vaultId, id),
+            lte(journal.at, new Date(now - Math.min(v.retentionDays, maxRetentionDays) * DAY_MS)),
+          ),
         );
       const minCursor = cur?.min === null || cur?.min === undefined ? v.head : Number(cur.min);
       const cut = Math.min(minCursor, Number(old?.max ?? 0));

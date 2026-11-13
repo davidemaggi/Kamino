@@ -1,5 +1,5 @@
 import type { Me, SecurityEventType, SessionInfo } from "@kamino/protocol";
-import { and, count, desc, eq, gt, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { systemKey } from "../crypto/dek.js";
 import { decryptField, encryptField } from "../crypto/field.js";
 import type { Kek } from "../crypto/keyring.js";
@@ -691,7 +691,8 @@ export class AuthService {
       const [u] = await tx
         .update(users)
         .set({ passwordHash, adminResetAt: null, updatedAt: this.date() })
-        .where(eq(users.id, row.userId ?? ""))
+        // An account being deleted (or gone) can't be brought back with an old link.
+        .where(and(eq(users.id, row.userId ?? ""), inArray(users.status, ["active", "blocked"])))
         .returning();
       if (!u) throw new AuthError("token_invalid", 400);
       await this.revokeOtherSessions(u.id, null, tx);

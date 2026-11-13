@@ -106,7 +106,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       deps.db,
       blobStore,
       deps.config.stagingDir,
-      deps.config.maxFileBytes,
+      null,
       deps.now,
       undefined,
       (tx, vaultId, blobId, size) => quota.assertUpload(tx, vaultId, blobId, size),
@@ -140,6 +140,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       outbox,
       publicUrl: deps.config.publicUrl,
       now,
+      log: deps.logger,
     });
   await app.register(exportRoutes(deletion, now), { prefix: "/api/v1" });
   await app.register(

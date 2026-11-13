@@ -95,7 +95,7 @@ export async function testApp(
     db,
     blobStore,
     dirs.staging,
-    1_000_000,
+    null,
     () => clock.now,
     opts.chunkSize ?? 8,
     (tx, vaultId, blobId, size) => quota.assertUpload(tx, vaultId, blobId, size),
@@ -123,6 +123,8 @@ export async function testApp(
     outbox,
     publicUrl: config.publicUrl,
     now: () => clock.now,
+    log: logger,
+    exportSegmentBytes: 64,
   });
   const app = await buildApp({
     config,

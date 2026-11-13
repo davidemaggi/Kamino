@@ -168,3 +168,84 @@ describe("engine conflict resolution (M3b, B3)", () => {
     expect(await phone.resolve([{ id: c.id, choice: "mine", head: "vb" }])).toEqual(["stale"]);
   });
 });
+
+/**
+ * rc.4 bug: two new vaults each create their own "Benvenuto.md" (Obsidian's welcome note).
+ * The second device gets a both_created conflict; "keep incoming" moved the local file to the
+ * trash and never downloaded the server's version: the file was gone from this device.
+ */
+describe("both created on two devices, then keep incoming (rc.4)", () => {
+  async function bothCreated() {
+    const server = new FakeServer();
+    server.deviceNames.set("dev-b", "Phone");
+    const phoneFs = new MemoryFs();
+    phoneFs.put("Benvenuto.md", "theirs");
+    const phone = await Engine.open(deps(server, phoneFs, "dev-b"));
+    await phone.syncNow();
+    const fs = new MemoryFs();
+    fs.put("Benvenuto.md", "mine");
+    const e = await Engine.open(deps(server, fs));
+    await e.syncNow();
+    const [c] = e.conflicts();
+    return { server, fs, e, c: c! };
+  }
+
+  it("the conflict is here, on the welcome note", async () => {
+    const { c } = await bothCreated();
+    expect(c).toMatchObject({ path: "Benvenuto.md", here: true });
+  });
+
+  it("keep incoming: the server's version is on disk, at the same path", async () => {
+    const { server, fs, e, c } = await bothCreated();
+    const d = (await e.conflictDetail(c.id, false))!;
+    expect(await e.resolve([{ id: c.id, choice: "incoming", head: d.head }])).toEqual(["ok"]);
+    await e.syncNow();
+    await e.syncNow();
+    expect(fs.text("Benvenuto.md")).toBe("theirs");
+    expect(server.files().get("Benvenuto.md")).toBe("theirs");
+    expect(e.conflicts()).toEqual([]);
+  });
+
+  it("keep mine and keep both leave a file at the path too", async () => {
+    for (const choice of ["mine", "both"] as const) {
+      const { fs, e, c } = await bothCreated();
+      const d = (await e.conflictDetail(c.id, false))!;
+      await e.resolve([{ id: c.id, choice, head: d.head }]);
+      await e.syncNow();
+      await e.syncNow();
+      expect(fs.text("Benvenuto.md"), choice).not.toBeNull();
+    }
+  });
+});
+
+/**
+ * rc.4 bug, the real cause: to replace a file the plugin sets the old one aside in its own
+ * folder, and Obsidian reports that as a rename. The engine took it for the user moving the file
+ * into an excluded area: it stopped following it, and the downloaded version that then appeared
+ * at the path looked untracked, already on the server, so it went to the trash.
+ */
+describe("the plugin's own set-aside is not a user move (rc.4)", () => {
+  const ASIDE = ".obsidian/plugins/kamino-sync/tmp/0123456789abcdef01234567.old";
+
+  it("keep incoming with Obsidian's rename event: the file stays, with the server's version", async () => {
+    const { server, fs, e, c } = await conflicted();
+    expect(await e.resolve([{ id: c.id, choice: "incoming", head: "vb" }])).toEqual(["ok"]);
+    await e.syncNow();
+    expect(fs.text("a.md")).toBe("theirs");
+    e.localRename("a.md", ASIDE); // reported by Obsidian after the replacement
+    fs.put("a.md", "theirs"); // the new file at the path: a fresh mtime, hashed again
+    e.localChange();
+    await e.syncNow();
+    await e.syncNow();
+    expect(fs.text("a.md")).toBe("theirs");
+    expect(fs.trashed).toEqual([]);
+    expect(server.files().get("a.md")).toBe("theirs");
+    expect(e.snapshot().queued).toBe(0);
+    // Still the same file: an edit here goes up as a new version, no conflict.
+    fs.put("a.md", "later");
+    e.localChange();
+    await e.syncNow();
+    expect(server.files().get("a.md")).toBe("later");
+    expect(e.conflicts()).toEqual([]);
+  });
+});

@@ -9,7 +9,7 @@ import type {
   ResolveOp,
   Snapshot,
 } from "@kamino/protocol";
-import { classify, type SyncSettings } from "./exclusions.js";
+import { classify, inOwnArea, type SyncSettings } from "./exclusions.js";
 import { cloneJson } from "./clone.js";
 import {
   collisionKey,
@@ -1009,6 +1009,15 @@ function applyScan(c: Ctx, scan: ScanItem[], unreadable: string[] = []): void {
   const byTarget = new Map<string, Entry>();
   const holders: Entry[] = [];
   const unignored = new Set<Entry>();
+  // rc.4 repair: a file this device thinks is in the plugin's own folder (an old set-aside taken
+  // for a user move) goes back to its server path; if it isn't there, it is downloaded again.
+  const repaired = new Set<Entry>();
+  for (const e of entries(s)) {
+    if (!inOwnArea(e.path) || !e.confirmed || e.remotePath === null) continue;
+    e.path = e.remotePath;
+    e.ignored = false;
+    repaired.add(e);
+  }
   for (const e of entries(s)) {
     if (e.localHash === null && !e.pendingWrite) continue;
     // C1: excluded here by this device's settings → left alone, never a deletion.
@@ -1089,6 +1098,13 @@ function applyScan(c: Ctx, scan: ScanItem[], unreadable: string[] = []): void {
       trashDone(c, e);
       continue;
     }
+    if (repaired.has(e)) {
+      // Never a deletion: the user didn't remove it, the plugin lost track of it.
+      e.localHash = null;
+      e.materialized = false;
+      materialize(c, e);
+      continue;
+    }
     if (unignored.has(e)) {
       // Gone while excluded here: that says nothing about the server copy, download it again.
       e.localHash = null;
@@ -1103,6 +1119,10 @@ function applyScan(c: Ctx, scan: ScanItem[], unreadable: string[] = []): void {
 }
 
 function onLocalRename(c: Ctx, from: string, to: string): void {
+  // rc.4: the plugin setting a file aside while replacing it, not the user moving it. Taken for a
+  // move into an excluded area, the file stopped being followed and the new version at its path
+  // went to the trash. The scan sees what is really on disk.
+  if (inOwnArea(from) || inOwnArea(to)) return;
   const e = ownerOf(c.s, from);
   if (!e) {
     renameFolderLocally(c, from, to);

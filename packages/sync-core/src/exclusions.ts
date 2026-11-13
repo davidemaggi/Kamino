@@ -22,15 +22,26 @@ export const ALL_CONFIG: SyncSettings["config"] = {
   plugins: true,
 };
 
+/** The plugin's own folder: its state and its temporary files, never the user's notes. */
+const OWN_AREA = `${CONFIG_PREFIX}/plugins/${PLUGIN_ID}/**`;
+
 /** Never synced, not even if the settings say so. */
 export const ALWAYS_EXCLUDED = [
-  `${CONFIG_PREFIX}/plugins/${PLUGIN_ID}/**`,
+  OWN_AREA,
   `${CONFIG_PREFIX}/workspace.json`,
   `${CONFIG_PREFIX}/workspace-mobile.json`,
   `${CONFIG_PREFIX}/workspaces.json`,
   `${CONFIG_PREFIX}/cache/**`,
   `**/*.${PRODUCT_SLUG}-tmp`,
 ];
+
+/**
+ * In the plugin's own folder. A user never moves a note there: a rename to or from it is the
+ * plugin's own housekeeping (a file set aside while it is replaced), reported by Obsidian.
+ */
+export function inOwnArea(path: string): boolean {
+  return globMatch(OWN_AREA, path, true);
+}
 
 /** Vault defaults ⊕ device override: device values replace the vault ones. */
 export function mergeSettings(vault: SyncSettings, device: Partial<SyncSettings>): SyncSettings {

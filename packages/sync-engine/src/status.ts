@@ -31,9 +31,11 @@ export function pendingOps(s: ClientState): FileOp[] {
   const all = { ...s.config, batchSize: Number.MAX_SAFE_INTEGER };
   const sent = s.durable.sent.filter(isFileOp);
   const sentIds = new Set(sent.map((op) => op.fileId));
+  // Refused in this cycle (blocked) still counts: resent at the next cycle, never "safe" before.
   const rest = nextOps(
     { ...s, config: all, durable: { ...s.durable, sent: [] } },
     { newId: () => "" },
+    { includeBlocked: true },
   )
     .filter(isFileOp)
     .filter((op) => !sentIds.has(op.fileId));

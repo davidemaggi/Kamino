@@ -18,5 +18,6 @@
 
 ### Patch Changes
 
+- A file whose upload the server refused (too many uploads at once, or a server error) is no longer shown as safe until the next cycle: it stays counted among the pending changes, and the plugin tries again by itself with backoff instead of waiting for the next local change.
 - 7bc0120: Faster sync on large vaults (the client no longer copies its whole state the slow way on every event; tested with 10,000 files), a plugin bundle 60% smaller, deeper redaction of secrets in the logs, a database-side timeout on the readiness check, master keys accepted only in canonical base64, and a manual GitHub workflow that publishes the plugin for BRAT.
 - Logs for troubleshooting: the server logs its version, commit and protocol at startup and every failing background job (name and error class only), the Docker compose files rotate container logs, and the plugin keeps a codes-only diagnostic log in its folder that the "Copy diagnostics" command and a button in the settings copy for a support request. Never paths, file names, contents or secrets.

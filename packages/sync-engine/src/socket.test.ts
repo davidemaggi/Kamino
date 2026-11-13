@@ -88,6 +88,26 @@ describe("Realtime", () => {
     expect(events.at(-1)).toEqual({ type: "settings" });
   });
 
+  it("hands pairing news to the engine as is", () => {
+    last().h.onOpen();
+    server(welcome);
+    const request = {
+      type: "pairing_request",
+      pairingId: "p",
+      deviceName: "iPhone",
+      platform: "ios",
+      pluginVersion: "0.2.0",
+      code: "AB23",
+      expiresAt: "2026-11-13T10:00:00.000Z",
+    };
+    server(request);
+    server({ type: "pairing_closed", pairingId: "p" });
+    expect(events.slice(-2)).toEqual([
+      { type: "pairing", message: request },
+      { type: "pairing", message: { type: "pairing_closed", pairingId: "p" } },
+    ]);
+  });
+
   it("stops on 4426 (protocol) and never reconnects", async () => {
     last().h.onOpen();
     server(welcome);

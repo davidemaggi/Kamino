@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button.js";
 import { simulateSmtpFailure } from "./admindata.js";
-import { HYBRID } from "./browser.js";
 import { db, resetDb, signInAs } from "./db.js";
 import { seedUserData, simulatePairingRequest, simulateStaleNext } from "./userdata.js";
 
@@ -51,13 +50,11 @@ export default function DevPanel({ onChange }: { onChange: () => void }) {
           <Button size="sm" variant="outline" onClick={act(() => simulateSmtpFailure())}>
             {t("dev.smtpFail")}
           </Button>
-          {HYBRID && <p className="text-muted-foreground px-1 text-xs">{t("dev.hybrid")}</p>}
-          {!HYBRID &&
-            ["admin", "demo", "newadmin", "reset"].map((u) => (
-              <Button key={u} size="sm" variant="ghost" onClick={act(() => signInAs(u))}>
-                {t("dev.signInAs", { user: u })}
-              </Button>
-            ))}
+          {["admin", "demo", "newadmin", "reset"].map((u) => (
+            <Button key={u} size="sm" variant="ghost" onClick={act(() => signInAs(u))}>
+              {t("dev.signInAs", { user: u })}
+            </Button>
+          ))}
         </div>
       )}
       <Button size="sm" onClick={() => setOpen((o) => !o)}>

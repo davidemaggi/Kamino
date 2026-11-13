@@ -70,9 +70,14 @@ export async function registerAuthHttp(app: FastifyInstance, service: AuthServic
   app.addHook("onRequest", async (req, reply) => {
     if (!req.url.startsWith("/api/")) return;
     // Bearer requests (devices) carry no cookie: a third-party site can't set that header without CORS.
-    const bearer = req.headers.authorization?.startsWith("Bearer ") ?? false;
-    // The plugin's login uses no cookie and returns its token in the body: nothing for CSRF to steal.
-    const deviceLogin = req.method === "POST" && req.url.split("?")[0] === "/api/v1/devices/login";
+    // The same for a pairing claim secret ("Claim …").
+    const bearer = /^(Bearer|Claim) /.test(req.headers.authorization ?? "");
+    // The plugin's login and pairing claim use no cookie and answer in the body: nothing for CSRF
+    // to steal (the claim's proof is the one-time token in the body).
+    const path = req.url.split("?")[0];
+    const deviceLogin =
+      req.method === "POST" &&
+      (path === "/api/v1/devices/login" || path === "/api/v1/pairings/claim");
     if (
       WRITE.has(req.method) &&
       !bearer &&

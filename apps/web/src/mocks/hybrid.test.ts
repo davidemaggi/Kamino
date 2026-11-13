@@ -11,17 +11,18 @@ import {
 } from "./user-handlers.js";
 
 describe("hybrid mode", () => {
-  it("leaves the user area and admin to the real server, keeps pairing fake", () => {
+  it("leaves the whole API to the real server, pairing included", () => {
     const active = activeHandlers(true);
     for (const h of [
       ...vaultDetailHandlers,
       ...historyHandlers,
       ...conflictHandlers,
       ...adminHandlers,
+      ...pairingHandlers,
     ])
       expect(active).not.toContain(h);
-    for (const h of pairingHandlers) expect(active).toContain(h);
-    expect(active.length).toBe(handlers.length - REAL.length);
+    expect(active).toEqual([]);
+    expect(REAL.length).toBe(handlers.length);
     expect(activeHandlers(false)).toBe(handlers);
   });
 });

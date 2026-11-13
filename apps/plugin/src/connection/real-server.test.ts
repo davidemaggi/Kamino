@@ -9,8 +9,12 @@ const err = (status: number, code: string): HttpResponse => ({
   json: { error: { code, message: code, retryable: false } },
 });
 
-function setup(handler: (r: HttpRequest, server: string) => HttpResponse, isMobile = false) {
-  let stored: LinkInfo | null = null;
+function setup(
+  handler: (r: HttpRequest, server: string) => HttpResponse | Promise<HttpResponse>,
+  isMobile = false,
+  extra: { linked?: StoredLink; now?: () => number; sleep?: (ms: number) => Promise<void> } = {},
+) {
+  let stored: LinkInfo | null = extra.linked ?? null;
   const store: LinkStore = { load: () => stored, save: (l) => (stored = l) };
   const log: Array<HttpRequest & { server: string }> = [];
   const conn = new RealConnection({
@@ -24,6 +28,9 @@ function setup(handler: (r: HttpRequest, server: string) => HttpResponse, isMobi
         return handler(r, server);
       },
     }),
+    ...(extra.now ? { now: extra.now } : {}),
+    // Default: the fallback polling never wakes up unless a test drives it.
+    sleep: extra.sleep ?? (() => new Promise<void>(() => {})),
   });
   const events: ConnectionEvent[] = [];
   conn.onChange((e) => events.push(e));
@@ -173,10 +180,352 @@ describe("RealConnection", () => {
     expect(events.map((e) => e.type)).toEqual(["linked", "device_renamed", "unlinked"]);
   });
 
-  it("pairing with a QR code is not available yet", async () => {
-    const { conn } = setup(() => version);
-    expect(conn.pairingAvailable).toBe(false);
+  const LINKED: StoredLink = {
+    server: "https://sync.example.org",
+    host: "sync.example.org",
+    user: "ada",
+    vaultId: "v1",
+    vaultName: "Notes",
+    deviceName: "Mac",
+    deviceId: "d1",
+    deviceToken: "dev-token",
+  };
+  const EXPIRES = "2026-11-13T10:10:00.000Z";
+  const LINK = { server: "https://sync.example.org/", token: "link-token" };
+
+  it("new device: claims, shows the code, and on approval stores the token once", async () => {
+    let answer: HttpResponse = { status: 200, json: { status: "pending" } };
+    const { conn, log, events, stored } = setup((r) => {
+      if (r.path === "/pairings/claim")
+        return {
+          status: 200,
+          json: {
+            claimId: "c1",
+            claimSecret: "claim-secret",
+            verificationCode: "AB3K",
+            expiresAt: EXPIRES,
+          },
+        };
+      return answer;
+    });
+    const c = await conn.claim(LINK, "iPhone");
+    expect(c).toEqual({
+      ok: true,
+      claimId: "c1",
+      code: "AB3K",
+      expiresAt: Date.parse(EXPIRES),
+      host: "sync.example.org",
+    });
+    expect(log[0]).toMatchObject({
+      server: "https://sync.example.org",
+      method: "POST",
+      path: "/pairings/claim",
+      json: {
+        token: "link-token",
+        deviceName: "iPhone",
+        platform: "linux",
+        pluginVersion: "0.1.0",
+      },
+    });
+    expect(log[0]!.headers?.["authorization"]).toBeUndefined();
+    expect(await conn.claimStatus("c1")).toBe("pending");
+    expect(log.at(-1)).toMatchObject({
+      method: "GET",
+      path: "/pairings/claims/c1",
+      headers: { authorization: "Claim claim-secret" },
+    });
+    expect(stored()).toBeNull();
+
+    answer = {
+      status: 200,
+      json: {
+        status: "approved",
+        deviceId: "d9",
+        deviceToken: "new-token",
+        username: "ada",
+        vault: { id: "v1", name: "Notes" },
+      },
+    };
+    expect(await conn.claimStatus("c1")).toBe("approved");
+    expect(stored()).toEqual({
+      server: "https://sync.example.org",
+      host: "sync.example.org",
+      user: "ada",
+      vaultId: "v1",
+      vaultName: "Notes",
+      deviceName: "iPhone",
+      deviceId: "d9",
+      deviceToken: "new-token",
+    });
+    expect(JSON.stringify(stored())).not.toContain("claim-secret");
+    expect(events).toEqual([{ type: "linked" }]);
+    // The answer is kept: no further polls, no second "linked".
+    const before = log.length;
+    expect(await conn.claimStatus("c1")).toBe("approved");
+    expect(log.length).toBe(before);
+    expect(await conn.claimStatus("unknown")).toBe("expired");
+  });
+
+  it("polls in flight are shared, so a second poll can't see the token as already consumed", async () => {
+    let release!: (r: HttpResponse) => void;
+    let polls = 0;
+    const { conn, events } = setup((r) => {
+      if (r.path === "/pairings/claim")
+        return {
+          status: 200,
+          json: { claimId: "c1", claimSecret: "s", verificationCode: "AB3K", expiresAt: EXPIRES },
+        };
+      polls++;
+      return new Promise<HttpResponse>((res) => (release = res));
+    });
+    await conn.claim(LINK, "iPhone");
+    const a = conn.claimStatus("c1");
+    const b = conn.claimStatus("c1");
+    await Promise.resolve();
+    release({
+      status: 200,
+      json: {
+        status: "approved",
+        deviceId: "d9",
+        deviceToken: "t",
+        username: "ada",
+        vault: { id: "v1", name: "Notes" },
+      },
+    });
+    expect(await Promise.all([a, b])).toEqual(["approved", "approved"]);
+    expect(polls).toBe(1);
+    expect(events).toEqual([{ type: "linked" }]);
+  });
+
+  it("maps the claim's failures and the other side's answers", async () => {
+    let claimAnswer: HttpResponse = err(400, "token_invalid");
+    let poll: HttpResponse = { status: 200, json: { status: "denied" } };
+    const { conn, log } = setup((r) => {
+      if (r.path === "/pairings/claim") return claimAnswer;
+      return r.path.endsWith("/cancel") ? { status: 204 } : poll;
+    });
+    const cases: Array<[HttpResponse, string]> = [
+      [err(400, "token_invalid"), "invalid"],
+      [err(410, "token_expired"), "expired"],
+      [err(409, "pairing_already_claimed"), "already_claimed"],
+      [err(426, "protocol_unsupported"), "incompatible"],
+      [{ status: 502 }, "unreachable"],
+    ];
+    for (const [res, reason] of cases) {
+      claimAnswer = res;
+      expect(await conn.claim(LINK, "iPhone")).toEqual({ ok: false, reason });
+    }
+    const down = setup(() => {
+      throw new Error("offline");
+    });
+    expect(await down.conn.claim(LINK, "x")).toEqual({ ok: false, reason: "unreachable" });
+    const phone = setup(() => version, true);
+    expect(await phone.conn.claim({ server: "http://nas.local", token: "t" }, "x")).toEqual({
+      ok: false,
+      reason: "insecure_on_mobile",
+    });
+    expect(phone.log).toEqual([]);
+
+    const ok = {
+      status: 200,
+      json: { claimId: "c1", claimSecret: "s", verificationCode: "AB3K", expiresAt: EXPIRES },
+    };
+    for (const [state, want] of [
+      ["denied", "denied"],
+      ["expired", "expired"],
+      ["consumed", "expired"],
+    ] as const) {
+      claimAnswer = ok;
+      poll = { status: 200, json: { status: state } };
+      await conn.claim(LINK, "iPhone");
+      expect(await conn.claimStatus("c1")).toBe(want);
+    }
+    // Withdrawing while waiting tells the server, with the claim secret.
+    claimAnswer = ok;
+    await conn.claim(LINK, "iPhone");
+    await conn.cancelClaim("c1");
+    expect(log.at(-1)).toMatchObject({
+      method: "POST",
+      path: "/pairings/claims/c1/cancel",
+      headers: { authorization: "Claim s" },
+    });
+    expect(await conn.claimStatus("c1")).toBe("expired");
+  });
+
+  it("a poll the server refuses settles the claim; a hiccup or a lost answer doesn't", async () => {
+    const ok = {
+      status: 200,
+      json: { claimId: "c1", claimSecret: "s", verificationCode: "AB3K", expiresAt: EXPIRES },
+    };
+    const approved = {
+      status: 200,
+      json: {
+        status: "approved",
+        deviceId: "d9",
+        deviceToken: "t",
+        username: "ada",
+        vault: { id: "v1", name: "Notes" },
+      },
+    };
+    let poll: () => HttpResponse = () => approved;
+    const { conn, stored } = setup((r) => (r.path === "/pairings/claim" ? ok : poll()), false, {
+      now: () => Date.parse(EXPIRES) - 60_000,
+    });
+    for (const res of [err(404, "not_found"), err(401, "unauthorized"), err(403, "forbidden")]) {
+      await conn.claim(LINK, "iPhone");
+      poll = () => res;
+      expect(await conn.claimStatus("c1")).toBe("expired");
+      poll = () => approved;
+      expect(await conn.claimStatus("c1")).toBe("expired");
+    }
+    // 5xx, 429 and the network: wait.
+    for (const res of [{ status: 503 }, err(429, "rate_limited")]) {
+      await conn.claim(LINK, "iPhone");
+      poll = () => res;
+      expect(await conn.claimStatus("c1")).toBe("pending");
+    }
+    // The approving answer is lost on the way: the next poll gets the token again.
+    poll = () => {
+      throw new Error("offline");
+    };
+    expect(await conn.claimStatus("c1")).toBe("pending");
+    expect(stored()).toBeNull();
+    poll = () => approved;
+    expect(await conn.claimStatus("c1")).toBe("approved");
+    expect(stored()?.deviceToken).toBe("t");
+  });
+
+  it("dispose forgets offers, requests and claims", async () => {
+    const ok = {
+      status: 200,
+      json: { claimId: "c1", claimSecret: "s", verificationCode: "AB3K", expiresAt: EXPIRES },
+    };
+    const { conn, log } = setup(
+      (r) => (r.path === "/pairings/claim" ? ok : { status: 204 }),
+      false,
+      {
+        now: () => Date.parse(EXPIRES) - 60_000,
+      },
+    );
+    await conn.claim(LINK, "iPhone");
+    conn.receive({
+      type: "pairing_request",
+      pairingId: "p1",
+      deviceName: "Pixel",
+      platform: "android",
+      pluginVersion: "0.2.0",
+      code: "AB3K",
+      expiresAt: EXPIRES,
+    });
+    expect(conn.pairingRequests()).toHaveLength(1);
+    conn.dispose();
     expect(conn.pairingRequests()).toEqual([]);
-    await expect(conn.startPairing()).rejects.toThrow();
+    const before = log.length;
+    expect(await conn.claimStatus("c1")).toBe("expired");
+    await conn.cancelClaim("c1");
+    expect(log.length).toBe(before);
+  });
+
+  it("origin: offers, hears the request over realtime, answers with the device token", async () => {
+    const { conn, log, events } = setup(
+      (r) => {
+        if (r.path === "/vaults/v1/pairings")
+          return {
+            status: 200,
+            json: { pairingId: "p1", link: "obsidian://kamino?x", expiresAt: EXPIRES },
+          };
+        if (r.path === "/pairings/p2/deny") return err(409, "pairing_closed");
+        return { status: 200, json: { status: "approved" } };
+      },
+      false,
+      { linked: LINKED, now: () => Date.parse(EXPIRES) - 60_000 },
+    );
+    expect(conn.pairingAvailable).toBe(true);
+    expect(await conn.startPairing()).toEqual({
+      pairingId: "p1",
+      link: "obsidian://kamino?x",
+      expiresAt: Date.parse(EXPIRES),
+    });
+    expect(log[0]).toMatchObject({
+      method: "POST",
+      headers: { authorization: "Bearer dev-token" },
+    });
+    const msg = {
+      type: "pairing_request" as const,
+      pairingId: "p1",
+      deviceName: "iPhone",
+      platform: "ios",
+      pluginVersion: "0.2.0",
+      code: "AB3K",
+      expiresAt: EXPIRES,
+    };
+    conn.receive(msg);
+    conn.receive(msg);
+    const request = {
+      pairingId: "p1",
+      deviceName: "iPhone",
+      platform: "ios",
+      pluginVersion: "0.2.0",
+      code: "AB3K",
+      at: Date.parse(EXPIRES) - 60_000,
+      expiresAt: Date.parse(EXPIRES),
+    };
+    expect(events).toEqual([{ type: "pairing_request", request }]);
+    expect(conn.pairingRequests()).toEqual([request]);
+    await conn.approve("p1");
+    expect(log.at(-1)).toMatchObject({ method: "POST", path: "/pairings/p1/approve" });
+    expect(conn.pairingRequests()).toEqual([]);
+    expect(events.at(-1)).toEqual({ type: "pairing_closed", pairingId: "p1" });
+
+    // Answered elsewhere meanwhile: the request goes away and the UI is told.
+    conn.receive({ ...msg, pairingId: "p2" });
+    await expect(conn.deny("p2")).rejects.toThrow();
+    expect(conn.pairingRequests()).toEqual([]);
+    expect(events.at(-1)).toEqual({ type: "pairing_closed", pairingId: "p2" });
+    conn.receive({ type: "pairing_reused", pairingId: "p3" });
+    expect(events.at(-1)).toEqual({ type: "pairing_reused", pairingId: "p3" });
+    conn.receive({ ...msg, pairingId: "p4" });
+    conn.receive({ type: "pairing_closed", pairingId: "p4" });
+    expect(events.at(-1)).toEqual({ type: "pairing_closed", pairingId: "p4" });
+  });
+
+  it("origin: without realtime, polling the open offer still brings the request", async () => {
+    const wakes: Array<() => void> = [];
+    const tick = async () => {
+      wakes.shift()!();
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+    };
+    let state: unknown = { status: "waiting" };
+    const { conn, events } = setup(
+      (r) =>
+        r.method === "POST"
+          ? {
+              status: 200,
+              json: { pairingId: "p1", link: "obsidian://kamino?x", expiresAt: EXPIRES },
+            }
+          : { status: 200, json: state },
+      false,
+      {
+        linked: LINKED,
+        now: () => Date.parse(EXPIRES) - 60_000,
+        sleep: () => new Promise<void>((r) => wakes.push(r)),
+      },
+    );
+    await conn.startPairing();
+    await tick();
+    expect(events).toEqual([]);
+    state = {
+      status: "requested",
+      reused: true,
+      request: { deviceName: "iPhone", platform: "ios", pluginVersion: "0.2.0", code: "AB3K" },
+    };
+    await tick();
+    expect(events.map((e) => e.type)).toEqual(["pairing_reused", "pairing_request"]);
+    await tick();
+    expect(events).toHaveLength(2);
+    state = { status: "approved" };
+    await tick();
+    expect(events.at(-1)).toEqual({ type: "pairing_closed", pairingId: "p1" });
+    expect(wakes).toEqual([]);
   });
 });

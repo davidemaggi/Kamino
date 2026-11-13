@@ -6,6 +6,7 @@ import {
   type EngineDeps,
   type Http,
   type Network,
+  type PairingMessage,
   type SocketFactory,
   type SyncMode,
   type VaultFs,
@@ -34,6 +35,8 @@ export interface EngineHostOptions {
   network?: Network;
   wifiOnly?: () => { enabled: boolean; thresholdBytes: number };
   mode?: () => { mode: SyncMode; periodicMinutes: number };
+  /** Pairing news from the realtime channel (03 §10). */
+  onPairing?: (message: PairingMessage) => void;
 }
 
 /** One engine per link: opened when the device is linked, stopped when it is unlinked. */
@@ -141,6 +144,7 @@ export class EngineHost {
       ...(o.network ? { network: o.network } : {}),
       ...(o.wifiOnly ? { wifiOnly: o.wifiOnly } : {}),
       ...(o.mode ? { mode: o.mode() } : {}),
+      ...(o.onPairing ? { onPairing: o.onPairing } : {}),
     });
   }
 

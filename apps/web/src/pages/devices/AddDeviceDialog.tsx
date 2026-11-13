@@ -7,6 +7,7 @@ import { renderSVG } from "uqr";
 import { api } from "../../api/endpoints.js";
 import { errorMessage } from "../../api/errors.js";
 import { ApiError } from "../../api/http.js";
+import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert.js";
 import { Button } from "../../components/ui/button.js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog.js";
 import { Input } from "../../components/ui/input.js";
@@ -168,6 +169,12 @@ export function AddDeviceDialog({
             >
               {request.code}
             </p>
+            {state?.reused && (
+              <Alert variant="destructive">
+                <AlertTitle>{t("pairing.reusedTitle")}</AlertTitle>
+                <AlertDescription>{t("pairing.reusedBody")}</AlertDescription>
+              </Alert>
+            )}
             <p className="text-sm">{t("pairing.requestHint")}</p>
             <div className="flex gap-2">
               <Button disabled={busy} onClick={() => void answer(true)}>

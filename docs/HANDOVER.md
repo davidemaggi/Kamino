@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-13 — **P2 di M4+M5+M6 (admin, quote, email) completata** sul branch `m5-admin-email` (Task 8–13), revisione finale e PR. Dopo il merge: P3 (pairing, Task 14–15) su `m6-pairing` da `main`.
+**Ultimo aggiornamento:** 2026-11-13 — **P3 di M4+M5+M6 (pairing con QR e magic link) completata** sul branch `m6-pairing` (Task 14–15), revisione finale e PR. Con il suo merge il pacchetto M4–M6 è chiuso; prima di considerare M6 rilasciabile serve una prova del pairing con una persona vera su due dispositivi.
 
 ## Dove siamo
 
@@ -20,10 +20,10 @@
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
 | M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · ✅ M1d (spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md`, piano `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`): mergiata (PR #12) |
 | M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ✅ M2b: mergiata (PR #13); ⏳ test sui dispositivi D-1…D-7 e settimana d'uso |
-| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | ✅ P1 area utente (Task 1–7): mergiata (PR #14) · 🔧 P2 admin/quote/email (Task 8–13): PR su `m5-admin-email` · ⏳ P3 pairing (Task 14–15) |
+| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | ✅ P1 area utente (Task 1–7): mergiata (PR #14) · ✅ P2 admin/quote/email (Task 8–13): mergiata (PR #15) · 🔧 P3 pairing (Task 14–15): PR su `m6-pairing`; ⏳ prova con una persona vera |
 | M3…M7 | ⏳ |
 
-**Branch di lavoro:** `m5-admin-email` (P2, PR in attesa di merge); poi `m6-pairing` da `main` dopo il merge.
+**Branch di lavoro:** `m6-pairing` (P3, PR in attesa di merge).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -81,7 +81,7 @@ Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del disposit
 
 ## Prossimi passi
 
-1. **Pacchetto M4+M5+M6**: P1 mergiata, P2 fatta (PR aperta). Dopo il merge: **P3** (Task 14–15: pairing QR/magic link) su `m6-pairing`. Esecuzione senza checkpoint intermedi, una revisione per PR.
+1. **Pacchetto M4+M5+M6**: P1 e P2 mergiate, P3 fatta (PR aperta). Dopo il merge il pacchetto è chiuso. **Prima di rilasciare M6:** prova del pairing con una persona vera (QR inquadrato col telefono che apre Obsidian, stesso codice sui due lati, approvazione dal desktop e dalla web app, link via email), insieme ai test sui dispositivi del punto 2.
 2. **Test sui dispositivi** D-1…D-7 (`docs/spikes/README.md`) e la **settimana d'uso** con due desktop e un telefono, che chiude M2. Nessuna release pubblica prima.
 3. **M3** (conflitti e storico) e **M7** (hardening, release) restano milestone a sé.
 4. Minori rinviati dalle revisioni di M1d e M2b: elencati nelle rispettive sezioni qui sotto.
@@ -173,6 +173,20 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di P3 (M6: pairing con QR e magic link)
+
+| # | Decisione | Costo se sbagliata |
+|---|---|---|
+| Q1 | Link `obsidian://kamino?server=…&token=…` con token da 256 bit, nel DB solo il suo SHA-256; 10 minuti per tutto il flusso; monouso: un secondo claim riceve 409 `pairing_already_claimed` e l'origine viene avvisata (`pairing_reused`, `reused: true` nello stato) | — |
+| Q2 | Il token del nuovo dispositivo è derivato dal segreto del claim con HMAC sotto una chiave del server (`deviceTokenOf`, chiave `hkdf(master key, "kamino/v1/pairing")`): al claim si salva solo l'hash del token, all'approvazione il dispositivo nasce con quell'hash, al poll successivo lo stato passa a `consumed` e il token si ricalcola. Si riconsegna a ogni poll **entro i 10 minuti** del flusso, così una risposta persa si recupera; dopo, solo `consumed`. Nessun segreto in chiaro a riposo né nei log | Basso |
+| Q3 | Chi può offrire e rispondere: il proprietario con sessione web o un dispositivo **dello stesso vault** (Bearer); tutto il resto è 404, nessun bypass per l'admin. Codice di verifica di 4 caratteri senza 0/O/1/I | — |
+| Q4 | Tempo reale: `pairing_request`, `pairing_closed`, `pairing_reused` a tutti i dispositivi connessi del vault; messaggi aggiuntivi, `PROTOCOL_VERSION` resta 1. Il plugin d'origine interroga comunque l'offerta aperta ogni 3 s, perché il canale può essere giù | Nessuno |
+| Q5 | Limiti per IP: claim 20 ogni 15 minuti, poll e ritiro 900 ogni 15 minuti (il plugin interroga ogni 2 s); offerte 30 ogni 15 minuti **per utente** (un'offerta può mandare un'email). Esenzione CSRF per `POST /pairings/claim` e per le richieste con `Authorization: Bearer|Claim` | Basso |
+| Q6 | `?email=1` manda il link all'utente tramite la coda email, accodato nella stessa transazione dell'offerta: senza SMTP 409 e nessun pairing lasciato indietro. L'eliminazione di un utente cancella i suoi pairing | — |
+| Q7 | Plugin: il segreto del claim resta solo in memoria (chiudere Obsidian durante l'attesa = rifare la scansione); un link `http://` su telefono è rifiutato prima di contattare il server; due poll contemporanei condividono la stessa richiesta, così il secondo non può vedere `consumed` | Basso |
+| Q8 | Web: in modalità ibrida tutta l'API va al server vero (pairing compreso), quindi MSW e il pannello "Dati finti" non partono. Migrazione unica di P3: `0008_common_lilandra` | Nessuno |
+| Q9 | Revisione finale di P3, nessun problema critico; corretti: token con chiave del server e riconsegna entro i 10 minuti (Q2); claim con `protocolVersion` fuori da `[PROTOCOL_MIN_SUPPORTED, PROTOCOL_VERSION]` → 426 `protocol_unsupported`; avviso di riuso solo mentre la richiesta attende risposta, e la web app lo mostra prima di approvare; limite sulle offerte (Q5); pulizia oraria dei pairing scaduti da più di un giorno (`sweepPairings`, con lo sweep degli upload); plugin: `dispose()` allo scaricamento e allo scollegamento, un poll rifiutato (401/403/404) chiude il claim, solo rete/5xx/429 si riprovano. Nuovi test: vault eliminato, dispositivo revocato e utente bloccato all'approvazione, due approvazioni insieme, ritiro durante l'approvazione | — |
 
 ### Decisioni di P2 (M5: admin, quote, email)
 
@@ -407,13 +421,10 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 - **Web:** valutare il titolo della pagina nella barra in alto su telefono (oggi logo + nome); i testi `dev.*` del pannello "Dati finti" finiscono nel bundle di produzione (innocui).
 - **Web admin:** nella scheda Salute i controlli hanno solo il testo (la spec prevedeva icona + testo).
 - **M2:** potare le lapidi dell'indice del client (file cancellati che restano come voci inerti per ricordare i `seq`) insieme alla compattazione del journal. (La riconciliazione con indice esistente dopo `cursor_too_old` è fatta in M1d.)
-- **Dopo M1c:** `/vaults` e `/vaults/summary` esistono sul server; le altre rotte dell'area utente (dettaglio vault, dispositivi dal web, conflitti, storico, cestino) e quelle admin no: in produzione quelle schermate danno errore. Coperto dal vincolo "nessuna release pubblica prima della fine di M1".
 - **M1a, minori rinviati dalla revisione:** `mkdir` su cartella esistente restituisce `accepted` con l'altro `fileId` (03 dice `duplicate`: allineare il documento in M1c); cancellazione di cartella con discendenti vivi → `modified_since` (da documentare); nessun controllo su `put`/`move` sotto un path che è un file; `stopped` è volatile; MAX_PATH di Windows non modellato; su Linux un disco con forme NFC e NFD dello stesso nome (stesso path canonico): da definire nel contratto del guscio in M1d.
 - **M2b:** (la mappa delle categorie delle impostazioni è fatta in M1d, `apps/plugin/src/engine/settings-map.ts`). Il client WebSocket del plugin deve gestire i codici di chiusura di 03 §7 (nota M2a) e `403 totp_mandatory` su `/devices/login`.
 - **Multi-istanza:** la revoca chiude subito i socket dell'istanza che la riceve; le altre istanze se ne accorgono al battito successivo (entro 30 s).
 - **Sempre:** `pnpm --filter @kamino/sync-core test:deep` (3000 scenari) da rieseguire dopo ogni modifica del client (cartelle sul client: fatte in M1d).
-- **M1+ (server):** implementare anche le rotte `admin` (utenti, configurazione con fonte dei valori, email di prova, salute, audit) e quelle di vault, dispositivi, pairing dal web, conflitti, storico e cestino del contratto `@kamino/protocol`.
-- **M1 (server):** implementare le rotte del contratto `auth`/`account` di `@kamino/protocol` (Argon2id, sessioni con cookie `HttpOnly`, TOTP vero, verifica dell'intestazione anti-CSRF `X-Requested-With`), poi spegnere MSW per quelle rotte.
 
 - **Vincolo di rilascio:** dal M1d la build di produzione non contiene più il `FakeServer` (verificato da `apps/plugin/test/manifest.test.ts`). Resta: **nessuna release pubblica prima dei test sui dispositivi** elencati in `docs/spikes/README.md` ("Test sui dispositivi dopo M1d").
 - **Notice cliccabile:** `Notice.noticeEl` è deprecato nei tipi di Obsidian 1.14 ma è quello giusto per `minAppVersion` 1.5.0; da rivedere quando si alza la versione minima (con gli esiti di R-1).

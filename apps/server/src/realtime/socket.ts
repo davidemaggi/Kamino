@@ -96,6 +96,10 @@ export class DeviceSocket implements Conn {
     if (this.state === "live") void this.pump().catch((e: unknown) => this.fail(e));
   }
 
+  push(message: ServerMessage): void {
+    if (this.state === "live") void this.send(message);
+  }
+
   close(code: number, message?: ServerMessage): void {
     if (this.state === "closed") return;
     this.dispose();

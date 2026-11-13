@@ -121,10 +121,14 @@ export class PairingClaimModal extends Modal {
       return;
     }
     if (!r.ok) {
+      const errors = t(this.ctx.lang).connect.errors;
       this.result = {
         invalid: this.m.invalidToken,
         expired: this.m.expired,
         already_claimed: this.m.alreadyClaimed,
+        unreachable: errors.unreachable,
+        incompatible: errors.incompatible,
+        insecure_on_mobile: errors.insecure_on_mobile,
       }[r.reason];
       this.step = "result";
       this.render();

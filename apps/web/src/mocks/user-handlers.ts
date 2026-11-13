@@ -137,7 +137,11 @@ export const pairingHandlers = [
       p.status = "expired";
     return (
       unauthorized() ??
-      HttpResponse.json({ status: p.status, ...(p.request ? { request: p.request } : {}) })
+      HttpResponse.json({
+        status: p.status,
+        ...(p.request ? { request: p.request } : {}),
+        ...(p.reused ? { reused: true } : {}),
+      })
     );
   }),
   ...(["approve", "deny", "cancel"] as const).map((action) =>

@@ -10,6 +10,13 @@ import { VaultCrypto } from "./vault-crypto.js";
 
 export const ENROLL_TTL_MS = 10 * 60_000;
 export type Vault = typeof vaults.$inferSelect;
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+export interface DeviceRequest {
+  name: string;
+  platform: (typeof devices.$inferInsert)["platform"];
+  pluginVersion: string;
+  protocolVersion: number;
+}
 
 export class VaultService {
   private readonly crypto = new Map<string, VaultCrypto>();
@@ -134,22 +141,28 @@ export class VaultService {
     return row.userId;
   }
 
-  async linkDevice(
+  async linkDevice(userId: string, vaultId: string, d: DeviceRequest, ip: string | undefined) {
+    const token = randomToken();
+    const r = await this.addDevice(this.db, userId, vaultId, d, ip, hashToken(token));
+    return { ...r, deviceToken: token };
+  }
+
+  /**
+   * A device of `vaultId` whose token hashes to `tokenHash` (the token itself is never seen here:
+   * pairing derives it from the claim secret). 404 unless `userId` owns the active vault.
+   */
+  async addDevice(
+    db: Db | Tx,
     userId: string,
     vaultId: string,
-    d: {
-      name: string;
-      platform: (typeof devices.$inferInsert)["platform"];
-      pluginVersion: string;
-      protocolVersion: number;
-    },
+    d: DeviceRequest,
     ip: string | undefined,
-  ) {
+    tokenHash: string,
+  ): Promise<{ deviceId: string; vault: { id: string; name: string } }> {
     const v = await this.byId(vaultId);
     if (!v || v.ownerId !== userId || v.status !== "active") throw new AuthError("not_found", 404);
-    const token = randomToken();
     const id = uuidv7();
-    await this.db.transaction(async (tx) => {
+    const insert = async (tx: Db | Tx) => {
       const [existing] = await tx
         .select({ n: count() })
         .from(devices)
@@ -159,13 +172,15 @@ export class VaultService {
         userId,
         vaultId,
         ...d,
-        tokenHash: hashToken(token),
+        tokenHash,
         isOrigin: (existing?.n ?? 0) === 0,
         lastIp: ip ?? null,
         lastSeenAt: new Date(this.now()),
         createdAt: new Date(this.now()),
       });
-    });
-    return { deviceId: id, deviceToken: token, vault: { id: v.id, name: this.nameOf(v) } };
+    };
+    if (db === this.db) await this.db.transaction(insert);
+    else await insert(db);
+    return { deviceId: id, vault: { id: v.id, name: this.nameOf(v) } };
   }
 }

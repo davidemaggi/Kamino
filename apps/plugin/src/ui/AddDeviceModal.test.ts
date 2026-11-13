@@ -111,6 +111,20 @@ describe("AddDeviceModal", () => {
     );
   });
 
+  it("an offer that can't be created says the server is unreachable", async () => {
+    const made = makeCtx();
+    const login = await made.server.login("https://sync.example", "demo", "demo");
+    if (!login.ok) throw new Error("login");
+    await made.server.linkDevice(login.session, "v-notes", "Laptop");
+    vi.spyOn(made.server, "startPairing").mockRejectedValueOnce(new Error("network"));
+    const modal = new AddDeviceModal(new App() as never, made.ctx);
+    modal.open();
+    await vi.advanceTimersByTimeAsync(0);
+    const root = (modal as unknown as { contentEl: HTMLElement }).contentEl;
+    expect(root.textContent).toContain("Server non raggiungibile");
+    expect(root.querySelector("img")).toBeNull();
+  });
+
   it("a failed answer shows an error, not success", async () => {
     const o = await open();
     o.server.simulateIncomingClaim();

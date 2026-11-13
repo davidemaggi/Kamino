@@ -18,7 +18,7 @@ import {
   type Effect,
 } from "@kamino/sync-core";
 import { Api, ApiError } from "./api.js";
-import { Realtime, type RealtimeEvent, type SocketFactory } from "./socket.js";
+import { Realtime, type PairingMessage, type RealtimeEvent, type SocketFactory } from "./socket.js";
 import { EchoGuard } from "./echo.js";
 import type { Network } from "./network.js";
 import { sha256Hex } from "./hash.js";
@@ -57,6 +57,8 @@ export interface EngineDeps {
   client?: { pluginVersion: string; platform: string };
   /** A `vault_settings_changed` entry arrived: the host reads the settings again (E10). */
   onSettingsChanged?: () => void;
+  /** Pairing news from the socket (03 §10): the host shows it, the engine ignores it. */
+  onPairing?: (message: PairingMessage) => void;
   /** Without streaming (`fs.streaming === false`), files over this size wait (E3, 100 MB). */
   limits?: { maxInMemoryBytes?: number };
 }
@@ -336,6 +338,9 @@ export class Engine {
         break;
       case "settings":
         this.d.onSettingsChanged?.();
+        break;
+      case "pairing":
+        this.d.onPairing?.(e.message);
         break;
       case "revoked":
       case "blocked":

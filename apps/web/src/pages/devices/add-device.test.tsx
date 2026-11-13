@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/endpoints.js";
 import { signInAs } from "../../mocks/db.js";
-import { simulatePairingRequest, ud } from "../../mocks/userdata.js";
+import { simulatePairingRequest, simulatePairingReuse, ud } from "../../mocks/userdata.js";
 import { renderRoute } from "../../test/render.js";
 
 beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
@@ -34,6 +34,20 @@ describe("AddDeviceDialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Approva" }));
     expect(await within(dialog).findByText("Dispositivo collegato.")).toBeDefined();
     expect(ud.devices.some((d) => d.name === "Pixel")).toBe(true);
+  });
+
+  it("warns when someone else tried the same link", async () => {
+    const dialog = await openDialog();
+    await within(dialog).findByAltText("Codice QR per collegare un dispositivo");
+    act(() => simulatePairingRequest());
+    await act(() => vi.advanceTimersByTimeAsync(2100));
+    await within(dialog).findByText("K7RX");
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+    act(() => simulatePairingReuse());
+    await act(() => vi.advanceTimersByTimeAsync(2100));
+    expect(
+      await within(dialog).findByText("Il link è stato usato anche da un altro dispositivo"),
+    ).toBeDefined();
   });
 
   it("deny", async () => {

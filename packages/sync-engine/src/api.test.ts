@@ -282,3 +282,28 @@ describe("transfers", () => {
     await expect(collect(t.download("v", hash, () => {}))).rejects.toBeInstanceOf(ApiError);
   });
 });
+
+describe("pairing calls", () => {
+  it("the new device claims without a device token and polls with its claim secret", async () => {
+    const http = new FakeHttp((r) =>
+      r.path === "/pairings/claim"
+        ? {
+            status: 200,
+            json: { claimId: "c", claimSecret: "s", verificationCode: "AB23", expiresAt: "x" },
+          }
+        : { status: 200, json: { status: "pending" } },
+    );
+    const api = new Api(http, () => "device-token");
+    const r = await api.claim({
+      token: "t",
+      deviceName: "iPhone",
+      platform: "ios",
+      pluginVersion: "0.2.0",
+      protocolVersion: PROTOCOL_VERSION,
+    });
+    expect(r.verificationCode).toBe("AB23");
+    expect((await api.claimState("c", "s")).status).toBe("pending");
+    expect(http.log[0]!.headers?.authorization).toBeUndefined();
+    expect(http.log[1]!.headers?.authorization).toBe("Claim s");
+  });
+});

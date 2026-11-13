@@ -291,11 +291,11 @@ POST /api/v1/vaults/:vaultId/conflicts/:id/resolve
 - Il protocol handler di Obsidian consegna il link al vault aperto: se il vault non è vuoto, il plugin avvisa e spiega le conseguenze (riconciliazione, possibili conflitti) prima di procedere.
 
 > **Rotte reali (M6).** Come sopra, con questi dettagli:
-> - claim: `{ token, deviceName, platform, pluginVersion, protocolVersion }` → `{ claimId, claimSecret, verificationCode, expiresAt }`; token sconosciuto 400 `token_invalid`, flusso chiuso o scaduto 410 `token_expired`.
-> - Polling e ritiro con `Authorization: Claim <claimSecret>`: `GET /api/v1/pairings/claims/:claimId` → `pending | denied | expired | consumed | approved { deviceId, deviceToken, username, vault { id, name } }`; `POST /api/v1/pairings/claims/:claimId/cancel` (204) ritira la richiesta. Il `deviceToken` si consegna una volta sola, poi lo stato è `consumed`.
+> - claim: `{ token, deviceName, platform, pluginVersion, protocolVersion }` → `{ claimId, claimSecret, verificationCode, expiresAt }`; token sconosciuto 400 `token_invalid`, flusso chiuso o scaduto 410 `token_expired`, `protocolVersion` non supportata 426 `protocol_unsupported`.
+> - Polling e ritiro con `Authorization: Claim <claimSecret>`: `GET /api/v1/pairings/claims/:claimId` → `pending | denied | expired | consumed | approved { deviceId, deviceToken, username, vault { id, name } }`; `POST /api/v1/pairings/claims/:claimId/cancel` (204) ritira la richiesta. Il `deviceToken` si riconsegna a ogni poll entro i 10 minuti del flusso (una risposta persa si recupera); dopo, lo stato è `consumed`.
 > - Origine: anche `GET /api/v1/pairings/:pairingId` (stato, per il polling della web app) e `POST /api/v1/pairings/:pairingId/cancel`; un flusso già chiuso risponde 409 `pairing_closed`. `?email=1` sull'offerta manda il link all'utente (409 senza SMTP).
 > - WebSocket verso tutti i dispositivi del vault: `pairing_request`, `pairing_closed`, `pairing_reused`.
-> - Il server salva solo hash (token del link, segreto del claim, token del dispositivo). Decisioni Q1–Q8 in `docs/HANDOVER.md`.
+> - Il server salva solo hash (token del link, segreto del claim, token del dispositivo) e cancella i pairing un giorno dopo la scadenza. Offerte limitate a 30 ogni 15 minuti per utente. Decisioni Q1–Q9 in `docs/HANDOVER.md`.
 
 **Collegamento manuale**: `POST /api/v1/auth/device-login { username, password, totp? }` → token temporaneo (5 min) per `GET /vaults` e `POST /vaults/:id/devices` → `deviceToken`. Non richiede approvazione (la password è la prova). Gli altri dispositivi e la web app mostrano "nuovo dispositivo collegato"; se SMTP è configurato, email di avviso di sicurezza all'utente. *(scelta del tech lead)*
 

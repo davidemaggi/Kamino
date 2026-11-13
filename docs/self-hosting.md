@@ -60,6 +60,20 @@ Nello scenario LAN `KAMINO_PUBLIC_URL` deve essere l'indirizzo IP o il nome host
 - `KAMINO_MAX_RETENTION_DAYS`: storico massimo dei vault, in giorni (0–90).
 - Email (inviti, link di reset, avvisi, export di un account eliminato): `KAMINO_SMTP_HOST`, `KAMINO_SMTP_PORT`, `KAMINO_SMTP_SECURITY` (`none`, `starttls`, `tls`), `KAMINO_SMTP_USERNAME`, `KAMINO_SMTP_PASSWORD` (o `KAMINO_SMTP_PASSWORD_FILE`), `KAMINO_SMTP_FROM`, `KAMINO_SMTP_ALLOW_INVALID_CERTS` (`true` solo per server di posta interni con certificato autofirmato). Senza SMTP tutto funziona lo stesso: i link di invito e di reset si copiano dalla web app o dalla CLI. Il pulsante "Invia email di prova" verifica la configurazione. Le email in uscita restano in coda nel database e vengono ritentate se il server di posta non risponde.
 
+### Con l'immagine pubblicata (senza repository)
+
+Da 1.0.0-rc.5 l'immagine del server è su GHCR: `ghcr.io/davidemaggi/kamino:<versione>` (amd64 e arm64), più `:rc` per l'ultima release candidate e `:latest` per l'ultima versione finale. La pubblica il workflow manuale **Release image**, da lanciare dopo **Release plugin** (l'immagine si costruisce dal tag della release).
+
+Sul server bastano due file in una cartella: [`docker/compose.image.yml`](../docker/compose.image.yml) e [`docker/image.env.example`](../docker/image.env.example) rinominato `.env`.
+
+```sh
+docker run --rm ghcr.io/davidemaggi/kamino:1.0.0-rc.5 keys generate   # → KAMINO_MASTER_KEY in .env
+docker compose -f compose.image.yml up -d                              # tunnel già attivo sull'host
+docker compose -f compose.image.yml --profile cloudflare up -d         # tunnel gestito dal compose (CLOUDFLARED_TOKEN)
+```
+
+Qui la master key e la password del database stanno in `.env` come variabili d'ambiente (`KAMINO_MASTER_KEY`, mai insieme a `KAMINO_MASTER_KEY_FILE`): è più semplice, ma chi può eseguire `docker inspect` sull'host le legge. Su un host condiviso usare i file di Docker secret come in `compose.tunnel.yml`. Il server ascolta solo su `127.0.0.1:8080` dell'host: con un tunnel Cloudflare già attivo sull'host, puntare il suo hostname pubblico a `http://localhost:8080`; con il profilo `cloudflare` a `http://kamino:8080`. Per aggiornare: cambiare `KAMINO_VERSION` in `.env`, poi `docker compose -f compose.image.yml pull && docker compose -f compose.image.yml up -d`.
+
 ## 2. La master key
 
 La master key è una chiave di 32 byte codificata in base64. Protegge le chiavi di cifratura dei dati: **se la perdi, i dati nel database non sono più leggibili**; se la cambi, il server rifiuta di partire con l'errore `master key does not match this database`.

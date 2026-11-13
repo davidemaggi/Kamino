@@ -95,7 +95,7 @@ export const adminHandlers = [
       password: "",
       role: b.data.role,
       lang: "it",
-      theme: "system",
+      theme: "dark",
       totpEnabled: false,
       totpSetupRequired: b.data.role === "admin",
       adminResetAt: null,

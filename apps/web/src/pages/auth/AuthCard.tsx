@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   useDocumentTitle(title);
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
-      <BrandMark size={36} className="text-xl" />
-      <Card className="w-full max-w-sm">
+    <main className="brand-backdrop flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+      <BrandMark size={72} stacked className="text-2xl" />
+      <Card className="w-full max-w-sm shadow-[0_16px_40px_-12px_rgb(0_0_0/0.35)]">
         <CardHeader>
           <CardTitle>
             <h1>{title}</h1>

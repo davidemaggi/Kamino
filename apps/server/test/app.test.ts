@@ -100,4 +100,12 @@ describe.skipIf(dockerUnavailable)("app", () => {
     expect(info.codename).toBe("Ash");
     expect(info.protocol).toEqual({ min: PROTOCOL_MIN_SUPPORTED, max: PROTOCOL_VERSION });
   });
+
+  // rc.4: the plugin's client prefixes every path with /api/v1, so "Check" asked for
+  // /api/v1/version, got 404 and reported the server as unreachable.
+  it("GET /api/v1/version answers the same as /version (plugin server check)", async () => {
+    const res = await up.inject({ method: "GET", url: "/api/v1/version" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual((await up.inject({ method: "GET", url: "/version" })).json());
+  });
 });

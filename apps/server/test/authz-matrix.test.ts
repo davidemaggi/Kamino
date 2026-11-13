@@ -34,6 +34,7 @@ const BODY: Record<string, object> = {
 /** Scoped to the caller's own rows: someone else's id is a silent no-op (Mario keeps his session). */
 const NOOP = new Set(["DELETE /api/v1/account/sessions/:id"]);
 const MATRIX: Record<string, { kind: Kind; own?: true }> = {
+  "GET /api/v1/version": { kind: "public" },
   "GET /api/v1/setup/status": { kind: "public" },
   "POST /api/v1/setup": { kind: "public" },
   "POST /api/v1/auth/login": { kind: "public" },

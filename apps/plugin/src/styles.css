@@ -24,7 +24,7 @@
   color: var(--color-yellow);
 }
 .kamino-status--decision .kamino-status__icon {
-  color: var(--color-purple);
+  color: var(--color-pink);
 }
 .kamino-status--blocked .kamino-status__icon {
   color: var(--color-red);
@@ -33,7 +33,7 @@
   color: var(--color-yellow);
 }
 .kamino-status-action--decision {
-  color: var(--color-purple);
+  color: var(--color-pink);
 }
 .kamino-status-action--blocked {
   color: var(--color-red);

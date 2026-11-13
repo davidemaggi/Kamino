@@ -28,6 +28,12 @@ export const mockIcons = {
 
 export const apiVersion = "1.8.0";
 
+/** Icons registered with addIcon (id -> SVG content). */
+export const customIcons = new Map<string, string>();
+export function addIcon(id: string, svg: string): void {
+  customIcons.set(id, svg);
+}
+
 export function getIconIds(): string[] {
   return [...mockIcons.ids];
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ThemeProvider, useTheme, type Theme } from "./ThemeProvider.js";
+import { THEME_STORAGE_KEY, ThemeProvider, useTheme, type Theme } from "./ThemeProvider.js";
 
 let api: { theme: Theme; setTheme: (t: Theme) => void };
 function Probe() {
@@ -23,9 +23,9 @@ afterEach(() => {
 });
 
 describe("ThemeProvider", () => {
-  it("defaults to system", () => {
+  it("defaults to dark", () => {
     mount();
-    expect(api.theme).toBe("system");
+    expect(api.theme).toBe("dark");
   });
 
   it("persists the choice and applies the dark class", () => {
@@ -66,6 +66,7 @@ describe("ThemeProvider system mode", () => {
 
   it("follows the system preference and its changes", () => {
     const media = stubMatchMedia(false);
+    localStorage.setItem(THEME_STORAGE_KEY, "system");
     mount();
     expect(document.documentElement.classList.contains("dark")).toBe(false);
     act(() => media.set(true));

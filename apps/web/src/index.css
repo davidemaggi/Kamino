@@ -5,37 +5,37 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Direction C ("hybrid"): docs/ui/design-system.md. Contrast enforced by src/theme/tokens.test.ts. */
+/* "Obsidian" identity: obsidian-glass neutrals, violet brand (docs/ui/design-system.md). Contrast enforced by src/theme/tokens.test.ts. */
 :root,
 .light {
   color-scheme: light;
-  --background: #f7f9f9;
-  --foreground: #132a36;
+  --background: #f7f6fa;
+  --foreground: #1b1724;
   --card: #ffffff;
-  --card-foreground: #132a36;
+  --card-foreground: #1b1724;
   --popover: #ffffff;
-  --popover-foreground: #132a36;
-  --primary: #0d2230;
+  --popover-foreground: #1b1724;
+  --primary: #6a45d9;
   --primary-foreground: #ffffff;
-  --secondary: #eef1f2;
-  --secondary-foreground: #132a36;
-  --muted: #eef1f2;
-  --muted-foreground: #5b6b73;
-  --accent: #e6f3f5;
-  --accent-foreground: #0d2230;
+  --secondary: #efedf4;
+  --secondary-foreground: #1b1724;
+  --muted: #efedf4;
+  --muted-foreground: #5f596c;
+  --accent: #f0ebfd;
+  --accent-foreground: #3d2690;
   --destructive: #a3261b;
-  --border: #e3e9eb;
-  --input: #d5dde0;
-  --ring: #0b7685;
-  --link: #0b7685;
+  --border: #e4e1ea;
+  --input: #d6d2de;
+  --ring: #6a45d9;
+  --link: #5b37c9;
   --status-safe: #0b6b52;
   --status-safe-surface: #e3f6ef;
-  --status-working: #3f5059;
-  --status-working-surface: #eef1f2;
+  --status-working: #4a4556;
+  --status-working-surface: #efedf4;
   --status-attention: #8a5a00;
   --status-attention-surface: #fbf0d9;
-  --status-decision: #5a3fb0;
-  --status-decision-surface: #efeafd;
+  --status-decision: #a3177a;
+  --status-decision-surface: #fce6f5;
   --status-blocked: #a3261b;
   --status-blocked-surface: #fbe4e1;
   --radius: 10px;
@@ -43,35 +43,35 @@
 
 .dark {
   color-scheme: dark;
-  --background: #0b1820;
-  --foreground: #e7eef0;
-  --card: #13232c;
-  --card-foreground: #e7eef0;
-  --popover: #13232c;
-  --popover-foreground: #e7eef0;
-  --primary: #4fd6e3;
-  --primary-foreground: #071118;
-  --secondary: #1d3340;
-  --secondary-foreground: #e7eef0;
-  --muted: #1d3340;
-  --muted-foreground: #8a9ba3;
-  --accent: #16303d;
-  --accent-foreground: #e7eef0;
+  --background: #131118;
+  --foreground: #ece9f2;
+  --card: #1b1921;
+  --card-foreground: #ece9f2;
+  --popover: #1f1c26;
+  --popover-foreground: #ece9f2;
+  --primary: #7b5bea;
+  --primary-foreground: #ffffff;
+  --secondary: #26232e;
+  --secondary-foreground: #ece9f2;
+  --muted: #26232e;
+  --muted-foreground: #a39dae;
+  --accent: #2a2340;
+  --accent-foreground: #ece9f2;
   --destructive: #ff9c90;
-  --border: #1d3340;
-  --input: #27404d;
-  --ring: #4fd6e3;
-  --link: #4fd6e3;
+  --border: #2b2833;
+  --input: #3a3644;
+  --ring: #a88bfa;
+  --link: #b49cfb;
   --status-safe: #7ff0c9;
-  --status-safe-surface: #0e3b33;
-  --status-working: #b4c3ca;
-  --status-working-surface: #1d3340;
+  --status-safe-surface: #0e3329;
+  --status-working: #bdb7c9;
+  --status-working-surface: #26232e;
   --status-attention: #ffd166;
-  --status-attention-surface: #3a2e0c;
-  --status-decision: #c4b2ff;
-  --status-decision-surface: #2c2250;
+  --status-attention-surface: #352a0c;
+  --status-decision: #ff8fd8;
+  --status-decision-surface: #3b1430;
   --status-blocked: #ff9c90;
-  --status-blocked-surface: #401a17;
+  --status-blocked-surface: #3d1916;
 }
 
 @theme inline {
@@ -119,6 +119,45 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+  :root {
+    caret-color: var(--primary);
+    accent-color: var(--primary);
+    scrollbar-color: var(--input) transparent;
+  }
+  /* Quota bars: themed track and fill instead of the browser's green and gray. */
+  progress {
+    appearance: none;
+    height: 0.5rem;
+    border: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--muted);
+  }
+  progress::-webkit-progress-bar {
+    background: var(--muted);
+  }
+  progress::-webkit-progress-value {
+    background: var(--primary);
+    border-radius: 999px;
+  }
+  progress::-moz-progress-bar {
+    background: var(--primary);
+    border-radius: 999px;
+  }
+}
+
+/* Public pages: a violet glint over the obsidian, as on the logo's glass. */
+.brand-backdrop {
+  background:
+    radial-gradient(
+      60rem 32rem at 50% -8rem,
+      color-mix(in srgb, var(--primary) 16%, transparent),
+      transparent 70%
+    ),
+    var(--background);
 }
 
 /* Diff (@kamino/ui-diff): code font; unified view recolored so mine = blocked tint, incoming = safe tint, as in the plugin. */

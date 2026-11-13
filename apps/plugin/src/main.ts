@@ -1,7 +1,8 @@
 import { PLUGIN_ID, PRODUCT_NAME, PROTOCOL_ACTION } from "@kamino/brand";
 import { PROTOCOL_VERSION, type DevicePlatform } from "@kamino/protocol";
 import { DEFAULT_THRESHOLDS, describeStatus } from "@kamino/status";
-import { apiVersion, getIconIds, Notice, Platform, Plugin } from "obsidian";
+import { addIcon, apiVersion, getIconIds, Notice, Platform, Plugin } from "obsidian";
+import { BRAND_ICON, BRAND_ICON_SVG } from "./ui/brand-icon.js";
 import { APP_CODENAME, APP_VERSION } from "./build-info.js";
 import { loadText, saveText } from "./diagnostics/file.js";
 import { DiagnosticLog } from "./diagnostics/log.js";
@@ -290,6 +291,7 @@ export default class SyncPlugin extends Plugin {
     };
 
     this.addSettingTab(new SettingsTab(this.app, this, ctx));
+    addIcon(BRAND_ICON, BRAND_ICON_SVG);
     this.registerView(STATUS_VIEW, (leaf) => new StatusPanelView(leaf, ctx));
     this.registerView(CONFLICT_VIEW, (leaf) => new ConflictView(leaf, ctx));
     this.registerView(WELCOME_VIEW, (leaf) => new WelcomeView(leaf, ctx));

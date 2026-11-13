@@ -35,6 +35,8 @@ export interface UiContext {
   openConflict(id: string): Promise<void>;
   openBulkResolve(): void;
   openWelcome(): Promise<void>;
+  /** The same choices as a window, on top of settings and of the mobile drawer. */
+  openLinkChoices(): void;
   openTransfer(): Promise<void>;
   openConnect(mode: "create" | "join"): void;
   openClaim(link: PairingLink): void;

@@ -94,7 +94,7 @@ export class StatusPanelView extends ItemView {
     if (snapshot.linked === false) {
       h(summary, "button", { cls: "mod-cta", text: t(ctx.lang).panel2.connect }).addEventListener(
         "click",
-        () => void ctx.openWelcome(),
+        () => ctx.openLinkChoices(),
       );
     } else {
       h(summary, "button", { cls: "mod-cta", text: m.syncNow }).addEventListener("click", () => {

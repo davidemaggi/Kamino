@@ -169,6 +169,9 @@ export class ConnectModal extends Modal {
     this.error = null;
     try {
       await this.advance();
+    } catch {
+      // Never a silent button: a failed create or link says so (the details stay out of the UI).
+      this.error = this.m.errors.failed;
     } finally {
       this.busy = false;
       if (this.contentEl.isConnected || this.contentEl.childElementCount > 0) this.render();

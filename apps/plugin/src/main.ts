@@ -39,6 +39,7 @@ import { StatusIndicator } from "./ui/StatusIndicator.js";
 import { StatusPanelView } from "./ui/StatusPanelView.js";
 import { TransferView } from "./ui/TransferView.js";
 import { WelcomeView } from "./ui/WelcomeView.js";
+import { WelcomeModal } from "./ui/WelcomeModal.js";
 import {
   CONFLICT_VIEW,
   openConflict,
@@ -250,6 +251,7 @@ export default class SyncPlugin extends Plugin {
       openConflict: (id) => openConflict(this.app, id),
       openBulkResolve: () => new BulkResolveModal(this.app, ctx).open(),
       openWelcome: () => openWelcome(this.app),
+      openLinkChoices: () => new WelcomeModal(this.app, ctx).open(),
       openTransfer: () => openTransfer(this.app),
       openConnect: (mode) => new ConnectModal(this.app, ctx, mode).open(),
       openClaim: (link) => {

@@ -258,7 +258,8 @@
       "required": "Compila questo campo.",
       "totp_mandatory": "Per gli amministratori la verifica in due passaggi è obbligatoria: attivala dalla web app (Account), poi riprova.",
       "rate_limited": "Troppi tentativi: attendi qualche minuto e riprova.",
-      "update_required": "Questo plugin è troppo vecchio per il server: aggiornalo, poi riprova."
+      "update_required": "Questo plugin è troppo vecchio per il server: aggiornalo, poi riprova.",
+      "failed": "Non è stato possibile completare il collegamento. Riprova; se succede ancora, copia la diagnostica dalle impostazioni."
     }
   },
   "transfer": {

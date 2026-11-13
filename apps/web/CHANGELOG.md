@@ -1,5 +1,9 @@
 # @kamino/web
 
+## 1.0.0-rc.3
+
+No changes in this release.
+
 ## 1.0.0-rc.2
 
 No changes in this release.

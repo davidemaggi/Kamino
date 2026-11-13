@@ -29,7 +29,7 @@ describe("SettingsTab", () => {
     const { names, row, ctx } = await open();
     expect(names()).toContain("Questo vault non è collegato.");
     (row("Questo vault non è collegato.").querySelector("button") as HTMLButtonElement).click();
-    expect(ctx.openWelcome).toHaveBeenCalled();
+    expect(ctx.openLinkChoices).toHaveBeenCalled();
     expect(names()).not.toContain("Scollega questo vault");
   });
 

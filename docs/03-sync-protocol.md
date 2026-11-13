@@ -70,6 +70,7 @@ Le operazioni di un batch sono elaborate **in ordine** e ciascuna è **atomica s
 | `mkdir` | `opId, fileId, path` | Crea una cartella (anche vuota). |
 | `move` | `opId, fileId, fromPath, toPath` | Rinomina/sposta file o cartella. Lo spostamento di una cartella è inviato come `move` della cartella **e** di tutti i discendenti nello stesso batch. |
 | `delete` | `opId, fileId, baseVersionId` | Cancella (tombstone → cestino). Per una cartella: `delete` dei discendenti, poi della cartella. |
+| `resolve` | `opId, conflictId, expectedHeadVersionId, keep` | Risolve un conflitto aperto (§9.3). |
 
 ### 5.2 Esiti
 
@@ -103,13 +104,15 @@ Le operazioni di un batch sono elaborate **in ordine** e ciascuna è **atomica s
 2. `baseVersionId` = versione corrente → accettata (tombstone, cestino 7 giorni).
 3. `baseVersionId` ≠ versione corrente → `rejected { code: modified_since }`: la cancellazione non avviene; il client riscarica la versione corrente e avvisa ("file ripristinato perché modificato su un altro dispositivo").
 
+**`resolve`**: conflitto sconosciuto → `rejected { code: not_found }`; già risolto o testa ≠ `expectedHeadVersionId` → `rejected { code: stale_resolution }`; candidata non del conflitto o `versionId` già usato → `invalid_request`; contenuto non caricato → `blob_missing`. Altrimenti §9.3.
+
 **`mkdir`**: accettata se la `collisionKey` è libera; se esiste già una cartella con la stessa chiave, accettata come `duplicate` dell'esistente (restituisce il suo `fileId`, il client aggiorna l'indice).
 
 Per ogni op accettata il server: inserisce la versione, aggiorna la testa del file, incrementa `head` del vault, inserisce la voce di journal, aggiorna la contabilità della quota; dopo il commit emette `NOTIFY`.
 
 ### 5.4 Codici di rifiuto principali
 
-`path_taken`, `moved_elsewhere`, `modified_since`, `blob_missing` (il contenuto non è stato caricato: il client lo carica e ripete), `path_invalid`, `path_forbidden` (path sempre esclusi, es. dati del plugin), `quota_exceeded`, `file_too_large`, `vault_read_only` (utente in cancellazione), `device_revoked`, `user_blocked`, `rate_limited` (con `Retry-After`), `protocol_unsupported`.
+`path_taken`, `moved_elsewhere`, `modified_since`, `stale_resolution`, `blob_missing` (il contenuto non è stato caricato: il client lo carica e ripete), `path_invalid`, `path_forbidden` (path sempre esclusi, es. dati del plugin), `quota_exceeded`, `file_too_large`, `vault_read_only` (utente in cancellazione), `device_revoked`, `user_blocked`, `rate_limited` (con `Retry-After`), `protocol_unsupported`.
 
 ## 6. Ricezione delle modifiche
 
@@ -242,15 +245,22 @@ Un conflitto ha: `fileId`, `kind` (`concurrent_edit` | `both_created`), `baseVer
 
 ### 9.3 Risoluzione
 
+Dal dispositivo la risoluzione è un'op `resolve` nel normale `POST /commits` (§5), idempotente per `opId` come le altre:
+
 ```
-POST /api/v1/vaults/:vaultId/conflicts/:id/resolve
-  { opId, resolution: keep_head | keep_candidate(versionId) | keep_local(versionId, contentHash) | keep_both | manual(versionId, contentHash), expectedHeadVersionId }
+{ type: "resolve", opId, conflictId, expectedHeadVersionId, keep }
+keep: { kind: "head" }                                           // la versione corrente resta
+    | { kind: "candidate", candidateVersionId, versionId }       // nuova versione corrente = candidata
+    | { kind: "content", versionId, contentHash, size, mtime }   // nuova versione corrente = contenuto caricato (copia locale, unione manuale)
+    | { kind: "both", candidateVersionId, fileId, versionId, path }  // la candidata diventa un file affiancato
 ```
 
-- La risoluzione crea una nuova versione corrente con base = `expectedHeadVersionId` (è un normale `put`), più la voce `conflict_resolved`.
-- `keep_both`: la versione corrente resta; la candidata (o la copia locale) diventa un **nuovo file** affiancato `Nota (conflitto - <dispositivo> - <AAAA-MM-GG HHmm>).md`. Il suffisso è localizzato nella lingua dell'utente.
-- Se nel frattempo la versione corrente è cambiata di nuovo (`expectedHeadVersionId` superato) → `rejected { code: stale_resolution }`: la UI si aggiorna mostrando il nuovo contenuto in arrivo.
-- Dal plugin, `keep_local`/`manual` caricano prima il contenuto (§4).
+- La nuova versione corrente ha base = testa attuale (come un `put`); se il file era nel cestino torna in vita (`file_restored`). Poi la voce `conflict_resolved { conflictId, fileId, versionId, contentHash }`, con la versione scelta.
+- `both`: la versione corrente resta; la candidata diventa un **nuovo file** affiancato `Nota (conflitto - <dispositivo> - <AAAA-MM-GG HHmm>).md` (suffisso nella lingua dell'utente; path occupato → `(1)`, `(2)`…). Journal: `file_put` del nuovo file, poi `conflict_resolved` con la testa.
+- Se nel frattempo la versione corrente è cambiata (`expectedHeadVersionId` superato) o il conflitto è già chiuso → `rejected { code: stale_resolution }`: la UI si aggiorna mostrando il nuovo contenuto in arrivo.
+- Dal plugin, `content` carica prima il contenuto (§4).
+- **Web app:** `POST /api/v1/conflicts/:id/resolve { resolution, expectedIncomingAt, expectedMineAt? }` e `POST /api/v1/conflicts/resolve-all { strategy, ids }`. Il server costruisce la stessa op `resolve` ("mia" = testa, "in arrivo" = candidata più recente; `manual` = il server salva il testo come blob) e la passa alle stesse regole. Candidata o testa diverse da quelle viste → 409 `stale_resolution`. In blocco, solo gli id visti; quelli chiusi o cambiati nel frattempo si saltano. Le voci di journal scritte dalla web app hanno `deviceId` = UUID nullo, le versioni nessun dispositivo.
+- **Ripristini dalla web app** (`POST /versions/:id/restore`, `POST /trash/:id/restore`): un `put` costruito dal server con il contenuto scelto e base = testa letta in quel momento. Se la testa cambia prima del commit il ripristino diventa una candidata di conflitto: niente va perso. Dal cestino il file torna al suo path, o con `(1)` se occupato (`file_restored`).
 - Al ricevere `conflict_resolved` (risoluzione fatta altrove, es. dalla web app), il dispositivo perdente:
   1. se la copia locale coincide con la versione scelta → allineato;
   2. se la copia locale coincide con una candidata già sul server → scarica la nuova versione corrente;

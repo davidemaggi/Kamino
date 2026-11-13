@@ -25,6 +25,15 @@
 
 **Test:** integrazione per ogni scelta di risoluzione e per lo stale; due risoluzioni concorrenti (web + dispositivo: una vince, l'altra 409); ripristini con path occupato e quota; retention che non tocca i conflitti aperti; GC che non tocca blob ancora referenziati o in upload; e2e Playwright: risolvi, ripristina dallo storico e dal cestino sul server vero.
 
+**Come è andata (deviazioni dall'implementazione, 2026-11-13):**
+
+- **A1/A3:** niente rotta dispositivo dedicata. La risoluzione è una nuova op `resolve` nell'unione `Op` di `@kamino/protocol`, decisa dall'arbitro puro di sync-core (`decideResolve`) e applicata dal normale `SyncService.commit` (stesso lock, stessa idempotenza con `applied_ops`). `keep`: `head`, `candidate`, `content`, `both` (03 §9.3). La web app costruisce la stessa op sul server (`ResolutionService`, `src/conflicts/resolve.ts`); `manual` passa da `storePlain` (upload lato server, quota compresa).
+- **A2:** conflitto già chiuso → `stale_resolution` (non un codice a parte); la web app può mandare anche `expectedMineAt`.
+- **A4** passa a M3b: con le op attuali il plugin archivia la copia locale caricandola e usando `content`, o con un `put` di un file affiancato nello stesso batch prima del `resolve`.
+- **A7:** ordine invertito, **prima la riga, poi l'oggetto** (sotto il lock del vault e un advisory lock sulla chiave, lo stesso di `complete` dell'upload). Un crash in mezzo lascia un oggetto senza riga (spazio sprecato), mai una versione senza contenuto né una riga che punta al vuoto. La quota segue da sola (somma delle righe `blobs`).
+- **Nessuna migrazione:** le versioni della web app hanno `device_id` nullo; il journal (colonna non nulla) usa l'UUID nullo `WEB_AUTHOR`.
+- **A8:** il flag `features.historyWrites` è stato rimosso del tutto.
+
 ### M3b — client (sync-core, motore, plugin)
 
 | # | Decisione |

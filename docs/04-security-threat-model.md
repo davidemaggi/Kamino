@@ -127,3 +127,29 @@ Registra: creazione/blocco/sblocco/cancellazione utenti, modifiche di quota e di
 - Il token è salvato nei dati del plugin nel vault: chiunque legga i file del vault sul dispositivo lo ottiene. È dichiarato nella documentazione; la revoca è la contromisura.
 - Nessuna telemetria. Le uniche connessioni di rete sono verso il server configurato dall'utente (dichiarato nel README per lo store).
 - Il plugin non esegue mai contenuto ricevuto (es. JavaScript di altri plugin sincronizzati: vengono scritti come file, ed è Obsidian a decidere se caricarli — la categoria "Plugin installati" lo spiega all'utente).
+
+## 11. Stato delle contromisure (revisione M7a, 2026-11-13)
+
+| ID | Stato | Dove |
+|---|---|---|
+| T-01 | ✅ | `ownedVault` e controlli di proprietà nei servizi; la **matrice di autorizzazione** (`apps/server/test/authz-matrix.test.ts`) enumera ogni rotta registrata: senza credenziali 401, risorse altrui 404. Una rotta nuova senza voce nella matrice fa fallire i test. |
+| T-02 | ✅ | Matrice: un admin sulle risorse altrui riceve 404 come chiunque; `admin-architecture.test.ts` impedisce al modulo `admin` di importare servizi che decifrano. |
+| T-03 | ✅ | L'admin manda solo link di reset (M5), non imposta password; reset 2FA solo da CLI, con audit. |
+| T-04 | ✅ | Envelope encryption (M1b/M1c). Backup senza KEK: M7b. |
+| T-05 | ✅ | Verifica della KEK all'avvio, `kamino keys verify`. Custodia: `docs/self-hosting.md` (M7c). |
+| T-06 | 🔧 | `*_FILE` e redazione dei log. `kamino keys rotate`: M7b. |
+| T-07 | ✅ | Argon2id; limiti per IP **e** per account (10 tentativi ogni 15 minuti, finestra fissa: fa da blocco temporaneo, senza lockout progressivo); TOTP obbligatorio per gli admin. |
+| T-08 | ✅ | Token da 256 bit salvati come hash, revoca immediata, un vault per token. |
+| T-09 | ✅ | Pairing monouso con approvazione e codice di verifica (M6). |
+| T-10 | ✅ | HSTS inviato dal server quando `KAMINO_PUBLIC_URL` è HTTPS (M7a), oltre al reverse proxy. |
+| T-11 | ✅ | Cookie `HttpOnly`/`SameSite=Lax`, anti-CSRF `X-Requested-With`, **CSP** (M7a): script solo dalla stessa origine, niente inline né `eval` (zod in modalità `jitless`), `frame-ancestors 'none'`. **Rischio residuo accettato:** `style-src` ammette `'unsafe-inline'` perché CodeMirror inietta i propri stili; un'iniezione di stile non esegue codice. |
+| T-12 | ✅ | Validazione dei path in `sync-core`, lato server e client. |
+| T-13 | ✅ | Quota con riserva, limite per file e per chunk, rate limiting su login, pairing, export ZIP, scritture della web app e sessioni di upload (M7a), tutto in memoria (istanza singola). |
+| T-14 | 🔧 | AEAD a segmenti. `kamino backup verify`: M7b. |
+| T-15 | ✅ | Ruolo cambiato solo da un admin, con audit; TOTP obbligatorio; token di setup nei log al primo avvio. |
+| T-16 | ✅ | Redazione dei log; mai path, nomi, contenuti, token, email. |
+| T-17 | ✅ | Crypto-shredding e purge dei blob (M5). Backup: vedi §7. |
+| T-18 | accettato | Dichiarato in UI. |
+| T-19 | ✅ | `pnpm audit --prod --audit-level high` in CI e Dependabot (npm, GitHub Actions, Docker) (M7a). |
+
+Le API rispondono sempre con `Cache-Control: no-store`; ogni risposta porta `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy: same-origin` e una `Permissions-Policy` minima.

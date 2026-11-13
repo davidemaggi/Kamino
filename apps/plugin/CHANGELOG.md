@@ -1,5 +1,11 @@
 # @kamino/plugin
 
+## 1.0.0-rc.6
+
+### Patch Changes
+
+- c564c90: In the mobile menu the sync status entry shows the logo and a title, instead of a clock with no text.
+
 ## 1.0.0-rc.5
 
 ### Patch Changes

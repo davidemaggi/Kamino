@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-13 — **M3a mergiata** (PR #17). **M3b mergiata** (PR #18). **M7** iniziata (spec leggera `docs/superpowers/specs/2026-11-13-m7-hardening-design.md`, tre PR): **M7a fatta** (intestazioni di sicurezza e CSP, rate limit, matrice di autorizzazione su ogni rotta, `pnpm audit` e Dependabot in CI, revisione del threat model) sul branch `m7-hardening`, PR aperta. Poi M7b (chiavi e backup) e M7c (prestazioni, docs, BRAT). Le prove con persone e dispositivi veri sono rinviate dal committente alla fine di tutto lo sviluppo. Processo snello deciso dal committente: niente cerimonia superpowers, spec leggera, solo le scelte vere.
+**Ultimo aggiornamento:** 2026-11-13 — **M3a mergiata** (PR #17). **M3b mergiata** (PR #18). **M7** iniziata (spec leggera `docs/superpowers/specs/2026-11-13-m7-hardening-design.md`, tre PR): **M7a fatta** (intestazioni di sicurezza e CSP, rate limit, matrice di autorizzazione su ogni rotta, `pnpm audit` e Dependabot in CI, revisione del threat model) sul branch `m7-hardening`, PR #19 aperta. **M7b fatta** sul branch `m7b-keys-backup` (impilato su `m7-hardening`): rotazione della master key a doppia chiave (`keys rotate`, `KAMINO_MASTER_KEY_PREVIOUS[_FILE]`, `docker/compose.rotate.yml`) e `backup create|verify|restore` (ZIP con COPY binario di ogni tabella + blob cifrati, senza chiave; verify ripristina in un database temporaneo e decifra 20 blob; restore solo su installazione vuota). Procedure in `docs/self-hosting.md` §5–6; T-06 e T-14 chiusi nel threat model. Poi M7c (prestazioni, docs, BRAT). Le prove con persone e dispositivi veri sono rinviate dal committente alla fine di tutto lo sviluppo. Processo snello deciso dal committente: niente cerimonia superpowers, spec leggera, solo le scelte vere.
 
 ## Dove siamo
 
@@ -22,9 +22,9 @@
 | M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ✅ M2b: mergiata (PR #13); ⏳ test sui dispositivi D-1…D-7 e settimana d'uso |
 | M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | ✅ P1 area utente (Task 1–7): mergiata (PR #14) · ✅ P2 admin/quote/email (Task 8–13): mergiata (PR #15) · ✅ P3 pairing (Task 14–15): mergiata (PR #16); ⏳ prova con una persona vera (a fine sviluppo) |
 | M3 — conflitti e storico (spec leggera `docs/superpowers/specs/2026-11-13-m3-conflicts-history-design.md`; due PR) | ✅ M3a server + web: mergiata (PR #17) · ✅ M3b client: mergiata (PR #18) |
-| M7 — hardening e prima release (spec leggera `docs/superpowers/specs/2026-11-13-m7-hardening-design.md`; tre PR) | 🔧 M7a sicurezza: fatta, PR aperta · ⏳ M7b chiavi e backup · ⏳ M7c prestazioni, docs, BRAT · ⏳ 1.0 solo col via del committente dopo i test sui dispositivi |
+| M7 — hardening e prima release (spec leggera `docs/superpowers/specs/2026-11-13-m7-hardening-design.md`; tre PR) | 🔧 M7a sicurezza: fatta, PR #19 aperta · 🔧 M7b chiavi e backup: fatta, PR aperta (base `m7-hardening`) · ⏳ M7c prestazioni, docs, BRAT · ⏳ 1.0 solo col via del committente dopo i test sui dispositivi |
 
-**Branch di lavoro:** `m7-hardening` (M7a in revisione); M7b su `m7b-keys-backup`.
+**Branch di lavoro:** `m7-hardening` (M7a, PR #19); `m7b-keys-backup` (M7b, impilato su M7a: dopo il merge di #19 la base della PR M7b passa a `main`). M7c partirà da `m7b-keys-backup`.
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -82,7 +82,7 @@ Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del disposit
 
 ## Prossimi passi
 
-1. **M7b** (`kamino keys rotate`, `backup create|verify|restore` con dump logico in Node, ripristino provato nei test) e **M7c** (10.000 file, `docs/self-hosting.md`, workflow BRAT). La 1.0 e il nome pubblico sono scelte del committente, dopo i test sui dispositivi.
+1. **M7c** (10.000 file, completare `docs/self-hosting.md`, workflow BRAT, minori rinviati). Da provare a mano prima della 1.0: comportamento dei dispositivi già collegati dopo un `backup restore` (il cursore del server torna indietro). La 1.0 e il nome pubblico sono scelte del committente, dopo i test sui dispositivi.
 2. **Prima di rilasciare M6:** prova del pairing con una persona vera (QR inquadrato col telefono che apre Obsidian, stesso codice sui due lati, approvazione dal desktop e dalla web app, link via email), insieme ai test sui dispositivi del punto 2.
 3. **Test sui dispositivi** D-1…D-7 (`docs/spikes/README.md`) e la **settimana d'uso** con due desktop e un telefono, che chiude M2. Nessuna release pubblica prima.
 4. **M7** (hardening, release) resta una milestone a sé.

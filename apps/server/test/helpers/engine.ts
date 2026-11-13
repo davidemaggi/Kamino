@@ -172,3 +172,18 @@ export async function eventually(ok: () => boolean, ms = 10_000): Promise<void> 
     await new Promise((r) => setTimeout(r, 50));
   }
 }
+
+/** `syncNow()` ends with the cycle; downloads may still be in flight: wait for them too. */
+export async function drain(e: Engine): Promise<void> {
+  // Up to two minutes: past 1800 uploads a minute the server answers 429 until its window frees.
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    await e.syncNow();
+    if (!e.snapshot().syncing && e.snapshot().queued === 0) {
+      await e.syncNow(); // the scan adopts the files written by the downloads
+      if (!e.snapshot().syncing) return;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error("the engine never settled");
+}

@@ -1,6 +1,6 @@
-import { MemoryFs, type Engine } from "@kamino/sync-engine";
+import { MemoryFs } from "@kamino/sync-engine";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { deviceEngine, vaultFiles } from "./helpers/engine.js";
+import { deviceEngine, drain, vaultFiles } from "./helpers/engine.js";
 import { testApp, type TestApp } from "./helpers/app.js";
 import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
 import { linkDevice, user, type TestDevice } from "./helpers/sync.js";
@@ -18,19 +18,6 @@ const LIMITS = {
   snapshot: 10_000,
   oneEdit: 15_000,
 };
-
-/** `syncNow()` ends with the cycle; downloads may still be in flight: wait for them too. */
-async function drain(e: Engine): Promise<void> {
-  for (let i = 0; i < 50; i++) {
-    await e.syncNow();
-    if (!e.snapshot().syncing && e.snapshot().queued === 0) {
-      await e.syncNow(); // the scan adopts the files written by the downloads
-      if (!e.snapshot().syncing) return;
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new Error("the engine never settled");
-}
 
 async function timed<T>(label: string, fn: () => Promise<T>): Promise<[T, number]> {
   const t0 = performance.now();

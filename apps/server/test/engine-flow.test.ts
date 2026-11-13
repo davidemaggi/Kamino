@@ -2,7 +2,7 @@ import { MemoryFs, sha256Hex } from "@kamino/sync-engine";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compactJournal, INACTIVE_DEVICE_MS } from "../src/jobs/compact.js";
-import { deviceEngine, vaultFiles } from "./helpers/engine.js";
+import { deviceEngine, drain, vaultFiles } from "./helpers/engine.js";
 import { testApp, type TestApp } from "./helpers/app.js";
 import { dockerUnavailable, startPostgres, type TestPostgres } from "./helpers/postgres.js";
 import { linkDevice, user, type TestDevice } from "./helpers/sync.js";
@@ -62,15 +62,14 @@ describe.skipIf(dockerUnavailable)("sync engine against the real server", () => 
       new Uint8Array(200_000).map((_, i) => i % 251),
     ); // several chunks
     const e = await deviceEngine(() => app, a, fsA);
-    await e.syncNow();
+    await drain(e);
     expect(e.snapshot().queued).toBe(0);
     expect(await serverHashes(a)).toEqual(await localHashes(fsA));
   }, 900_000);
 
   it("a second device with an empty vault receives everything, identical", async () => {
     const e = await deviceEngine(() => app, b, fsB);
-    await e.syncNow();
-    await e.syncNow(); // the scan adopts the written files
+    await drain(e); // includes the scan that adopts the written files
     expect(vaultFiles(fsB)).toEqual(vaultFiles(fsA));
     expect(e.snapshot().queued).toBe(0);
   }, 900_000);

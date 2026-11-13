@@ -1,5 +1,5 @@
 import type { BlockReason, SyncSnapshot } from "@kamino/status";
-import type { FileOp } from "@kamino/protocol";
+import type { FileOp, Op } from "@kamino/protocol";
 import { nextOps, type ClientState } from "@kamino/sync-core";
 
 /** `vault_gone`: the vault was deleted or suspended on the server (re-link to another one). */
@@ -21,15 +21,23 @@ export interface DeferredFile {
   reason?: "network" | "size" | "unreadable";
 }
 
-/** Every op the client would still send: the unconfirmed batch first, then the rest. */
+const isFileOp = (op: Op): op is FileOp => op.type !== "resolve";
+
+/**
+ * Every file op the client would still send: the unconfirmed batch first, then the rest.
+ * Conflict resolutions are not changes to files: they show in the conflict list, not here.
+ */
 export function pendingOps(s: ClientState): FileOp[] {
   const all = { ...s.config, batchSize: Number.MAX_SAFE_INTEGER };
-  const sentIds = new Set(s.durable.sent.map((op) => op.fileId));
+  const sent = s.durable.sent.filter(isFileOp);
+  const sentIds = new Set(sent.map((op) => op.fileId));
   const rest = nextOps(
     { ...s, config: all, durable: { ...s.durable, sent: [] } },
     { newId: () => "" },
-  ).filter((op) => !sentIds.has(op.fileId));
-  return [...s.durable.sent, ...rest];
+  )
+    .filter(isFileOp)
+    .filter((op) => !sentIds.has(op.fileId));
+  return [...sent, ...rest];
 }
 
 export interface Backlog {

@@ -9,3 +9,4 @@ export * from "./engine.js";
 export * from "./socket.js";
 export * from "./echo.js";
 export * from "./network.js";
+export { CONFLICT_COPY_LABEL } from "@kamino/sync-core";

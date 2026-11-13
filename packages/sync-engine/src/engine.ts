@@ -1,4 +1,5 @@
 import {
+  type ChangesResponse,
   ErrorCode,
   PROTOCOL_MIN_SUPPORTED,
   PROTOCOL_VERSION,
@@ -6,6 +7,9 @@ import {
 } from "@kamino/protocol";
 import type { SyncSnapshot } from "@kamino/status";
 import {
+  conflictCopyPath,
+  conflictHead,
+  conflictStamp,
   initialState,
   localPath,
   normalizePath,
@@ -16,6 +20,8 @@ import {
   type ClientState,
   type Durable,
   type Effect,
+  type Entry,
+  type ResolveChoice,
 } from "@kamino/sync-core";
 import { Api, ApiError } from "./api.js";
 import { Realtime, type PairingMessage, type RealtimeEvent, type SocketFactory } from "./socket.js";
@@ -115,6 +121,64 @@ export const STATE_FILES = {
   meta: "meta",
 } as const;
 
+const MAX_AUTHORS = 10_000;
+
+async function* one(b: Uint8Array): AsyncIterable<Uint8Array> {
+  yield b;
+}
+
+/** The author of web app versions in the journal (the server's `WEB_AUTHOR`). */
+export const WEB_AUTHOR_ID = "00000000-0000-0000-0000-000000000000";
+
+/** An open conflict of the vault. `here`: this device has a side of it and can resolve it. */
+export interface ConflictInfo {
+  id: string;
+  fileId: string;
+  /** Local path, when this device knows the file. */
+  path: string | null;
+  here: boolean;
+}
+
+/** One side of a conflict. `bytes` only when asked for. */
+export interface ConflictSide {
+  /** epoch ms, when known. */
+  at: number | null;
+  /** Who wrote it, when known: a device name, or `web` for the web app. */
+  author: { kind: "device"; name: string } | { kind: "web" } | null;
+  size: number | null;
+  bytes: Uint8Array | null;
+}
+
+export interface ConflictDetail {
+  id: string;
+  fileId: string;
+  /** Local path. */
+  path: string;
+  kind: "concurrent_edit" | "both_created";
+  /** The server version shown as "incoming": the one a resolution answers. */
+  head: string;
+  /** This device's copy; `bytes` null when the file is not on disk. */
+  mine: ConflictSide;
+  incoming: ConflictSide;
+}
+
+/** What the user chose for one conflict, against the server version they saw. */
+export interface ResolveRequest {
+  id: string;
+  choice: ResolveChoice;
+  head: string;
+  /** A manual merge: written to the local file first, then kept as "mine". */
+  text?: Uint8Array;
+  /** "Keep both": label and device name of the copy's name (03 §9.3). */
+  copy?: { label: string; device: string };
+}
+
+/**
+ * ok = confirmed by the server (or closed meanwhile); queued = waiting for the server (offline);
+ * stale = the server moved on or the local file changed, look again; gone = not open any more.
+ */
+export type ResolveResult = "ok" | "queued" | "stale" | "gone";
+
 /** S-02. Live: socket + quick sends; Periodic: a cycle every N minutes; Manual: on request. */
 export type SyncMode = "live" | "periodic" | "manual";
 /** Live with the socket down: a pull this often until it is back (spec F3). */
@@ -170,6 +234,9 @@ export class Engine {
   private oldestQueuedAt: number | null = null;
   private lastError: string | undefined;
   private openConflicts: { id: string; fileId: string }[] = [];
+  /** Who wrote the server versions seen in the journal (memory only, best effort). */
+  private readonly authors = new Map<string, { deviceId: string; at: number }>();
+  private deviceNames: Map<string, string> | null = null;
   private unreadable: string[] = [];
   /** Files waiting for streaming or a higher limit, by local path; rebuilt each cycle. */
   private readonly waiting = new Map<string, DeferredFile>();
@@ -530,19 +597,147 @@ export class Engine {
   }
 
   /** Open conflicts, with the local path when this device knows the file. */
-  conflicts(): { id: string; fileId: string; path: string | null }[] {
+  conflicts(): ConflictInfo[] {
     const index = this.st.durable.index;
     const pathOf = (fileId: string) => {
       const e = index[fileId];
       return e ? localPath(e.path, this.d.config.configDir) : null;
     };
-    const out = new Map(
-      this.openConflicts.map((c) => [c.id, { ...c, path: pathOf(c.fileId) }] as const),
+    const out = new Map<string, ConflictInfo>(
+      this.openConflicts.map((c) => [c.id, { ...c, path: pathOf(c.fileId), here: false }] as const),
     );
     for (const e of Object.values(index))
       if (e.conflictId)
-        out.set(e.conflictId, { id: e.conflictId, fileId: e.fileId, path: pathOf(e.fileId) });
+        out.set(e.conflictId, {
+          id: e.conflictId,
+          fileId: e.fileId,
+          path: pathOf(e.fileId),
+          here: !e.ignored,
+        });
     return [...out.values()];
+  }
+
+  /** The entry of this device's side of the conflict, if it can resolve it. */
+  private conflictEntry(id: string): Entry | null {
+    return (
+      Object.values(this.st.durable.index).find((e) => e.conflictId === id && !e.ignored) ?? null
+    );
+  }
+
+  /**
+   * B3: "mine" = this device's copy, "incoming" = the server's current version. Contents only
+   * with `content` (the caller decides what it can show); null when not resolvable here.
+   */
+  async conflictDetail(id: string, content: boolean): Promise<ConflictDetail | null> {
+    const e = this.conflictEntry(id);
+    const head = e ? conflictHead(this.st, e.fileId) : null;
+    if (!e || !head) return null;
+    const path = localPath(e.path, this.d.config.configDir);
+    const collect = async (parts: AsyncIterable<Uint8Array>) => {
+      const chunks: Uint8Array[] = [];
+      for await (const p of parts) chunks.push(p);
+      const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+      let at = 0;
+      for (const c of chunks) {
+        out.set(c, at);
+        at += c.length;
+      }
+      return out;
+    };
+    const mineBytes = content && e.localHash !== null ? await collect(this.d.fs.read(path)) : null;
+    let incomingSize: number | null = this.st.durable.index[head.fileId]?.size ?? null;
+    const incomingBytes = content
+      ? await collect(
+          this.transfers.download(
+            this.d.vaultId,
+            head.hash,
+            () => {},
+            (n) => (incomingSize = n),
+          ),
+        )
+      : null;
+    const by = this.authors.get(head.versionId);
+    return {
+      id,
+      fileId: e.fileId,
+      path,
+      kind: e.confirmed ? "concurrent_edit" : "both_created",
+      head: head.versionId,
+      mine: {
+        at: e.localHash !== null ? e.mtime : null,
+        author: null,
+        size: e.localHash !== null ? e.size : null,
+        bytes: mineBytes,
+      },
+      incoming: {
+        at: by?.at ?? null,
+        author: by ? await this.authorOf(by.deviceId) : null,
+        size: incomingSize,
+        bytes: incomingBytes,
+      },
+    };
+  }
+
+  private async authorOf(deviceId: string): Promise<ConflictSide["author"]> {
+    if (deviceId === WEB_AUTHOR_ID) return { kind: "web" };
+    if (!this.deviceNames?.has(deviceId)) {
+      try {
+        const list = await this.api.vaultDevices();
+        this.deviceNames = new Map(list.map((d) => [d.id, d.name]));
+      } catch {
+        return null;
+      }
+    }
+    const name = this.deviceNames?.get(deviceId);
+    return name === undefined ? null : { kind: "device", name };
+  }
+
+  /**
+   * Resolves conflicts of this device (B3), then runs a cycle so the server confirms them. A
+   * manual merge is written to the local file first (only if it is still what the user saw).
+   */
+  async resolve(requests: readonly ResolveRequest[]): Promise<ResolveResult[]> {
+    const out: (ResolveResult | null)[] = [];
+    const sent: { id: string; i: number }[] = [];
+    for (const r of requests) {
+      const e = this.conflictEntry(r.id);
+      if (!e) {
+        out.push(this.conflicts().some((c) => c.id === r.id) ? "stale" : "gone");
+        continue;
+      }
+      if (conflictHead(this.st, e.fileId)?.versionId !== r.head) {
+        out.push("stale");
+        continue;
+      }
+      let choice = r.choice;
+      if (r.text) {
+        const want = await sha256Hex(one(r.text));
+        const path = localPath(e.path, this.d.config.configDir);
+        if ((await this.d.fs.write(path, one(r.text), e.localHash, want)) !== "ok") {
+          out.push("stale");
+          continue;
+        }
+        this.dirty = true;
+        choice = "mine";
+      }
+      const ev: ClientEvent = { type: "resolve", fileId: e.fileId, choice, head: r.head };
+      if (r.copy)
+        ev.copyPath = conflictCopyPath(
+          e.path,
+          r.copy.label,
+          r.copy.device,
+          conflictStamp(new Date(this.d.clock.now()), false),
+        );
+      await this.dispatch(ev);
+      sent.push({ id: r.id, i: out.length });
+      out.push(null);
+    }
+    if (sent.length > 0) await this.syncNow();
+    for (const { id, i } of sent) {
+      const e = Object.values(this.st.durable.index).find((x) => x.conflictId === id);
+      out[i] = !e ? "ok" : e.resolving ? "queued" : "stale";
+    }
+    return out.map((r) => r ?? "stale");
   }
 
   onChange(cb: () => void): () => void {
@@ -688,6 +883,26 @@ export class Engine {
     }
   }
 
+  /** Conflicts opened and closed, and who wrote each version (for the conflict view). */
+  private learn(entries: ChangesResponse["entries"]): void {
+    for (const e of entries) {
+      if (e.versionId) {
+        this.authors.set(e.versionId, { deviceId: e.deviceId, at: Date.parse(e.at) });
+        if (this.authors.size > MAX_AUTHORS) {
+          const first = this.authors.keys().next();
+          if (!first.done) this.authors.delete(first.value);
+        }
+      }
+      if (e.type === "conflict_opened" && e.conflictId) {
+        const id = e.conflictId;
+        if (!this.openConflicts.some((c) => c.id === id))
+          this.openConflicts.push({ id, fileId: e.fileId });
+      } else if (e.type === "conflict_resolved" && e.conflictId) {
+        this.openConflicts = this.openConflicts.filter((c) => c.id !== e.conflictId);
+      }
+    }
+  }
+
   private track(p: Promise<void>): void {
     const t = p.catch(() => this.log("effect_failed"));
     this.inflight.add(t);
@@ -784,6 +999,7 @@ export class Engine {
             const r = await api.changes(vaultId, fx.after);
             if (r.entries.some((e) => e.type === "vault_settings_changed"))
               this.d.onSettingsChanged?.();
+            this.learn(r.entries);
             this.lastConfirmedAt = this.d.clock.now();
             return { type: "pullResult", requestId: fx.requestId, ...r };
           }),

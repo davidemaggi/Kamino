@@ -3,6 +3,7 @@ import {
   BlobsCheckResponse,
   ChangesResponse,
   CommitResponse,
+  DeviceList,
   DeviceLoginResponse,
   DeviceSettings,
   EnrollVault,
@@ -170,6 +171,10 @@ export class Api {
   }
   async unlink(): Promise<void> {
     await this.send({ method: "DELETE", path: "/device" });
+  }
+  /** The devices of this vault, for names (who wrote a version). */
+  vaultDevices(): Promise<DeviceList> {
+    return this.json(DeviceList, { method: "GET", path: "/vault/devices" });
   }
   vaultSettings(): Promise<SyncSettings> {
     return this.json(SyncSettings, { method: "GET", path: "/vault/settings" });

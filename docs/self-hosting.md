@@ -1,6 +1,6 @@
-# Self-hosting (bozza)
+# Self-hosting
 
-> Stato: bozza (M0). L'elenco completo delle variabili `KAMINO_*` sarà generato dallo schema di configurazione.
+> Stato: completo per la prima release (M7c). Gli esempi usano `docker/compose.lan.yml`: con un altro scenario sostituisci il file (`compose.tunnel.yml`, `compose.caddy.yml`) in tutti i comandi.
 
 Kamino è un'unica immagine (`kamino`) più PostgreSQL. Ci sono tre scenari di riferimento, ciascuno con il suo compose in `docker/` (vedi [architettura §1 e §8](02-architecture.md)).
 
@@ -100,7 +100,7 @@ Custodia:
 - Multi-stage (build su `node:24-alpine`, runtime su `alpine:3.24` con il binario `node` ufficiale ridotto con `strip`); utente non root (`node`), nessun segreto nei layer (la master key è un Docker secret; la password del database arriva da `docker/.env` a runtime).
 - `HEALTHCHECK` su `/health/live` (con `node`, senza curl).
 - Il commit mostrato da `/version` si imposta con `--build-arg KAMINO_BUILD_COMMIT=<sha>` (nei compose: variabile `KAMINO_BUILD_COMMIT`); senza, vale `unknown`.
-- L'entrypoint senza argomenti avvia il server; con argomenti esegue la CLI (`keys generate`, `keys verify`, `migrate`, `users …`).
+- L'entrypoint senza argomenti avvia il server; con argomenti esegue la CLI (`keys generate`, `keys verify`, `keys rotate`, `migrate`, `users …`, `backup create|verify|restore`).
 
 ## 4. Primo avvio e utenti
 
@@ -112,3 +112,106 @@ Custodia:
   - `… users reset-2fa <username>` toglie la verifica in due passaggi a chi ha perso il telefono e i codici di recupero (resta nel registro).
 - Le migrazioni del database partono solo dopo la verifica della master key: con una chiave sbagliata il server si ferma senza toccare lo schema.
 - Dimensione dell'immagine: **210 MB** (`docker image ls`, base Alpine 3.24 + binario `node` ridotto con `strip`) (obiettivo < 250 MB).
+
+## 5. Backup e ripristino
+
+Un backup è un unico file ZIP con il database (tutte le tabelle, in un'unica transazione coerente) e i blob cifrati. **Non contiene la master key**: senza la chiave il backup non è leggibile, quindi conserva la chiave a parte (§2). Il file è creato con permessi `600`.
+
+Creare un backup a server acceso, in una cartella dell'host montata nel container (deve essere scrivibile dall'uid 1000):
+
+```sh
+mkdir -p backups && sudo chown 1000:1000 backups   # su Docker Desktop basta mkdir
+docker compose -f docker/compose.lan.yml run --rm -T -v "$PWD/backups:/backups" kamino backup create /backups/kamino-$(date +%F).zip
+```
+
+Verificarlo (consigliato dopo ogni backup, o almeno ogni settimana): il comando ripristina il backup in un database temporaneo sullo stesso Postgres, controlla che la master key apra ogni chiave dei vault e che un campione di 20 blob si decifri con il contenuto atteso, poi cancella il database temporaneo. Serve un utente Postgres che possa creare database (quello dei compose lo può).
+
+```sh
+docker compose -f docker/compose.lan.yml run --rm -T -v "$PWD/backups:/backups" kamino backup verify /backups/kamino-2026-11-13.zip
+```
+
+Conservazione consigliata: un backup al giorno, tenuti **30 giorni**, con almeno una copia fuori dal server. Un backup fatto prima di una rotazione della master key (§6) si apre solo con la **vecchia** chiave: tienila insieme a quei backup finché non scadono.
+
+Ripristinare su un'installazione nuova (database e volume vuoti; il ripristino si rifiuta di scrivere sopra dati esistenti). Serve la stessa master key del backup in `docker/secrets/kamino_master_key`:
+
+```sh
+docker compose -f docker/compose.lan.yml up -d postgres           # solo il database, il server non deve essere partito
+docker compose -f docker/compose.lan.yml run --rm -T -v "$PWD/backups:/backups" kamino backup restore /backups/kamino-2026-11-13.zip
+docker compose -f docker/compose.lan.yml up -d                     # avvia il server sui dati ripristinati
+```
+
+Il ripristino applica le migrazioni, controlla che il backup venga dalla stessa versione dello schema, scrive i blob e poi tutte le tabelle in una transazione, e confronta il numero di righe. Le modifiche arrivate al server dopo il backup non sono nel backup; restano però nelle vault locali dei dispositivi. Il comportamento dei dispositivi già collegati dopo un ripristino è tra le prove da fare prima della 1.0: fino ad allora, in caso di dubbio, controlla la vault di un dispositivo prima di ricollegarlo.
+
+## 6. Rotazione della master key
+
+Da fare se la chiave potrebbe essere stata esposta, o periodicamente. Il server resta acceso; i contenuti non vengono ricifrati, solo le chiavi dei vault e i segreti di sistema (TOTP, password SMTP, email in coda).
+
+1. Fai un backup (§5) e conservalo con la chiave attuale.
+2. Sposta la chiave attuale in `docker/secrets/kamino_master_key_previous` e generane una nuova in `docker/secrets/kamino_master_key` (§2), con gli stessi permessi.
+3. Riavvia con entrambe le chiavi; nei log compare un avviso di rotazione in corso. Da qui i dati nuovi usano già la nuova chiave:
+   ```sh
+   docker compose -f docker/compose.lan.yml -f docker/compose.rotate.yml up -d
+   ```
+4. Esegui la rotazione (si può ripetere e interrompere senza danni):
+   ```sh
+   docker compose -f docker/compose.lan.yml -f docker/compose.rotate.yml run --rm -T kamino keys rotate
+   ```
+   Il comando stampa quante chiavi e segreti ha spostato. Se segnala **export di account eliminati** ancora scaricabili, quelli restano cifrati con la vecchia chiave: lascia la configurazione con entrambe le chiavi fino alla data indicata.
+5. Quando il comando dice `rotation complete`, riavvia senza la vecchia chiave (`docker compose -f docker/compose.lan.yml up -d`) e controlla con `keys verify`. Togli `kamino_master_key_previous` dal server, ma conserva la vecchia chiave fuori dal server finché esistono backup fatti prima della rotazione.
+
+La rotazione è registrata nel registro di amministrazione (senza alcun valore delle chiavi).
+
+## 7. Aggiornamenti
+
+1. Fai un backup (§5) e verificalo.
+2. Aggiorna il codice e ricostruisci l'immagine:
+   ```sh
+   git pull
+   docker compose -f docker/compose.lan.yml up -d --build
+   ```
+3. All'avvio il server verifica la master key e poi applica da solo le migrazioni del database. Controlla `curl -fsS <KAMINO_PUBLIC_URL>/health/ready` e `/version`.
+
+Le migrazioni aggiungono soltanto (nessuna colonna o tabella viene tolta in una release minore), ma il ritorno a una versione precedente non è supportato: per tornare indietro si ripristina il backup del punto 1 su un'installazione vuota.
+
+Plugin e server possono avere versioni diverse: la compatibilità dipende solo dalla versione del protocollo. Se un dispositivo ha un plugin troppo vecchio (o troppo nuovo) per il server, smette di sincronizzare e lo dice chiaramente ("aggiorna il plugin o il server"); nessun dato viene perso, le modifiche locali restano in coda.
+
+## 8. Installare il plugin (BRAT)
+
+Finché il plugin non è nello store di Obsidian si installa con [BRAT](https://github.com/TfTHacker/obsidian42-brat):
+
+1. In Obsidian: Impostazioni → Plugin della community → Sfoglia → installa e attiva **BRAT**.
+2. Comando "BRAT: Add a beta plugin for testing", indirizzo del repository GitHub del progetto; BRAT scarica `main.js`, `manifest.json` e `styles.css` dall'ultima release e li aggiorna da solo.
+3. Attiva il plugin, apri le sue impostazioni e collega il dispositivo (indirizzo del server, poi accesso o codice di abbinamento da un dispositivo già collegato).
+
+Su telefono e tablet il server deve essere raggiungibile in HTTPS (scenari tunnel o Caddy).
+
+Le release si pubblicano a mano dal workflow **Release plugin** (GitHub Actions, solo da `main`), dopo `pnpm release:version` (changesets aggiorna versioni e changelog, `versions.json` riceve la nuova voce). Le versioni 0.x e quelle con un suffisso (per esempio `1.0.0-rc.1`, release candidate) sono marcate come pre-release: in BRAT si può indicare la versione esatta da installare.
+
+## 9. Log e diagnostica
+
+**Server.** Scrive log JSON (pino) sull'output standard; Docker li conserva con rotazione (5 file da 10 MB per servizio, impostata nei file compose).
+
+```sh
+docker compose -f docker/compose.lan.yml logs --since 1h kamino     # ultima ora
+docker compose -f docker/compose.lan.yml logs -f kamino             # in diretta
+docker compose -f docker/compose.lan.yml logs --no-log-prefix kamino > kamino.log   # da allegare
+```
+
+- La prima riga di ogni avvio è `server starting` con versione, nome della release, commit e versione del protocollo; poi `server ready` quando accetta connessioni.
+- Ogni richiesta HTTP ha una riga con metodo, URL (token e codici rimossi), stato e durata; gli errori hanno `request failed` con il solo tipo di errore; i job in background che falliscono hanno `job failed` con il nome del job.
+- Per più dettagli imposta `KAMINO_LOG_LEVEL=debug` in `docker/.env` e riavvia (`up -d`); torna a `info` quando hai finito.
+- **Mai nei log:** percorsi e nomi di file o di vault, contenuti, token, password, link di invito o reset, email, master key. Fa eccezione il link di primo avvio (§4), scritto una sola volta finché non esiste alcun utente.
+
+**Plugin.** Tiene un registro diagnostico nella sua cartella (`<cartella di configurazione>/plugins/<id>/diagnostics.log`, esclusa dalla sincronizzazione, ultime 1000 righe): avvio del plugin con versione e piattaforma, cambi di stato, eventi di connessione e codici di errore del motore di sync, ognuno con l'ora. Per inviarlo: comando **"Copia la diagnostica"** oppure Impostazioni → Informazioni → Diagnostica → **Copia**. Il testo copiato aggiunge versione, protocollo, piattaforma, modalità e numero di modifiche in coda e di conflitti. Anche qui nessun nome di file, percorso o contenuto.
+
+Per analizzare un problema servono di solito entrambi: il log del server dell'intervallo interessato e la diagnostica copiata dal dispositivo.
+
+## 10. Lista di controllo
+
+- [ ] master key generata, copia fuori dal server (§2);
+- [ ] `KAMINO_PUBLIC_URL` corretto per lo scenario, HTTPS se ci sono dispositivi mobili;
+- [ ] primo utente creato con verifica in due passaggi (§4);
+- [ ] SMTP configurato e email di prova inviata (facoltativo);
+- [ ] backup giornaliero pianificato (cron o timer di sistema) e verificato almeno una volta (§5);
+- [ ] copia dei backup fuori dal server, conservati 30 giorni;
+- [ ] procedura di ripristino provata almeno una volta su un'installazione di prova.

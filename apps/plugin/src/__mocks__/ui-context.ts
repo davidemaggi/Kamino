@@ -51,6 +51,7 @@ export function makeCtx(overrides: Partial<UiContext> = {}) {
     openClaim: vi.fn(),
     openAddDevice: vi.fn(),
     confirm: vi.fn(() => Promise.resolve(true)),
+    copyDiagnostics: vi.fn(() => Promise.resolve()),
     ...overrides,
   };
   return { ctx, state, plugin, server, store };

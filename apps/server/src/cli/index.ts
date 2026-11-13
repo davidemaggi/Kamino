@@ -2,7 +2,9 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PRODUCT_SLUG } from "@kamino/brand";
+import { backupCreate, backupRestore, backupVerify } from "./commands/backup.js";
 import { keysGenerate } from "./commands/keys-generate.js";
+import { keysRotate } from "./commands/keys-rotate.js";
 import { keysVerify } from "./commands/keys-verify.js";
 import { migrate } from "./commands/migrate.js";
 import { usersInvite, usersReset2fa, usersResetLink } from "./commands/users.js";
@@ -12,9 +14,13 @@ const commands: Record<string, Command> = {
   migrate,
   "keys generate": keysGenerate,
   "keys verify": keysVerify,
+  "keys rotate": keysRotate,
   "users reset-link": usersResetLink,
   "users invite": usersInvite,
   "users reset-2fa": usersReset2fa,
+  "backup create": backupCreate,
+  "backup verify": backupVerify,
+  "backup restore": backupRestore,
 };
 
 const USAGE = `Usage: ${PRODUCT_SLUG} <command>\n\nCommands:\n${Object.keys(commands)

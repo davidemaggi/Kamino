@@ -25,6 +25,13 @@ describe("createLogger", () => {
       password: "SECRET-TOPPASSWORD",
       databaseUrl: "SECRET-TOPDB",
       config: { databaseUrl: "SECRET-DB" },
+      deep: {
+        config: {
+          databaseUrl: "SECRET-DEEPDB",
+          masterKey: "SECRET-DEEPKEY",
+          password: "SECRET-DEEPPW",
+        },
+      },
       session: { token: "SECRET-TOKEN", password: "SECRET-PASSWORD" },
     });
     const out = output();

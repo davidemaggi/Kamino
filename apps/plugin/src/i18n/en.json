@@ -52,7 +52,10 @@
     "about": "About",
     "cancel": "Cancel",
     "confirmUnlink": "Unlink",
-    "reloadToApply": "Synced configuration changed: reload Obsidian to apply it."
+    "reloadToApply": "Synced configuration changed: reload Obsidian to apply it.",
+    "diagnostics": "Diagnostics",
+    "diagnosticsDesc": "Copies a technical log to paste in a support request. It holds only event codes and times: no file names, paths or contents.",
+    "copyDiagnostics": "Copy"
   },
   "dev": {
     "statusGallery": "Show status gallery (development)",
@@ -217,7 +220,8 @@
   },
   "commands": {
     "connect": "Link this vault",
-    "addDevice": "Add a device"
+    "addDevice": "Add a device",
+    "copyDiagnostics": "Copy diagnostics"
   },
   "connect": {
     "titleCreate": "This is the first device",
@@ -280,5 +284,9 @@
     "dontAsk": "Don't ask again until Obsidian restarts",
     "proceed": "Use this network",
     "wait": "Wait for Wi-Fi"
+  },
+  "diagnostics": {
+    "copied": "Diagnostics copied to the clipboard.",
+    "copyFailed": "Could not copy the diagnostics."
   }
 }

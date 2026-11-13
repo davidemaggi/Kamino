@@ -26,4 +26,24 @@ describe("release-names CLI", () => {
     expect(main(root)).toBe(1);
     err.mockRestore();
   });
+  it("returns 1 with a message (no stack) for a missing or malformed registry", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const missing = mkdtempSync(join(tmpdir(), "release-names-"));
+    expect(main(missing)).toBe(1);
+    expect(err).toHaveBeenLastCalledWith(expect.stringMatching(/^release-names: /));
+    const bad = fixture("0.1.0", []);
+    writeFileSync(join(bad, "release-names.json"), "{ not json");
+    expect(main(bad)).toBe(1);
+    const noVersion = fixture("0.1.0", [{ range: "0.x", codename: "Ash", date: null }]);
+    writeFileSync(join(noVersion, "package.json"), "{}");
+    expect(main(noVersion)).toBe(1);
+    err.mockRestore();
+  });
+  it("rejects a registry that is not an object with entries", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const root = fixture("0.1.0", []);
+    writeFileSync(join(root, "release-names.json"), "[]");
+    expect(main(root)).toBe(1);
+    err.mockRestore();
+  });
 });

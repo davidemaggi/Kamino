@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { isNull, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { keyCheck } from "../db/schema.js";
-import { KEY_CHECK_PLAINTEXT, MasterKeyError, type Kek } from "./keyring.js";
+import { KEY_CHECK_PLAINTEXT, keksOf, MasterKeyError, type Kek, type Keyring } from "./keyring.js";
 
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
@@ -32,11 +32,21 @@ function opens(kek: Kek, blob: Buffer): boolean {
   }
 }
 
-/** Any active check for a different key means this database belongs to another master key. */
-function verifyRows(rows: { kekId: string; checkValue: Buffer }[], kek: Kek): void {
-  if (rows.some((r) => r.kekId !== kek.id)) throw new MasterKeyError(MISMATCH_MESSAGE);
-  const row = rows.find((r) => r.kekId === kek.id);
-  if (!row || !opens(kek, row.checkValue)) throw new MasterKeyError(MISMATCH_MESSAGE);
+/**
+ * Any active check for a key that isn't configured means this database belongs to another
+ * master key. Every active check must open with its key, and at least one must be present.
+ * During a rotation (04 §5.2) both the current and the previous key have an active check;
+ * `keys rotate` retires the previous one once nothing is left under it.
+ * Returns whether the current key has its own check yet.
+ */
+function verifyRows(rows: { kekId: string; checkValue: Buffer }[], ring: Keyring): boolean {
+  const keks = keksOf(ring);
+  if (rows.length === 0) throw new MasterKeyError(MISMATCH_MESSAGE);
+  for (const r of rows) {
+    const k = keks.find((x) => x.id === r.kekId);
+    if (!k || !opens(k, r.checkValue)) throw new MasterKeyError(MISMATCH_MESSAGE);
+  }
+  return rows.some((r) => r.kekId === ring.id);
 }
 
 /** Arbitrary constant for the transaction-level advisory lock serializing key-check creation. */
@@ -44,20 +54,37 @@ export const KEY_CHECK_LOCK_ID = 7_243_650_067n;
 
 /**
  * Empty table: creates the check ("created"). Matching active row that decrypts:
- * "verified". Anything else (including any active row for a different key): MasterKeyError.
+ * "verified". Current and previous key both active, or only the previous one (the current
+ * check is then added): "rotating". Anything else (any active row for a key that isn't
+ * configured, or only retired rows): MasterKeyError.
  * Check and insert run in one transaction under an advisory lock, so two instances racing
  * on an empty table with different keys cannot both create a check: the loser sees the
  * winner's row and fails.
  */
-export async function ensureKeyCheck(db: Db, kek: Kek): Promise<"created" | "verified"> {
+export async function ensureKeyCheck(
+  db: Db,
+  ring: Keyring,
+): Promise<"created" | "verified" | "rotating"> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${KEY_CHECK_LOCK_ID.toString()}::bigint)`);
     const rows = await tx.select().from(keyCheck).where(isNull(keyCheck.retiredAt));
+    const current: Kek = { id: ring.id, key: ring.key };
     if (rows.length > 0) {
-      verifyRows(rows, kek);
-      return "verified";
+      if (verifyRows(rows, ring)) return rows.length > 1 ? "rotating" : "verified";
+      // Rotation start: only the previous key has a check; the current one joins it.
+      await tx
+        .insert(keyCheck)
+        .values({ kekId: current.id, checkValue: seal(current) })
+        .onConflictDoUpdate({
+          target: keyCheck.kekId,
+          set: { checkValue: seal(current), retiredAt: null },
+        });
+      return "rotating";
     }
-    await tx.insert(keyCheck).values({ kekId: kek.id, checkValue: seal(kek) });
+    // Only retired checks: this database has been used with other keys, never claim it.
+    if ((await tx.select({ id: keyCheck.kekId }).from(keyCheck).limit(1)).length > 0)
+      throw new MasterKeyError(MISMATCH_MESSAGE);
+    await tx.insert(keyCheck).values({ kekId: current.id, checkValue: seal(current) });
     return "created";
   });
 }
@@ -76,7 +103,7 @@ function isUndefinedTable(e: unknown): boolean {
  * Read-only variant for `keys verify`: never writes. A missing table (SQLSTATE 42P01) or
  * zero active rows throws MISSING_MESSAGE; any other database error propagates unchanged.
  */
-export async function verifyKeyCheck(db: Db, kek: Kek): Promise<"verified"> {
+export async function verifyKeyCheck(db: Db, ring: Keyring): Promise<"verified"> {
   let rows;
   try {
     rows = await db.select().from(keyCheck).where(isNull(keyCheck.retiredAt));
@@ -85,6 +112,6 @@ export async function verifyKeyCheck(db: Db, kek: Kek): Promise<"verified"> {
     throw e;
   }
   if (rows.length === 0) throw new MasterKeyError(MISSING_MESSAGE);
-  verifyRows(rows, kek);
+  verifyRows(rows, ring);
   return "verified";
 }

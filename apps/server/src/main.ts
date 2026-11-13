@@ -4,10 +4,11 @@ import { AuthService } from "./auth/service.js";
 import { createBlobStore } from "./blobs/store.js";
 import { UploadService } from "./blobs/uploads.js";
 import { sweepPairings } from "./pairing/service.js";
+import { PROTOCOL_VERSION } from "@kamino/protocol";
 import { buildInfo } from "./build-info.js";
 import { ConfigError, loadConfig } from "./config/load.js";
 import { ensureKeyCheck } from "./crypto/key-check.js";
-import { MasterKeyError, parseMasterKey, type Kek } from "./crypto/keyring.js";
+import { MasterKeyError, parseKeyring, type Keyring } from "./crypto/keyring.js";
 import { createDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { startJobs, type Jobs } from "./jobs/boss.js";
@@ -38,10 +39,22 @@ async function main(): Promise<void> {
   }
   const { config } = loaded;
   const logger = createLogger(config.logLevel);
+  // rc1: the first line of every log says which build is running (no configuration values).
+  logger.info(
+    {
+      version: buildInfo.version,
+      codename: buildInfo.codename,
+      commit: buildInfo.commit,
+      protocol: PROTOCOL_VERSION,
+      node: process.version,
+      logLevel: config.logLevel,
+    },
+    "server starting",
+  );
   // Fail fast on a malformed key before touching the database. Never log the key itself.
-  let kek: Kek;
+  let kek: Keyring;
   try {
-    kek = parseMasterKey(config.masterKey);
+    kek = parseKeyring(config.masterKey, config.masterKeyPrevious);
   } catch (e) {
     if (e instanceof MasterKeyError) {
       logger.error(e.message);
@@ -58,6 +71,8 @@ async function main(): Promise<void> {
     await runMigrations(db, async () => {
       const result = await ensureKeyCheck(db, kek);
       logger.info({ kekId: kek.id, result }, "master key verified");
+      if (result === "rotating")
+        logger.warn("master key rotation in progress: run `keys rotate` to finish it");
     });
   } catch (e) {
     if (e instanceof MasterKeyError) {
@@ -148,6 +163,7 @@ async function main(): Promise<void> {
   process.once("SIGINT", () => void shutdown());
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
+  logger.info({ port: config.port, storage: config.storage.kind }, "server ready");
 }
 
 main().catch((err: unknown) => {

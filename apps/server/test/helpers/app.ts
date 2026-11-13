@@ -20,12 +20,13 @@ import { join } from "node:path";
 import { CSRF_VALUE, SESSION_COOKIE } from "../../src/auth/http.js";
 import { buildInfo } from "../../src/build-info.js";
 import { ensureKeyCheck } from "../../src/crypto/key-check.js";
-import { parseMasterKey } from "../../src/crypto/keyring.js";
+import { parseMasterKey, type Keyring } from "../../src/crypto/keyring.js";
 import { createDb, type Db } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { createLogger } from "../../src/observability/logger.js";
 
 export const kek = parseMasterKey(Buffer.alloc(32, 3).toString("base64"));
+const defaultKek = kek;
 
 export interface TestApp {
   app: FastifyInstance;
@@ -65,8 +66,11 @@ export async function testApp(
     dirs?: { blobs: string; staging: string };
     /** System settings "from the environment" (locked in the admin UI). */
     system?: SystemEnv;
+    /** Master key(s); default: the shared test key. */
+    kek?: Keyring;
   } = {},
 ): Promise<TestApp> {
+  const kek = opts.kek ?? defaultKek;
   const db = createDb(url);
   await runMigrations(db, async () => {
     await ensureKeyCheck(db, kek);

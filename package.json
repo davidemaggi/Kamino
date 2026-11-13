@@ -14,7 +14,8 @@
     "test": "turbo run test && vitest run --root scripts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "release-names:check": "tsx scripts/release-names.ts"
+    "release-names:check": "tsx scripts/release-names.ts",
+    "release:version": "changeset version && pnpm --filter @kamino/plugin release:versions && prettier --write . --log-level warn"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

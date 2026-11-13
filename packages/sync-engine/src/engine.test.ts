@@ -334,6 +334,42 @@ describe("engine", () => {
     expect(files.map((f) => [f.fileId, f.path, f.deleted])).toEqual([[id, "b.md", false]]);
   });
 
+  it("an upload the server refuses (429) is never shown as safe, and is retried by itself", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    fs.put("a.md", "first");
+    fs.put("b.md", "second");
+    const inner = server.http(DEV);
+    let refuse = 1;
+    const http: Http = {
+      request: (r) =>
+        r.method === "POST" && r.path === "/vaults/v/uploads" && refuse-- > 0
+          ? Promise.resolve({ status: 429, json: { error: { code: "rate_limited" } } })
+          : inner.request(r),
+    };
+    const sleeps: (() => void)[] = [];
+    const d = deps(server, fs, http);
+    d.clock = { ...d.clock, sleep: () => new Promise<void>((r) => sleeps.push(r)) };
+    const e = await Engine.open(d);
+    await e.syncNow();
+    expect(server.files().size).toBe(1);
+    // The refused file waits: still queued, not "all safe".
+    expect(e.snapshot().queued).toBe(1);
+    // A retry is scheduled without any new local change.
+    expect(sleeps.length).toBeGreaterThan(0);
+    sleeps.splice(0).forEach((wake) => wake());
+    for (let i = 0; i < 20 && server.files().size < 2; i++)
+      await new Promise((r) => setTimeout(r, 0));
+    await e.syncNow();
+    expect(server.files()).toEqual(
+      new Map([
+        ["a.md", "first"],
+        ["b.md", "second"],
+      ]),
+    );
+    expect(e.snapshot().queued).toBe(0);
+  });
+
   it("a failed state save doesn't leave the engine stuck (review I3)", async () => {
     const server = new FakeServer();
     const fs = new MemoryFs();

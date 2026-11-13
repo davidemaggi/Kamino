@@ -1,8 +1,10 @@
-import { PLUGIN_ID, PROTOCOL_ACTION } from "@kamino/brand";
-import type { DevicePlatform } from "@kamino/protocol";
+import { PLUGIN_ID, PRODUCT_NAME, PROTOCOL_ACTION } from "@kamino/brand";
+import { PROTOCOL_VERSION, type DevicePlatform } from "@kamino/protocol";
 import { DEFAULT_THRESHOLDS, describeStatus } from "@kamino/status";
-import { getIconIds, Notice, Platform, Plugin } from "obsidian";
-import { APP_VERSION } from "./build-info.js";
+import { apiVersion, getIconIds, Notice, Platform, Plugin } from "obsidian";
+import { APP_CODENAME, APP_VERSION } from "./build-info.js";
+import { loadText, saveText } from "./diagnostics/file.js";
+import { DiagnosticLog } from "./diagnostics/log.js";
 import { FakeServer } from "./connection/fake-server.js";
 import { handlePairingLink } from "./connection/handle-link.js";
 import { watchPairingEvents } from "./connection/pairing-notices.js";
@@ -68,11 +70,14 @@ function devicePlatform(): DevicePlatform & SyncPlatform {
 
 export default class SyncPlugin extends Plugin {
   private host: EngineHost | null = null;
+  private diag: DiagnosticLog | null = null;
   /** M8: a reload waits for the previous engine to stop writing its state. */
   private static stopping: Promise<void> | null = null;
 
   override onunload(): void {
-    SyncPlugin.stopping = this.host?.stop() ?? null;
+    this.diag?.add("plugin_stop");
+    const flushed = this.diag?.flush();
+    SyncPlugin.stopping = Promise.all([this.host?.stop(), flushed]).then(() => {});
   }
 
   override async onload(): Promise<void> {
@@ -82,6 +87,22 @@ export default class SyncPlugin extends Plugin {
     const m = t(lang);
     const now = () => Date.now();
     const isMobile = Platform.isMobile;
+
+    // rc1: codes-only diagnostic log in the plugin folder, for support requests.
+    const pluginDir = this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${PLUGIN_ID}`;
+    const adapter = this.app.vault.adapter;
+    const diagFile = `${pluginDir}/diagnostics.log`;
+    const diag = new DiagnosticLog({
+      now,
+      save: (text) => saveText(adapter, diagFile, text),
+      schedule: (fn) => {
+        const id = window.setTimeout(fn, 5000);
+        return () => window.clearTimeout(id);
+      },
+    });
+    this.diag = diag;
+    diag.restore(await loadText(adapter, diagFile).catch(() => ""));
+    diag.add(`plugin_start_${APP_VERSION}_${devicePlatform()}`);
 
     const settings = new SettingsStore(this, isMobile);
     await settings.load();
@@ -105,7 +126,6 @@ export default class SyncPlugin extends Plugin {
       server = fake;
       transfer = fake.transfer;
     } else {
-      const pluginDir = this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${PLUGIN_ID}`;
       const real = new RealConnection({
         isMobile,
         store: settings.linkStore,
@@ -156,6 +176,7 @@ export default class SyncPlugin extends Plugin {
           return { mode: s.mode, periodicMinutes: s.periodicMinutes };
         },
         onPairing: (msg) => real.receive(msg),
+        log: (code) => diag.add(code),
       });
       this.host = host;
       this.register(
@@ -240,6 +261,30 @@ export default class SyncPlugin extends Plugin {
         else new AddDeviceModal(this.app, ctx, request).open();
       },
       confirm: (opts) => confirmDialog(this.app, opts),
+      copyDiagnostics: async () => {
+        const snap = state.snapshot();
+        const d = describeStatus(snap, DEFAULT_THRESHOLDS, now());
+        const text = diag.report({
+          product: PRODUCT_NAME,
+          version: APP_VERSION,
+          release: APP_CODENAME,
+          protocol: PROTOCOL_VERSION,
+          obsidian: apiVersion,
+          platform: devicePlatform(),
+          mobile: isMobile,
+          linked: server.link() !== null,
+          mode: settings.get().sync.mode,
+          status: `${d.level} ${d.message.key}`,
+          queued: snap.queued,
+          conflicts: snap.conflicts,
+        });
+        try {
+          await navigator.clipboard.writeText(text);
+          new Notice(m.diagnostics.copied);
+        } catch {
+          new Notice(m.diagnostics.copyFailed);
+        }
+      },
     };
 
     this.addSettingTab(new SettingsTab(this.app, this, ctx));
@@ -256,8 +301,14 @@ export default class SyncPlugin extends Plugin {
       onOpenDetails: () => void ctx.openStatusPanel(),
     });
     indicator.mount();
-    const refresh = () =>
-      indicator.update(describeStatus(state.snapshot(), DEFAULT_THRESHOLDS, now()));
+    let lastStatus = "";
+    const refresh = () => {
+      const d = describeStatus(state.snapshot(), DEFAULT_THRESHOLDS, now());
+      const status = `status_${d.level}_${d.message.key}`;
+      if (status !== lastStatus) diag.add((lastStatus = status));
+      indicator.update(d);
+    };
+    this.register(server.onChange((e) => diag.add(`connection_${e.type}`)));
     this.register(state.onChange(refresh));
     // S-05: never silent; the warning comes back every hour while the problem lasts.
     this.register(
@@ -286,6 +337,11 @@ export default class SyncPlugin extends Plugin {
       id: "open-status",
       name: m.panel.openCommand,
       callback: () => void ctx.openStatusPanel(),
+    });
+    this.addCommand({
+      id: "copy-diagnostics",
+      name: m.commands.copyDiagnostics,
+      callback: () => void ctx.copyDiagnostics(),
     });
     this.addCommand({
       id: "connect",

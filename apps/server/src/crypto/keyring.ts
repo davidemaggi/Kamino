@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { PRODUCT_SLUG } from "@kamino/brand";
+import { envName, PRODUCT_SLUG } from "@kamino/brand";
 
 /**
  * Fixed cryptographic domain-separation constants. They are deliberately NOT derived
@@ -32,16 +32,56 @@ function formatError(): MasterKeyError {
 /** Never includes the supplied value in errors. */
 export function parseMasterKey(raw: string): Kek {
   const s = raw.trim();
-  if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(s)) throw formatError();
-  const unpadded = s.replace(/=+$/, "");
+  // One alphabet (standard or URL-safe), at most the one "=" that 32 bytes need.
+  if (!/^(?:[A-Za-z0-9+/]+|[A-Za-z0-9_-]+)=?$/.test(s)) throw formatError();
+  const unpadded = s.replace(/=$/, "");
   // 32 bytes encode to exactly 43 significant base64 characters.
   if (unpadded.length !== 43) throw formatError();
   const key = Buffer.from(unpadded, "base64");
   if (key.length !== KEY_BYTES) throw formatError();
+  // Canonical only: the last character's 2 unused bits must be zero (one key, one spelling).
+  const canonical = key.toString("base64url");
+  if (unpadded.replaceAll("+", "-").replaceAll("/", "_") !== canonical) throw formatError();
   const id = createHash("sha256").update(KEK_ID_DOMAIN).update(key).digest("hex").slice(0, 16);
   return { id, key: new Uint8Array(key) };
 }
 
 export function generateMasterKey(): string {
   return randomBytes(KEY_BYTES).toString("base64");
+}
+
+/**
+ * 04 §5.2: the current KEK plus, during a rotation, the previous one. New data is always
+ * written with the current key; reads fall back to the previous one until `keys rotate` is done.
+ */
+export type Keyring = Kek & { previous?: Kek | undefined };
+
+export function keyringOf(current: Kek, previous?: Kek): Keyring {
+  return previous && previous.id !== current.id ? { ...current, previous } : current;
+}
+
+/** The current key first, then the previous one. */
+export function keksOf(ring: Keyring): Kek[] {
+  const current: Kek = { id: ring.id, key: ring.key };
+  return ring.previous ? [current, ring.previous] : [current];
+}
+
+/** The key a row was wrapped with (vaults.kek_id). */
+export function kekFor(ring: Keyring, id: string): Kek {
+  const k = keksOf(ring).find((x) => x.id === id);
+  if (!k) throw new MasterKeyError("data wrapped with a master key that is not configured");
+  return k;
+}
+
+/** Both configured keys; errors name the variable at fault, never the value. */
+export function parseKeyring(current: string, previous?: string): Keyring {
+  const kek = parseMasterKey(current);
+  if (previous === undefined) return kek;
+  try {
+    return keyringOf(kek, parseMasterKey(previous));
+  } catch (e) {
+    if (e instanceof MasterKeyError)
+      throw new MasterKeyError(`${envName("MASTER_KEY_PREVIOUS")}: ${e.message}`);
+    throw e;
+  }
 }

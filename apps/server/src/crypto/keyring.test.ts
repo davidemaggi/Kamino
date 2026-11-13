@@ -26,6 +26,17 @@ describe("parseMasterKey", () => {
     expect(Buffer.from(parseMasterKey(url.replace(/=+$/, "")).key)).toEqual(raw);
   });
 
+  it("rejects non-canonical encodings (unused low bits set, mixed alphabets, bad padding)", () => {
+    // Buffer.alloc(32, 7) ends in "...Bwc="; the last char carries 2 unused bits.
+    expect(key.endsWith("Bwc=")).toBe(true);
+    expect(() => parseMasterKey(key.replace(/c=$/, "d="))).toThrow(MasterKeyError);
+    const raw = Buffer.from(Array.from({ length: 32 }, (_, i) => 250 - i)).toString("base64");
+    const mixed = raw.replace("+", "-"); // one url-safe char among standard ones
+    expect(mixed).toContain("/");
+    expect(() => parseMasterKey(mixed)).toThrow(MasterKeyError);
+    expect(() => parseMasterKey(key.replace(/=$/, "=="))).toThrow(MasterKeyError);
+  });
+
   it("rejects a 64-char hex key with an actionable message that never echoes the key", () => {
     const hex = "ab".repeat(32);
     let err: unknown;

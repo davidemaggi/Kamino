@@ -1,8 +1,8 @@
 import type { Me, SecurityEventType, SessionInfo } from "@kamino/protocol";
 import { and, count, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { systemKey } from "../crypto/dek.js";
-import { decryptField, encryptField } from "../crypto/field.js";
-import type { Kek } from "../crypto/keyring.js";
+import { systemKey, systemKeys } from "../crypto/dek.js";
+import { decryptFieldAny, encryptField } from "../crypto/field.js";
+import type { Keyring } from "../crypto/keyring.js";
 import type { Db } from "../db/client.js";
 import {
   auditLog,
@@ -91,6 +91,8 @@ async function mapUnique<T>(p: Promise<T>): Promise<T> {
 
 export class AuthService {
   private readonly totpKey: Buffer;
+  /** Current system key, then the previous one during a rotation (04 §5.2). */
+  private readonly readKeys: Buffer[];
   private readonly challenges = new Map<
     string,
     { userId: string; expiresAt: number; attempts: number }
@@ -98,11 +100,12 @@ export class AuthService {
 
   constructor(
     private readonly db: Db,
-    kek: Kek,
+    kek: Keyring,
     private readonly issuer: string,
     private readonly now: () => number = Date.now,
   ) {
     this.totpKey = systemKey(kek);
+    this.readKeys = systemKeys(kek);
   }
 
   private date(): Date {
@@ -357,8 +360,8 @@ export class AuthService {
     const trimmed = code.trim();
     if (/^\d{6}$/.test(trimmed)) {
       if (!u.totpSecret) return false;
-      const secret = decryptField(
-        this.totpKey,
+      const secret = decryptFieldAny(
+        this.readKeys,
         { table: "users", column: "totp_secret", rowId: u.id },
         u.totpSecret,
       ).toString();
@@ -537,8 +540,8 @@ export class AuthService {
 
   async totpConfirm(u: User, code: string, ctx: Ctx): Promise<string[]> {
     if (!u.totpSecret || u.totpEnabledAt) throw new AuthError("totp_invalid", 400);
-    const secret = decryptField(
-      this.totpKey,
+    const secret = decryptFieldAny(
+      this.readKeys,
       { table: "users", column: "totp_secret", rowId: u.id },
       u.totpSecret,
     ).toString();

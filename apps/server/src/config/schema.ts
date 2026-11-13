@@ -9,6 +9,8 @@ export type Config = {
   port: number;
   databaseUrl: string;
   masterKey: string;
+  /** The old master key while a rotation is in progress (04 §5.2). */
+  masterKeyPrevious?: string;
   logLevel: LogLevel;
   /**
    * Proxies whose X-Forwarded-For is trusted: a hop count or IP/CIDR list. Absent = none: the

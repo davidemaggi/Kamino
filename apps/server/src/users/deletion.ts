@@ -7,9 +7,9 @@ import type { AuthService, User } from "../auth/service.js";
 import { hashToken, randomToken, uuidv7 } from "../auth/tokens.js";
 import { SYSTEM_PREFIX, type BlobStore } from "../blobs/store.js";
 import { readPlain } from "../blobs/uploads.js";
-import { systemKey } from "../crypto/dek.js";
+import { systemKeys } from "../crypto/dek.js";
 import { hkdf } from "../crypto/kdf.js";
-import type { Kek } from "../crypto/keyring.js";
+import type { Keyring } from "../crypto/keyring.js";
 import {
   blobKey,
   decryptSegment,
@@ -49,7 +49,7 @@ export const storeKeyOf = (exportId: string) => `${SYSTEM_PREFIX}/${exportId.rep
 
 export interface DeletionDeps {
   db: Db;
-  kek: Kek;
+  kek: Keyring;
   auth: AuthService;
   vaults: VaultService;
   store: BlobStore;
@@ -98,16 +98,17 @@ async function* segments(src: AsyncIterable<Buffer>, size: number) {
  * (crypto-shredding), export destroyed, personal data removed, the row kept anonymized.
  */
 export class UserDeletion {
-  private readonly sysKey: Buffer;
+  /** Current system key first, then the previous one during a rotation (04 §5.2). */
+  private readonly sysKeys: Buffer[];
   private readonly history: HistoryService;
 
   constructor(private readonly d: DeletionDeps) {
-    this.sysKey = systemKey(d.kek);
+    this.sysKeys = systemKeys(d.kek);
     this.history = new HistoryService(d.db, d.store, d.now);
   }
 
-  private exportKey(token: string): Buffer {
-    return hkdf(this.sysKey, INFO_EXPORT, Buffer.from(token));
+  private exportKey(token: string, sysKey: Buffer = this.sysKeys[0]!): Buffer {
+    return hkdf(sysKey, INFO_EXPORT, Buffer.from(token));
   }
 
   async start(by: User, userId: string, r: DeleteUserRequest): Promise<void> {
@@ -234,17 +235,33 @@ export class UserDeletion {
     const objectKey = storeKeyOf(row.id);
     const first = Buffer.concat(await collect(store.getRange(objectKey, 0, HEADER_BYTES)));
     const segmentSize = first.readUInt32BE(33);
-    const key = blobKey(this.exportKey(token), first.subarray(1, 33));
     const ids = EXPORT_IDS(row.id);
     const full = segmentSize + TAG_BYTES;
     const count = Math.max(1, Math.ceil((row.storedSize - HEADER_BYTES) / full));
     const total = row.storedSize;
+    // A ZIP built before a key rotation is still under the previous key: the first segment
+    // tells which one (the token isn't stored, so `keys rotate` can't re-encrypt it).
+    const c0 = Buffer.concat(
+      await collect(store.getRange(objectKey, HEADER_BYTES, Math.min(total, HEADER_BYTES + full))),
+    );
+    const key = this.sysKeys
+      .map((k) => blobKey(this.exportKey(token, k), first.subarray(1, 33)))
+      .find((k) => {
+        try {
+          decryptSegment(k, ids, 0, count === 1, c0);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    if (!key) throw new Error("export not readable with the configured master keys");
+    const k: Buffer = key;
     async function* plain() {
       for (let i = 0; i < count; i++) {
         const from = HEADER_BYTES + i * full;
         const to = Math.min(total, from + full);
         const c = Buffer.concat(await collect(store.getRange(objectKey, from, to)));
-        yield decryptSegment(key, ids, i, i === count - 1, c);
+        yield decryptSegment(k, ids, i, i === count - 1, c);
       }
     }
     return { stream: Readable.from(plain()), createdAt: row.readyAt! };

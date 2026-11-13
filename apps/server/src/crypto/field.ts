@@ -15,3 +15,20 @@ export function encryptField(key: Uint8Array, ref: FieldRef, value: string | Uin
 export function decryptField(key: Uint8Array, ref: FieldRef, sealed: Uint8Array): Buffer {
   return open(key, sealed, aadOf(ref.table, ref.column, ref.rowId));
 }
+
+/** Tries each key in order (current, then previous during a rotation); GCM tells them apart. */
+export function decryptFieldAny(
+  keys: readonly Uint8Array[],
+  ref: FieldRef,
+  sealed: Uint8Array,
+): Buffer {
+  let last: unknown;
+  for (const k of keys) {
+    try {
+      return decryptField(k, ref, sealed);
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}

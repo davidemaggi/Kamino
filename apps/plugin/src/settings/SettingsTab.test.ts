@@ -119,4 +119,12 @@ describe("SettingsTab", () => {
       expect.arrayContaining(["Versione", "Rilascio", "Versione del protocollo"]),
     );
   });
+
+  it("about offers to copy the diagnostics, and says what they hold", async () => {
+    const { row, ctx } = await open();
+    const r = row("Diagnostica");
+    expect(r.textContent).toContain("nessun nome di file");
+    (r.querySelector("button") as HTMLButtonElement).click();
+    expect(ctx.copyDiagnostics).toHaveBeenCalled();
+  });
 });

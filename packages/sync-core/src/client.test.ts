@@ -2,6 +2,7 @@ import type { FileOp, OpResult } from "@kamino/protocol";
 import { describe, expect, it } from "vitest";
 import {
   initialState,
+  nextOps,
   retryDelay,
   step,
   type ClientEvent,
@@ -460,5 +461,28 @@ describe("client", () => {
     });
     expect(after.state.durable.sent).toEqual([p.ops[1]]);
     expect(ofType(after.effects, "push")[0]!.ops).toEqual([p.ops[1]]);
+  });
+
+  it("a put refused with blob_missing waits for the next cycle, but nextOps can still count it", () => {
+    const store = new MemoryStore();
+    const r1 = run(joined(), { type: "sync", scan: [scanItem("a.md", H1)] });
+    const p = ofType(r1.effects, "push")[0]!;
+    // The upload never reached the server: the commit answers blob_missing.
+    const res = store.commit(p.ops, "dev");
+    expect(res.results[0]).toMatchObject({ status: "rejected", code: "blob_missing" });
+    const r2 = run(r1.state, {
+      type: "pushResult",
+      requestId: p.requestId,
+      results: res.results,
+      head: res.head,
+    });
+    const s = finishPulls(r2, store).state;
+    expect(nextOps(s, env)).toEqual([]); // not resent in this cycle
+    expect(nextOps(s, env, { includeBlocked: true })).toMatchObject([
+      { type: "put", path: "a.md" },
+    ]);
+    // The next cycle sends it again.
+    const r3 = run(s, { type: "sync", scan: [scanItem("a.md", H1)] });
+    expect(ofType(r3.effects, "push")[0]?.ops).toMatchObject([{ type: "put", path: "a.md" }]);
   });
 });

@@ -1,9 +1,9 @@
 import type { SmtpTestResult } from "@kamino/protocol";
 import { and, asc, eq, isNotNull, isNull, lt, lte, or } from "drizzle-orm";
 import { uuidv7 } from "../auth/tokens.js";
-import { systemKey } from "../crypto/dek.js";
-import { decryptField, encryptField } from "../crypto/field.js";
-import type { Kek } from "../crypto/keyring.js";
+import { systemKey, systemKeys } from "../crypto/dek.js";
+import { decryptFieldAny, encryptField } from "../crypto/field.js";
+import type { Keyring } from "../crypto/keyring.js";
 import type { Db } from "../db/client.js";
 import { emailOutbox } from "../db/schema.js";
 import { ApiError } from "../http/errors.js";
@@ -41,10 +41,12 @@ export const smtpNotConfigured = () => new ApiError("smtp_not_configured", 409);
  */
 export class Outbox {
   private readonly key: Buffer;
+  /** Current system key, then the previous one during a rotation (04 §5.2). */
+  private readonly readKeys: Buffer[];
 
   constructor(
     private readonly db: Db,
-    kek: Kek,
+    kek: Keyring,
     private readonly config: SystemConfigService,
     private readonly transport: (s: SmtpSettings) => Transport,
     private readonly now: () => number,
@@ -53,6 +55,7 @@ export class Outbox {
     private readonly kick: () => void = () => undefined,
   ) {
     this.key = systemKey(kek);
+    this.readKeys = systemKeys(kek);
   }
 
   async enqueue(
@@ -119,14 +122,14 @@ export class Outbox {
     const transport = this.transport(smtp);
     for (const r of rows) {
       try {
-        const to = decryptField(
-          this.key,
+        const to = decryptFieldAny(
+          this.readKeys,
           { table: "email_outbox", column: "to", rowId: r.id },
           r.toEnc,
         ).toString("utf8");
         const params = JSON.parse(
-          decryptField(
-            this.key,
+          decryptFieldAny(
+            this.readKeys,
             { table: "email_outbox", column: "params", rowId: r.id },
             r.paramsEnc,
           ).toString("utf8"),

@@ -1,6 +1,6 @@
 {
   "name": "@kamino/plugin",
-  "version": "0.0.0",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,8 @@
     "build:vault": "tsx esbuild.config.mjs --dev && tsx scripts/install-vault.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "release:versions": "tsx scripts/release.ts versions"
   },
   "dependencies": {
     "@kamino/brand": "workspace:*",

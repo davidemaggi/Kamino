@@ -87,7 +87,16 @@ export class PairingService {
     private readonly publicUrl: string,
     private readonly key: Uint8Array,
     private readonly now: () => number = Date.now,
+    /** During a key rotation: a claim made before the restart derived its token with this key. */
+    private readonly previousKey?: Uint8Array,
   ) {}
+
+  private deviceTokenFor(p: { deviceTokenHash: string | null }, claimSecret: string): string {
+    const t = deviceTokenOf(this.key, claimSecret);
+    if (this.previousKey && hashToken(t) !== p.deviceTokenHash)
+      return deviceTokenOf(this.previousKey, claimSecret);
+    return t;
+  }
 
   async offer(
     vault: Vault,
@@ -344,7 +353,7 @@ export class PairingService {
         return {
           status: "approved",
           deviceId: p.deviceId!,
-          deviceToken: deviceTokenOf(this.key, claimSecret),
+          deviceToken: this.deviceTokenFor(p, claimSecret),
           username: u.username,
           vault: { id: vault.id, name: this.vaults.nameOf(vault) },
         };

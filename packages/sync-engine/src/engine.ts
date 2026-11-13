@@ -1112,6 +1112,8 @@ export class Engine {
           if (e instanceof ApiError && e.kind === "http") {
             this.log(`upload_failed_${e.code ?? e.status ?? ""}`);
             if (e.code) this.lastError = e.code;
+            // Rate limited or a server error: try again with backoff, not only at the next change.
+            if (e.status === 429 || (e.status ?? 0) >= 500) this.netFailed = true;
             continue;
           }
           if (!(e instanceof ApiError)) {

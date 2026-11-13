@@ -18,7 +18,7 @@ Tre PR, in quest'ordine.
 
 | # | Cosa |
 |---|---|
-| B1 | `kamino keys rotate --new-key-file <path>` come 04 §5.2: re-wrap di DEK e segreti di sistema a lotti, ripetibile e riprendibile; durante la rotazione il server accetta vecchia e nuova (`KAMINO_MASTER_KEY_PREVIOUS[_FILE]`); audit. |
+| B1 | `kamino keys rotate` come 04 §5.2: il server riparte con nuova chiave + `KAMINO_MASTER_KEY_PREVIOUS[_FILE]` e accetta entrambe; il comando fa il re-wrap di DEK e segreti di sistema a lotti, ripetibile e riprendibile, poi ritira la vecchia; audit. (Niente `--new-key-file`: con il server acceso sulla sola chiave vecchia i vault nuovi resterebbero sotto di essa.) |
 | B2 | `kamino backup create <file>`: archivio con dump logico del DB e copia dello storage (blob già cifrati); la master key non c'è mai. **Scelta:** dump in Node con `COPY … TO STDOUT` tabella per tabella più la versione delle migrazioni, invece di `pg_dump`: nessun binario nell'immagine, nessun vincolo di versione, funziona uguale con storage `fs` e `s3`. |
 | B3 | `kamino backup verify <file>`: ripristina in un database temporaneo, verifica che la KEK apra tutte le DEK e che un campione di blob si decifri e corrisponda al suo hash. |
 | B4 | `kamino backup restore <file>`: solo su database vuoto (migrato alla stessa versione), poi lo storage. Ripristino provato in CI (test di integrazione: crea dati, backup, restore in un DB nuovo, il server legge tutto). |

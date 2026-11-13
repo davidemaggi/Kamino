@@ -5,6 +5,7 @@ import {
   KEY_CHECK_PLAINTEXT,
   MasterKeyError,
   generateMasterKey,
+  keyringOf,
   parseMasterKey,
 } from "../src/crypto/keyring.js";
 import { createDb } from "../src/db/client.js";
@@ -38,6 +39,34 @@ describe.skipIf(dockerUnavailable)("key check", () => {
       await expect(ensureKeyCheck(db, other)).rejects.toThrow(
         "master key does not match this database",
       );
+    } finally {
+      await db.$client.end();
+    }
+  });
+
+  it("rotation (04 §5.2): the new key joins the old one, a stranger never does", async () => {
+    const db = await freshDb("kc_rotate");
+    try {
+      const oldK = parseMasterKey(generateMasterKey());
+      const newK = parseMasterKey(generateMasterKey());
+      await ensureKeyCheck(db, oldK);
+      // The new key alone: refused. With the old one as previous: the rotation starts.
+      await expect(ensureKeyCheck(db, newK)).rejects.toThrow(MasterKeyError);
+      expect(await ensureKeyCheck(db, keyringOf(newK, oldK))).toBe("rotating");
+      expect(await ensureKeyCheck(db, keyringOf(newK, oldK))).toBe("rotating");
+      expect(await verifyKeyCheck(db, keyringOf(newK, oldK))).toBe("verified");
+      // Until the old check is retired, neither key alone is enough.
+      await expect(ensureKeyCheck(db, newK)).rejects.toThrow(MasterKeyError);
+      await expect(ensureKeyCheck(db, oldK)).rejects.toThrow(MasterKeyError);
+      // A wrong previous key is refused.
+      const other = parseMasterKey(generateMasterKey());
+      await expect(ensureKeyCheck(db, keyringOf(newK, other))).rejects.toThrow(MasterKeyError);
+      await db.$client`update key_check set retired_at = now() where kek_id = ${oldK.id}`;
+      expect(await ensureKeyCheck(db, newK)).toBe("verified");
+      // Only retired checks: nobody can claim the database.
+      await db.$client`update key_check set retired_at = now()`;
+      await expect(ensureKeyCheck(db, other)).rejects.toThrow(MasterKeyError);
+      await expect(ensureKeyCheck(db, newK)).rejects.toThrow(MasterKeyError);
     } finally {
       await db.$client.end();
     }

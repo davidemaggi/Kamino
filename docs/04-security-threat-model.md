@@ -86,12 +86,12 @@ KEK └── HKDF ──▶ k_system: cifratura dei segreti di sistema (TOTP, p
 
 ### 5.2 Rotazione della master key
 
-`kamino keys rotate --new-key-file <path>` (o con `KAMINO_MASTER_KEY_PREVIOUS` + nuova chiave all'avvio):
-1. il server carica vecchia e nuova KEK;
-2. ricifra (re-wrap) tutte le DEK e i segreti di sistema con la nuova KEK, in transazioni a lotti;
-3. aggiorna `kekId`; finché restano DEK con il vecchio `kekId`, entrambe le chiavi sono accettate;
-4. al termine stampa la conferma e l'istruzione di rimuovere la vecchia chiave.
-I contenuti non vengono ricifrati. Operazione ripetibile e riprendibile.
+Procedura (implementata in M7b; la variante `--new-key-file` prevista all'inizio è stata scartata perché, a server acceso con la sola chiave vecchia, i vault creati durante la rotazione resterebbero sotto la vecchia KEK):
+1. si riavvia il server con la nuova chiave in `KAMINO_MASTER_KEY` e la vecchia in `KAMINO_MASTER_KEY_PREVIOUS` (o le varianti `*_FILE`). All'avvio il controllo della chiave aggiunge il `key_check` della nuova accanto a quello della vecchia; da qui ogni scrittura usa la nuova, le letture provano la nuova e poi la vecchia;
+2. `kamino keys rotate` (stesso ambiente, server acceso) ricifra (re-wrap) le DEK con `kekId` vecchio e i segreti di sistema sotto `k_system` vecchio (segreti TOTP, password SMTP, destinatari e parametri delle email in coda), riga per riga in transazioni a lotti; un aggiornamento passa solo se la riga contiene ancora il valore letto;
+3. se tutto è passato alla nuova chiave, ritira il `key_check` vecchio e scrive `master_key_rotated` nell'audit; se qualcosa non si apre con nessuna delle due, non ritira nulla ed esce con errore;
+4. stampa i conteggi e l'istruzione di rimuovere `KAMINO_MASTER_KEY_PREVIOUS`. Eccezione: gli ZIP di export degli account in cancellazione (§7) hanno una chiave derivata dal token del link, che non è salvato, quindi non si possono ricifrare; il comando indica fino a quando tenere la vecchia chiave.
+I contenuti non vengono ricifrati. Operazione ripetibile e riprendibile. Con la sola chiave nuova il server rifiuta di partire finché il `key_check` vecchio è attivo; con la sola vecchia, dopo la rotazione, pure. I backup precedenti alla rotazione richiedono la vecchia chiave.
 
 ### 5.3 Rotazione della DEK di un vault
 
@@ -135,9 +135,9 @@ Registra: creazione/blocco/sblocco/cancellazione utenti, modifiche di quota e di
 | T-01 | ✅ | `ownedVault` e controlli di proprietà nei servizi; la **matrice di autorizzazione** (`apps/server/test/authz-matrix.test.ts`) enumera ogni rotta registrata: senza credenziali 401, risorse altrui 404. Una rotta nuova senza voce nella matrice fa fallire i test. |
 | T-02 | ✅ | Matrice: un admin sulle risorse altrui riceve 404 come chiunque; `admin-architecture.test.ts` impedisce al modulo `admin` di importare servizi che decifrano. |
 | T-03 | ✅ | L'admin manda solo link di reset (M5), non imposta password; reset 2FA solo da CLI, con audit. |
-| T-04 | ✅ | Envelope encryption (M1b/M1c). Backup senza KEK: M7b. |
+| T-04 | ✅ | Envelope encryption (M1b/M1c). Backup senza KEK (M7b). |
 | T-05 | ✅ | Verifica della KEK all'avvio, `kamino keys verify`. Custodia: `docs/self-hosting.md` (M7c). |
-| T-06 | 🔧 | `*_FILE` e redazione dei log. `kamino keys rotate`: M7b. |
+| T-06 | ✅ | `*_FILE` e redazione dei log. `kamino keys rotate` con doppia chiave (M7b). |
 | T-07 | ✅ | Argon2id; limiti per IP **e** per account (10 tentativi ogni 15 minuti, finestra fissa: fa da blocco temporaneo, senza lockout progressivo); TOTP obbligatorio per gli admin. |
 | T-08 | ✅ | Token da 256 bit salvati come hash, revoca immediata, un vault per token. |
 | T-09 | ✅ | Pairing monouso con approvazione e codice di verifica (M6). |
@@ -145,7 +145,7 @@ Registra: creazione/blocco/sblocco/cancellazione utenti, modifiche di quota e di
 | T-11 | ✅ | Cookie `HttpOnly`/`SameSite=Lax`, anti-CSRF `X-Requested-With`, **CSP** (M7a): script solo dalla stessa origine, niente inline né `eval` (zod in modalità `jitless`), `frame-ancestors 'none'`. **Rischio residuo accettato:** `style-src` ammette `'unsafe-inline'` perché CodeMirror inietta i propri stili; un'iniezione di stile non esegue codice. |
 | T-12 | ✅ | Validazione dei path in `sync-core`, lato server e client. |
 | T-13 | ✅ | Quota con riserva, limite per file e per chunk, rate limiting su login, pairing, export ZIP, scritture della web app e sessioni di upload (M7a), tutto in memoria (istanza singola). |
-| T-14 | 🔧 | AEAD a segmenti. `kamino backup verify`: M7b. |
+| T-14 | ✅ | AEAD a segmenti. `kamino backup verify` ripristina in un database temporaneo e decifra un campione di blob (M7b). |
 | T-15 | ✅ | Ruolo cambiato solo da un admin, con audit; TOTP obbligatorio; token di setup nei log al primo avvio. |
 | T-16 | ✅ | Redazione dei log; mai path, nomi, contenuti, token, email. |
 | T-17 | ✅ | Crypto-shredding e purge dei blob (M5). Backup: vedi §7. |

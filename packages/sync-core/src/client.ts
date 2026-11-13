@@ -10,6 +10,7 @@ import type {
   Snapshot,
 } from "@kamino/protocol";
 import { classify, type SyncSettings } from "./exclusions.js";
+import { cloneJson } from "./clone.js";
 import {
   collisionKey,
   conflictSiblingPath,
@@ -250,7 +251,7 @@ export function step(
 ): { state: ClientState; effects: Effect[] } {
   const s: ClientState = {
     config: state.config,
-    durable: JSON.parse(JSON.stringify(state.durable)) as Durable,
+    durable: cloneJson(state.durable),
     vol: { ...state.vol },
   };
   // States saved before M1d have no folders.
@@ -772,13 +773,13 @@ function renameFolderLocally(c: Ctx, from: string, to: string): void {
 }
 
 /** Folder ops: deletes (deepest first), moves and mkdirs (shallowest first). */
-function nextFolderOps(s: ClientState, env: ClientEnv) {
+function nextFolderOps(s: ClientState, env: ClientEnv, opts: NextOpsOptions) {
   const depth = (p: string) => p.split("/").length;
   const del: { op: FileOp; d: number }[] = [];
   const mov: { op: FileOp; d: number }[] = [];
   const mk: { op: FileOp; d: number }[] = [];
   for (const f of folderList(s)) {
-    if (f.pending || f.blocked || folderSkipped(s, f.path)) continue;
+    if (f.pending || (f.blocked && !opts.includeBlocked) || folderSkipped(s, f.path)) continue;
     const d = depth(f.path);
     if (f.onDisk) {
       if (!f.confirmed || (f.deleted && hasLocalDescendants(s, f.path)))
@@ -1122,15 +1123,23 @@ function onLocalRename(c: Ctx, from: string, to: string): void {
 
 // ---------- push ----------
 
+export interface NextOpsOptions {
+  /**
+   * Also the changes refused in this cycle (`blocked`, e.g. blob_missing after a refused upload).
+   * They are not resent until the next cycle, but they are not safe either: the status counts them.
+   */
+  includeBlocked?: boolean;
+}
+
 /** Ops for every difference between this device and the server (Z8): one per file, deletes → moves → puts. */
-export function nextOps(s: ClientState, env: ClientEnv): Op[] {
+export function nextOps(s: ClientState, env: ClientEnv, opts: NextOpsOptions = {}): Op[] {
   if (s.durable.sent.length > 0) return s.durable.sent;
   const deletes: FileOp[] = [];
   const moves: FileOp[] = [];
   const puts: FileOp[] = [];
   const resolves: Op[] = [];
   for (const e of entries(s)) {
-    if (e.pendingWrite || e.blocked || e.trashing || e.ignored) continue;
+    if (e.pendingWrite || (e.blocked && !opts.includeBlocked) || e.trashing || e.ignored) continue;
     if (e.conflictId) {
       const op = e.resolving ? resolveOp(s, env, e) : null;
       if (op) resolves.push(op);
@@ -1191,7 +1200,7 @@ export function nextOps(s: ClientState, env: ClientEnv): Op[] {
       });
   }
   // Files leave a folder before it goes; a moved folder before its files; folders before files.
-  const f = nextFolderOps(s, env);
+  const f = nextFolderOps(s, env, opts);
   return [...deletes, ...f.deletes, ...f.moves, ...moves, ...f.mkdirs, ...puts, ...resolves].slice(
     0,
     s.config.batchSize,

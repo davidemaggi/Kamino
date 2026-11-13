@@ -1,0 +1,30 @@
+# M7c C1: the 10,000-file performance test (apps/server/test/perf.test.ts). Too slow for every
+# push: weekly on main and on demand. Wide limits: it catches an accidental quadratic step.
+name: Performance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: 10,000 files
+        working-directory: apps/server
+        env:
+          KAMINO_PERF: "1"
+        run: pnpm exec vitest run test/perf.test.ts

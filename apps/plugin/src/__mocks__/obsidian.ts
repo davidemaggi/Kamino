@@ -26,6 +26,8 @@ export const mockIcons = {
   ]),
 };
 
+export const apiVersion = "1.8.0";
+
 export function getIconIds(): string[] {
   return [...mockIcons.ids];
 }

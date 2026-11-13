@@ -1,8 +1,10 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SRC = resolve(import.meta.dirname, "../src");
+/** Path under src with "/" separators, as FORBIDDEN lists them (Windows uses "\\"). */
+const rel = (p: string): string => relative(SRC, p).split(sep).join("/");
 /** U-03: the admin module reads aggregates only; these modules decrypt vault data. */
 const FORBIDDEN = [
   "vaults/vault-crypto.ts",
@@ -44,14 +46,13 @@ describe("admin module architecture", () => {
     const bad: string[] = [];
     for (const f of files)
       for (const r of reachable(f)) {
-        const rel = relative(SRC, r);
-        if (FORBIDDEN.includes(rel)) bad.push(`${relative(SRC, f)} → ${rel}`);
+        if (FORBIDDEN.includes(rel(r))) bad.push(`${rel(f)} → ${rel(r)}`);
       }
     expect(bad).toEqual([]);
   });
 
   it("the check sees forbidden modules (self-test on a module that uses them)", () => {
-    const hits = [...reachable(join(SRC, "history/service.ts"))].map((r) => relative(SRC, r));
+    const hits = [...reachable(join(SRC, "history/service.ts"))].map(rel);
     expect(hits.some((h) => FORBIDDEN.includes(h))).toBe(true);
   });
 });

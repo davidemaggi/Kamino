@@ -1,0 +1,60 @@
+# M7c C3: publishes the Obsidian plugin as a GitHub Release, installable with BRAT.
+# Manual only (Actions → Release plugin → Run workflow, from main): no release without the owner's
+# go-ahead. Before running: `pnpm release:version` (changesets bumps the versions and writes the
+# changelogs, versions.json gets the new entry), commit, merge to main.
+# The tag is the bare version (Obsidian/BRAT convention); 0.x versions are marked as pre-releases.
+name: Release plugin
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-plugin
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter @kamino/plugin test
+      - name: Release metadata
+        id: info
+        working-directory: apps/plugin
+        run: |
+          info=$(pnpm exec tsx scripts/release.ts info)
+          echo "tag=$(echo "$info" | jq -r .tag)" >> "$GITHUB_OUTPUT"
+          echo "title=$(echo "$info" | jq -r .title)" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$(echo "$info" | jq -r .prerelease)" >> "$GITHUB_OUTPUT"
+          pnpm exec tsx scripts/release.ts notes > "$RUNNER_TEMP/notes.md"
+      - name: Refuse an existing tag
+        env:
+          TAG: ${{ steps.info.outputs.tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists: bump the version first (pnpm release:version)." >&2
+            exit 1
+          fi
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.info.outputs.tag }}
+          TITLE: ${{ steps.info.outputs.title }}
+          PRERELEASE: ${{ steps.info.outputs.prerelease }}
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TITLE" \
+            --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}" \
+            apps/plugin/dist/main.js apps/plugin/dist/manifest.json apps/plugin/dist/styles.css

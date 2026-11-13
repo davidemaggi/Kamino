@@ -1,6 +1,6 @@
 import { and, count, eq, isNull } from "drizzle-orm";
 import { generateDek, wrapDek } from "../crypto/dek.js";
-import type { Kek } from "../crypto/keyring.js";
+import { kekFor, type Keyring } from "../crypto/keyring.js";
 import type { Db } from "../db/client.js";
 import { devices, files, oneTimeTokens, users, vaults } from "../db/schema.js";
 import { AuthError } from "../auth/service.js";
@@ -23,7 +23,7 @@ export class VaultService {
 
   constructor(
     private readonly db: Db,
-    private readonly kek: Kek,
+    private readonly kek: Keyring,
     private readonly now: () => number = Date.now,
   ) {}
 
@@ -34,7 +34,7 @@ export class VaultService {
     }
     let c = this.crypto.get(v.id);
     if (!c) {
-      c = new VaultCrypto(v.id, this.kek, v.dekWrapped);
+      c = new VaultCrypto(v.id, kekFor(this.kek, v.kekId), v.dekWrapped);
       this.crypto.set(v.id, c);
     }
     return c;
@@ -56,7 +56,12 @@ export class VaultService {
   async create(ownerId: string, name: string): Promise<Vault> {
     const id = uuidv7();
     const dek = generateDek();
-    const draft = { id, status: "active", dekWrapped: wrapDek(this.kek, id, dek) } as Vault;
+    const draft = {
+      id,
+      status: "active",
+      dekWrapped: wrapDek(this.kek, id, dek),
+      kekId: this.kek.id,
+    } as Vault;
     const nameEnc = this.cryptoOf(draft).enc("vaults", "name", id, name);
     const [v] = await this.db
       .insert(vaults)

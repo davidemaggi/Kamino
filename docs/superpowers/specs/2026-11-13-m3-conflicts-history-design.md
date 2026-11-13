@@ -32,6 +32,8 @@
 - **A4** passa a M3b: con le op attuali il plugin archivia la copia locale caricandola e usando `content`, o con un `put` di un file affiancato nello stesso batch prima del `resolve`.
 - **A7:** ordine invertito, **prima la riga, poi l'oggetto** (sotto il lock del vault e un advisory lock sulla chiave, lo stesso di `complete` dell'upload). Un crash in mezzo lascia un oggetto senza riga (spazio sprecato), mai una versione senza contenuto né una riga che punta al vuoto. La quota segue da sola (somma delle righe `blobs`).
 - **Nessuna migrazione:** le versioni della web app hanno `device_id` nullo; il journal (colonna non nulla) usa l'UUID nullo `WEB_AUTHOR`.
+- **Dopo la revisione del branch:** `head` su un file cancellato lo riporta in vita; "risolvi tutti" riceve per ogni conflitto le versioni viste (`items`) e salta quelli cambiati; la candidata "in arrivo" ha uno spareggio stabile (`createdAt`, poi `versionId`); lo svuotamento del cestino toglie anche i conflitti chiusi e le loro candidate.
+- **M3a e M3b escono insieme:** finché il plugin ignora `conflict_resolved`, un dispositivo perdente resta bloccato su un file risolto dalla web app. Nessuna release tra le due PR.
 - **A8:** il flag `features.historyWrites` è stato rimosso del tutto.
 
 ### M3b — client (sync-core, motore, plugin)

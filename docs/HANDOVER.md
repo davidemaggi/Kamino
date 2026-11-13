@@ -186,6 +186,8 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | M3-4 | GC dei blob: prima la riga (lock del vault + advisory lock sulla chiave), poi l'oggetto; un crash lascia solo spazio sprecato | Basso: spazio orfano, recuperabile con una scansione dello storage |
 | M3-5 | La copia di "tieni entrambe" dalla web app ha l'orario in UTC (il server non conosce il fuso dell'utente) | Minimo: solo il nome del file |
 | M3-6 | Un file nel cestino con un conflitto aperto non viene svuotato; le versioni fissate da conflitti aperti (base, testa, candidate) non scadono | Nessuno: occupa solo spazio |
+| M3-7 | M3a non si rilascia senza M3b: il plugin di oggi ignora `conflict_resolved` e resterebbe bloccato sui file risolti dalla web app | Nessuno finché non c'è una release tra le due |
+| M3-8 | Minori rinviati dalla revisione di M3a: un ripristino dalla web app che diventa candidata di conflitto risponde comunque 204 (finestra di millisecondi; il contenuto è nel centro conflitti); i retry della web app usano un `opId` nuovo (409 o una versione in più, mai perdite); sessioni di upload scadute ma non ancora spazzate trattengono il blob fino allo sweep; un dispositivo molto indietro che rigioca `file_put` di blob già raccolti va verificato in M3b | Basso |
 
 ### Decisioni di P3 (M6: pairing con QR e magic link)
 

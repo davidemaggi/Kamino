@@ -4,6 +4,7 @@ import { AuthService } from "./auth/service.js";
 import { createBlobStore } from "./blobs/store.js";
 import { UploadService } from "./blobs/uploads.js";
 import { sweepPairings } from "./pairing/service.js";
+import { PROTOCOL_VERSION } from "@kamino/protocol";
 import { buildInfo } from "./build-info.js";
 import { ConfigError, loadConfig } from "./config/load.js";
 import { ensureKeyCheck } from "./crypto/key-check.js";
@@ -38,6 +39,18 @@ async function main(): Promise<void> {
   }
   const { config } = loaded;
   const logger = createLogger(config.logLevel);
+  // rc1: the first line of every log says which build is running (no configuration values).
+  logger.info(
+    {
+      version: buildInfo.version,
+      codename: buildInfo.codename,
+      commit: buildInfo.commit,
+      protocol: PROTOCOL_VERSION,
+      node: process.version,
+      logLevel: config.logLevel,
+    },
+    "server starting",
+  );
   // Fail fast on a malformed key before touching the database. Never log the key itself.
   let kek: Keyring;
   try {
@@ -150,6 +163,7 @@ async function main(): Promise<void> {
   process.once("SIGINT", () => void shutdown());
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
+  logger.info({ port: config.port, storage: config.storage.kind }, "server ready");
 }
 
 main().catch((err: unknown) => {

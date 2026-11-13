@@ -5,6 +5,14 @@
 # desktops to use it; the localhost default only works on this machine.
 name: kamino
 
+# Container logs rotate (json-file, 5 x 10 MB per service): `docker compose logs` keeps working
+# and the disk doesn't fill. The server never logs paths, names, contents or secrets.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   kamino:
     image: kamino:local
@@ -14,6 +22,7 @@ services:
       args:
         KAMINO_BUILD_COMMIT: ${KAMINO_BUILD_COMMIT:-unknown}
     restart: unless-stopped
+    logging: *logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,6 +41,7 @@ services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: kamino
       POSTGRES_DB: kamino

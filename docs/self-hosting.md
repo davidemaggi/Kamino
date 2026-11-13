@@ -185,9 +185,28 @@ Finché il plugin non è nello store di Obsidian si installa con [BRAT](https://
 
 Su telefono e tablet il server deve essere raggiungibile in HTTPS (scenari tunnel o Caddy).
 
-Le release si pubblicano a mano dal workflow **Release plugin** (GitHub Actions, solo da `main`), dopo `pnpm release:version` (changesets aggiorna versioni e changelog, `versions.json` riceve la nuova voce). Le versioni 0.x sono marcate come pre-release.
+Le release si pubblicano a mano dal workflow **Release plugin** (GitHub Actions, solo da `main`), dopo `pnpm release:version` (changesets aggiorna versioni e changelog, `versions.json` riceve la nuova voce). Le versioni 0.x e quelle con un suffisso (per esempio `1.0.0-rc.1`, release candidate) sono marcate come pre-release: in BRAT si può indicare la versione esatta da installare.
 
-## 9. Lista di controllo
+## 9. Log e diagnostica
+
+**Server.** Scrive log JSON (pino) sull'output standard; Docker li conserva con rotazione (5 file da 10 MB per servizio, impostata nei file compose).
+
+```sh
+docker compose -f docker/compose.lan.yml logs --since 1h kamino     # ultima ora
+docker compose -f docker/compose.lan.yml logs -f kamino             # in diretta
+docker compose -f docker/compose.lan.yml logs --no-log-prefix kamino > kamino.log   # da allegare
+```
+
+- La prima riga di ogni avvio è `server starting` con versione, nome della release, commit e versione del protocollo; poi `server ready` quando accetta connessioni.
+- Ogni richiesta HTTP ha una riga con metodo, URL (token e codici rimossi), stato e durata; gli errori hanno `request failed` con il solo tipo di errore; i job in background che falliscono hanno `job failed` con il nome del job.
+- Per più dettagli imposta `KAMINO_LOG_LEVEL=debug` in `docker/.env` e riavvia (`up -d`); torna a `info` quando hai finito.
+- **Mai nei log:** percorsi e nomi di file o di vault, contenuti, token, password, link di invito o reset, email, master key. Fa eccezione il link di primo avvio (§4), scritto una sola volta finché non esiste alcun utente.
+
+**Plugin.** Tiene un registro diagnostico nella sua cartella (`<cartella di configurazione>/plugins/<id>/diagnostics.log`, esclusa dalla sincronizzazione, ultime 1000 righe): avvio del plugin con versione e piattaforma, cambi di stato, eventi di connessione e codici di errore del motore di sync, ognuno con l'ora. Per inviarlo: comando **"Copia la diagnostica"** oppure Impostazioni → Informazioni → Diagnostica → **Copia**. Il testo copiato aggiunge versione, protocollo, piattaforma, modalità e numero di modifiche in coda e di conflitti. Anche qui nessun nome di file, percorso o contenuto.
+
+Per analizzare un problema servono di solito entrambi: il log del server dell'intervallo interessato e la diagnostica copiata dal dispositivo.
+
+## 10. Lista di controllo
 
 - [ ] master key generata, copia fuori dal server (§2);
 - [ ] `KAMINO_PUBLIC_URL` corretto per lo scenario, HTTPS se ci sono dispositivi mobili;

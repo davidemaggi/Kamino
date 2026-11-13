@@ -51,7 +51,16 @@ export async function startJobs(
       queue,
       { pollingIntervalSeconds: opts.pollingIntervalSeconds ?? 2 },
       async () => {
-        await handlers[name]();
+        const t0 = Date.now();
+        try {
+          const result = await handlers[name]();
+          log.debug({ job: name, ms: Date.now() - t0 }, "job done");
+          return result;
+        } catch (e) {
+          // pg-boss retries; the log keeps only the error's class, never its message.
+          log.warn({ job: name, err: { name: (e as Error).name } }, "job failed");
+          throw e;
+        }
       },
     );
     await boss.schedule(queue, SCHEDULES[name]);

@@ -7,11 +7,12 @@
   try {
     stored = window.localStorage.getItem("theme");
   } catch {
-    // storage unavailable: follow the system preference
+    // storage unavailable: the default (dark) applies
   }
   var prefersDark =
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-color-scheme: dark)").matches;
-  var dark = stored === "dark" || (stored !== "light" && prefersDark);
+  // Dark (obsidian) is the default; "system" follows the OS.
+  var dark = stored === "system" ? prefersDark : stored !== "light";
   if (dark) document.documentElement.classList.add("dark");
 })();

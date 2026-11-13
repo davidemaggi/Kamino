@@ -14,7 +14,8 @@ function readStored(): Theme {
   } catch {
     // storage unavailable: fall through to the default
   }
-  return "system";
+  // Dark (obsidian) by default: the identity is designed dark first.
+  return "dark";
 }
 
 function prefersDark(): boolean {

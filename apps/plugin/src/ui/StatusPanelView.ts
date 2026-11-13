@@ -8,6 +8,7 @@ import {
 import { ItemView, type WorkspaceLeaf } from "obsidian";
 import { fmt, formatSize, formatWhen } from "../i18n/format.js";
 import { t } from "../i18n/index.js";
+import { BRAND_ICON } from "./brand-icon.js";
 import type { UiContext } from "./context.js";
 import { h } from "./dom.js";
 import { renderStatusIndicator, STATUS_CLASS } from "./render-status.js";
@@ -35,7 +36,7 @@ export class StatusPanelView extends ItemView {
     return t(this.ctx.lang).panel.title;
   }
   override getIcon(): string {
-    return "shield-check";
+    return BRAND_ICON;
   }
 
   protected override onOpen(): Promise<void> {

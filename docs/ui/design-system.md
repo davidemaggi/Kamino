@@ -4,14 +4,21 @@
 
 Questo documento descrive l'aspetto e il lessico visivo comuni a web app e plugin. La regola che lo guida è la promessa del prodotto: **"non perdi mai niente, e sai sempre se sei al sicuro"**. L'interfaccia deve far capire lo stato di sync a colpo d'occhio, senza allarmare quando va tutto bene.
 
-## 1. Direzione visiva: C "Ibrida"
+## 1. Direzione visiva: "Ossidiana" (da 1.0.0-rc.4)
 
-- **Base neutra** con una leggera tinta blu-ardesia presa dall'icona del prodotto.
-- **Ciano** solo per azioni secondarie, link e focus (`--link`, `--ring`). Non è mai un colore di stato.
-- **Primario:** blu notte in chiaro, ciano in scuro (bottoni principali).
+Sostituisce la direzione C "Ibrida" (blu-ardesia e ciano). Riprende i colori di Obsidian, così il prodotto si sente di casa accanto all'app che accompagna.
+
+- **Sfondi color ossidiana:** neutri scuri con una leggera tinta viola (`#131118` lo sfondo, `#1b1921` le card).
+- **Viola** per il logo, i bottoni principali, link e focus (`--primary`, `--link`, `--ring`). Non è mai un colore di stato.
+- **Scuro predefinito:** al primo avvio (e per i nuovi utenti, default `users.theme = 'dark'`) il tema è scuro; restano chiaro e sistema nel selettore.
+- **Dettagli di marca:** selezione testo, cursore, scrollbar, `accent-color` e la barra `<progress>` della quota prendono il viola; le pagine pubbliche (accesso, setup) hanno un alone viola in alto (`.brand-backdrop`) e il logo grande impilato sopra il nome (`BrandMark stacked`).
 - **Tipografia:** Source Serif 4 (600/700) per i titoli di pagina e delle card; Inter per tutto il resto. I font sono inclusi nell'app (`@fontsource`): nessuna richiesta a CDN esterni.
 - **Icone:** Lucide (`lucide-react` nella web app, `setIcon` di Obsidian nel plugin).
 - **Raggio:** 10 px (`--radius`).
+
+**Icona** ([`assets/icon.svg`](../../assets/icon.svg), PNG 512 px in `assets/icon.png`): elmo da clone in gradiente viola (`#c7b4ff` → `#6a45d9`) su una tessera di vetro ossidiana con sfaccettature e alone viola. Leggibile da 16 px. Nel plugin lo stesso elmo, monocromo in `currentColor`, è registrato con `addIcon` ([`brand-icon.ts`](../../apps/plugin/src/ui/brand-icon.ts)) ed è l'icona del pannello di stato e della scheda di benvenuto.
+
+> **Marchio:** l'elmo richiama un design di Lucasfilm/Disney. Va bene finché "Kamino" resta un nome in codice; con il nome pubblico serve un logo originale (vedi [`renaming.md`](../renaming.md)).
 
 Il plugin **non** usa questa palette: eredita il tema di Obsidian dell'utente e prende da qui solo il lessico degli stati (§3).
 
@@ -21,28 +28,31 @@ Definiti in [`apps/web/src/index.css`](../../apps/web/src/index.css) con lo sche
 
 | Token | Chiaro | Scuro |
 |---|---|---|
-| `--background` | `#f7f9f9` | `#0b1820` |
-| `--card` | `#ffffff` | `#13232c` |
-| `--foreground` | `#132a36` | `#e7eef0` |
-| `--muted` | `#eef1f2` | `#1d3340` |
-| `--muted-foreground` | `#5b6b73` | `#8a9ba3` |
-| `--border` | `#e3e9eb` | `#1d3340` |
-| `--primary` / `--primary-foreground` | `#0d2230` / `#ffffff` | `#4fd6e3` / `#071118` |
-| `--link` (= `--ring`) | `#0b7685` | `#4fd6e3` |
+| `--background` | `#f7f6fa` | `#131118` |
+| `--card` | `#ffffff` | `#1b1921` |
+| `--foreground` | `#1b1724` | `#ece9f2` |
+| `--muted` | `#efedf4` | `#26232e` |
+| `--muted-foreground` | `#5f596c` | `#a39dae` |
+| `--border` | `#e4e1ea` | `#2b2833` |
+| `--primary` / `--primary-foreground` | `#6a45d9` / `#ffffff` | `#7b5bea` / `#ffffff` |
+| `--link` | `#5b37c9` | `#b49cfb` |
+| `--ring` | `#6a45d9` | `#a88bfa` |
 
 Colori di stato (testo / superficie):
 
 | Livello | Chiaro | Scuro |
 |---|---|---|
-| `safe` | `#0b6b52` / `#e3f6ef` | `#7ff0c9` / `#0e3b33` |
-| `working` | `#3f5059` / `#eef1f2` | `#b4c3ca` / `#1d3340` |
-| `attention` | `#8a5a00` / `#fbf0d9` | `#ffd166` / `#3a2e0c` |
-| `decision` | `#5a3fb0` / `#efeafd` | `#c4b2ff` / `#2c2250` |
-| `blocked` | `#a3261b` / `#fbe4e1` | `#ff9c90` / `#401a17` |
+| `safe` | `#0b6b52` / `#e3f6ef` | `#7ff0c9` / `#0e3329` |
+| `working` | `#4a4556` / `#efedf4` | `#bdb7c9` / `#26232e` |
+| `attention` | `#8a5a00` / `#fbf0d9` | `#ffd166` / `#352a0c` |
+| `decision` | `#a3177a` / `#fce6f5` | `#ff8fd8` / `#3b1430` |
+| `blocked` | `#a3261b` / `#fbe4e1` | `#ff9c90` / `#3d1916` |
+
+"Decisione" è **magenta**: il viola ora è del marchio e non può indicare uno stato.
 
 **Contrasto:** il test [`apps/web/src/theme/tokens.test.ts`](../../apps/web/src/theme/tokens.test.ts) calcola il rapporto WCAG di ogni coppia testo/sfondo, in chiaro e in scuro, e fallisce sotto 4.5:1. Se un ritocco lo rompe si corregge il valore del token, mai la soglia.
 
-**Tema:** chiaro, scuro o sistema (`ThemeSwitcher`). Lo script esterno `public/theme-init.js` applica la classe `dark` prima del primo paint, così non c'è il lampo chiaro al caricamento; è un file esterno e non inline per restare compatibile con una CSP rigida.
+**Tema:** scuro (predefinito), chiaro o sistema (`ThemeSwitcher`). Lo script esterno `public/theme-init.js` applica la classe `dark` prima del primo paint, così non c'è il lampo chiaro al caricamento; è un file esterno e non inline per restare compatibile con una CSP rigida.
 
 ## 3. Stati di sync
 
@@ -53,7 +63,7 @@ Lessico e logica stanno in [`packages/status`](../../packages/status) e sono con
 | Al sicuro | `safe` | `shield-check` | Coda vuota, almeno un sync confermato, nessun conflitto né blocco | verde | `--color-green` |
 | In corso | `working` | `refresh-cw` (invio), `clock` (in coda, mai sincronizzato) | Modifiche in coda entro le soglie; dispositivo mai sincronizzato | grigio | `--text-muted` |
 | Attenzione | `attention` | `cloud-off` (offline), `triangle-alert` | Server irraggiungibile ≥ 24 h, modifiche ferme ≥ 1 h, quota ≥ 90% | ambra | `--color-yellow` |
-| Decisione | `decision` | `git-compare-arrows` | Conflitti da risolvere (entrambe le versioni conservate) | viola | `--color-purple` |
+| Decisione | `decision` | `git-compare-arrows` | Conflitti da risolvere (entrambe le versioni conservate) | magenta | `--color-pink` |
 | Bloccato | `blocked` | `octagon-alert` | Quota piena, dispositivo revocato, accesso scaduto, protocollo incompatibile | rosso | `--color-red` |
 
 - **Precedenza:** Bloccato > Decisione > Attenzione > In corso > Al sicuro. Il livello più grave dà il messaggio principale; le altre condizioni compaiono come messaggi secondari.
@@ -65,7 +75,7 @@ Lessico e logica stanno in [`packages/status`](../../packages/status) e sono con
 
 - **Mai solo colore:** ogni stato ha sempre icona + testo (daltonismo, lettori di schermo).
 - **Stato di un dispositivo:** pallino colorato accanto al nome (`StatusDot`), **mai** un bordo laterale colorato sulla card.
-- **"In attesa" è grigio**, non ciano: il ciano è il colore delle azioni.
+- **"In attesa" è grigio**, non viola: il viola è il colore del marchio e delle azioni.
 - **Ultimo sync confermato** sempre raggiungibile: tooltip del badge (web), etichetta accessibile e dettaglio al clic (plugin).
 - **Testi:** solo via i18n (web: `react-i18next`; plugin: `src/i18n/*.json`) o `@kamino/status`. Il lessico a tema (clone, Jango, …) è vietato nei testi UI.
 - **Risorse esterne:** nessuna (font, icone e CSS sono nel bundle).
@@ -187,7 +197,7 @@ Spec: [`2026-11-08-ui-web-shell-account-design.md`](../superpowers/specs/2026-11
 
 ### Struttura
 
-- **Desktop:** barra laterale (240 px) con nome del prodotto, **stato complessivo** (il livello più grave tra i vault), Panoramica, Vault, Dispositivi, Conflitti (badge viola col numero), sezione **Amministrazione** solo per gli admin, in fondo Account, Informazioni, Esci e il ruolo. Voce attiva con sfondo tenue, mai bordo laterale.
+- **Desktop:** barra laterale (240 px) con nome del prodotto, **stato complessivo** (il livello più grave tra i vault), Panoramica, Vault, Dispositivi, Conflitti (badge magenta col numero), sezione **Amministrazione** solo per gli admin, in fondo Account, Informazioni, Esci e il ruolo. Voce attiva con sfondo tenue, mai bordo laterale.
 - **Telefono:** barra in alto (menu, nome, badge di stato) e menu a scomparsa con le stesse voci.
 - Accessibilità: `nav` con etichetta, `aria-current="page"`, "Vai al contenuto", titolo della finestra "{pagina} · {prodotto}".
 - Banner in cima a ogni pagina dopo un reset della password avviato dall'amministratore, finché non si chiude.

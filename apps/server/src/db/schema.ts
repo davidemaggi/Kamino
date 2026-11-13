@@ -57,7 +57,7 @@ export const users = pgTable("users", {
   role: role("role").notNull().default("user"),
   status: userStatus("status").notNull().default("active"),
   locale: text("locale").notNull().default("it"),
-  theme: theme("theme").notNull().default("system"),
+  theme: theme("theme").notNull().default("dark"),
   /** Encrypted with k_system, AAD users ‖ totp_secret ‖ id. Set at setup, enabled at confirm. */
   totpSecret: bytea("totp_secret"),
   totpEnabledAt: timestamp("totp_enabled_at", { withTimezone: true }),

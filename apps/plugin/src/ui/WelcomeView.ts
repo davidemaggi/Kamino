@@ -1,4 +1,5 @@
 import { ItemView, type WorkspaceLeaf } from "obsidian";
+import { BRAND_ICON } from "./brand-icon.js";
 import { t } from "../i18n/index.js";
 import type { UiContext } from "./context.js";
 import { renderWelcome } from "./welcome-content.js";
@@ -22,7 +23,7 @@ export class WelcomeView extends ItemView {
     return t(this.ctx.lang).welcome.viewTitle;
   }
   override getIcon(): string {
-    return "link";
+    return BRAND_ICON;
   }
 
   protected override onOpen(): Promise<void> {

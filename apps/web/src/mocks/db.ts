@@ -74,7 +74,7 @@ function user(over: Partial<FakeUser> & Pick<FakeUser, "username" | "password">)
     email: `${over.username}@example.com`,
     role: "user",
     lang: "it",
-    theme: "system",
+    theme: "dark",
     totpEnabled: false,
     totpSetupRequired: false,
     adminResetAt: null,

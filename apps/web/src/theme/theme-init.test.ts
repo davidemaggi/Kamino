@@ -26,8 +26,9 @@ describe("theme-init.js", () => {
     ["dark", false, true],
     ["light", true, false],
     ["system", true, true],
+    ["system", false, false],
     [null, true, true],
-    [null, false, false],
+    [null, false, true],
   ] as const)("stored %s, prefers dark %s -> dark %s", (stored, prefersDark, expected) => {
     if (stored) localStorage.setItem(THEME_STORAGE_KEY, stored);
     stubPrefersDark(prefersDark);
@@ -35,11 +36,11 @@ describe("theme-init.js", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(expected);
   });
 
-  it("falls back to the system preference when storage throws", () => {
+  it("falls back to dark when storage throws", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    stubPrefersDark(true);
+    stubPrefersDark(false);
     run();
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });

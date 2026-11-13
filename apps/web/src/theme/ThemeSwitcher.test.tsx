@@ -22,11 +22,12 @@ describe("ThemeSwitcher", () => {
       </I18nextProvider>,
     );
     expect(screen.getByRole("group", { name: "Tema" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Sistema" }).getAttribute("aria-pressed")).toBe(
+    // Dark is the default.
+    expect(screen.getByRole("button", { name: "Scuro" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Chiaro" }));
+    expect(screen.getByRole("button", { name: "Chiaro" }).getAttribute("aria-pressed")).toBe(
       "true",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Scuro" }));
-    expect(screen.getByRole("button", { name: "Scuro" }).getAttribute("aria-pressed")).toBe("true");
-    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 });

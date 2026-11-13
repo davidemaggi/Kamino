@@ -1,5 +1,11 @@
 # @kamino/server
 
+## 1.0.0-rc.2
+
+### Patch Changes
+
+- Right after the first setup, the new admin is taken to the two-step verification page instead of seeing a `totp_mandatory` error.
+
 ## 1.0.0-rc.1
 
 ### Major Changes

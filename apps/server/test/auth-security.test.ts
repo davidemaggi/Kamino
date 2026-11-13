@@ -122,6 +122,13 @@ describe.skipIf(dockerUnavailable)("auth security", () => {
     expect((await t.call(a, "POST", "/account/totp/setup")).statusCode).toBe(200);
   });
 
+  it("I4: right after the setup, the new admin's web app can still load (setup status)", async () => {
+    const a = await admin();
+    const r = await t.call(a, "GET", "/setup/status");
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ needed: false });
+  });
+
   it("I5: taken usernames and emails are 409 with their own code", async () => {
     await adminWithTotp();
     const invite = await t.auth.invite("mario", "mario@example.com", "cli");

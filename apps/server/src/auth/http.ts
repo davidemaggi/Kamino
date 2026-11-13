@@ -16,6 +16,8 @@ import { TransferError } from "../blobs/uploads.js";
 
 /** What an admin without TOTP may still do (U-07): see who they are, enable TOTP, sign out. */
 const TOTP_SETUP_ROUTES = new Set([
+  // Public and read-only: the web app checks it before every signed-in page.
+  "GET /api/v1/setup/status",
   "GET /api/v1/me",
   "POST /api/v1/auth/logout",
   "POST /api/v1/account/totp/setup",

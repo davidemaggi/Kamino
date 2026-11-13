@@ -226,6 +226,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   }
   healthRoutes(app, deps.db);
   versionRoutes(app, deps.buildInfo);
+  // Also under the API prefix: the plugin's client prefixes every path with /api/v1.
+  await app.register(async (api) => versionRoutes(api, deps.buildInfo), { prefix: "/api/v1" });
   webRoutes(app, deps.webRoot);
   return app;
 }

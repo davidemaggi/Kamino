@@ -6,6 +6,8 @@
 
 - New "Obsidian" identity: new icon, obsidian-dark backgrounds with a violet accent, dark theme by default (new users and first visit), "Decision" status in magenta, and the brand glyph on the plugin's status panel and welcome tab.
 
+- The plugin's "Check" no longer says the server is unreachable: `/version` is also served under `/api/v1`, where the plugin looks for it.
+
 ## 1.0.0-rc.3
 
 ### Patch Changes

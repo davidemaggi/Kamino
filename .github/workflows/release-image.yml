@@ -1,0 +1,75 @@
+# Publishes the server's Docker image to GHCR (ghcr.io/<owner>/kamino), amd64 + arm64.
+# Manual only (Actions → Release image → Run workflow, from main), after "Release plugin": the
+# image is built from the release tag, so plugin and server of one release are the same commit.
+# Tags: the bare version (e.g. 1.0.0-rc.5); plus `rc` for a pre-release, `latest` otherwise.
+name: Release image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (a release tag). Empty = the current version on main."
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-image
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version and tags
+        id: info
+        env:
+          INPUT: ${{ inputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          version="${INPUT:-$(jq -r .version apps/server/package.json)}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "Not a version: $version" >&2
+            exit 1
+          fi
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null; then
+            echo "Tag $version doesn't exist: run \"Release plugin\" first." >&2
+            exit 1
+          fi
+          image="ghcr.io/${OWNER,,}/kamino"
+          tags="$image:$version"
+          if [[ "$version" == *-* ]]; then tags="$tags,$image:rc"; else tags="$tags,$image:latest"; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.info.outputs.version }}
+      - name: Commit of the tag
+        id: rev
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.info.outputs.tags }}
+          build-args: KAMINO_BUILD_COMMIT=${{ steps.rev.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.info.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.rev.outputs.sha }}
+            org.opencontainers.image.title=Kamino server
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

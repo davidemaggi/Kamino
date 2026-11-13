@@ -1,0 +1,72 @@
+# Scenario 4: the published image, no repository needed on the server. Copy this file and
+# `.env.image.example` (renamed `.env`) into one folder, fill in `.env`, then:
+#   docker compose -f compose.image.yml up -d
+# With the Cloudflare Tunnel run by this compose (token in .env):
+#   docker compose -f compose.image.yml --profile cloudflare up -d
+# With a tunnel already running on the host: point its public hostname to http://localhost:8080.
+#
+# Updating: change KAMINO_VERSION in .env, then `docker compose -f compose.image.yml pull` and
+# `up -d`. The server migrates the database by itself at startup.
+#
+# Secrets come from .env here (simple). Anyone who can run `docker inspect` on the host can read
+# them: for a host shared with others, use the Docker secret files of compose.tunnel.yml instead.
+name: kamino
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  kamino:
+    image: ghcr.io/davidemaggi/kamino:${KAMINO_VERSION:?set KAMINO_VERSION (e.g. 1.0.0-rc.5) in .env}
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KAMINO_PUBLIC_URL: ${KAMINO_PUBLIC_URL:?set KAMINO_PUBLIC_URL (the public https URL) in .env}
+      KAMINO_DATABASE_URL: postgres://kamino:${KAMINO_DB_PASSWORD:?set KAMINO_DB_PASSWORD in .env}@postgres:5432/kamino
+      KAMINO_MASTER_KEY: ${KAMINO_MASTER_KEY:?set KAMINO_MASTER_KEY in .env (see the comment there)}
+      KAMINO_LOG_LEVEL: ${KAMINO_LOG_LEVEL:-info}
+      # Only the tunnel in front can reach the server: trust its X-Forwarded-For (one hop).
+      KAMINO_TRUST_PROXY: ${KAMINO_TRUST_PROXY:-1}
+    ports:
+      # Host loopback only: the tunnel is the only way in.
+      - "127.0.0.1:${KAMINO_PORT:-8080}:8080"
+    volumes:
+      - kamino-data:/data
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: kamino
+      POSTGRES_DB: kamino
+      POSTGRES_PASSWORD: ${KAMINO_DB_PASSWORD:?set KAMINO_DB_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kamino -d kamino"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["cloudflare"]
+    restart: unless-stopped
+    logging: *logging
+    command: tunnel --no-autoupdate run
+    environment:
+      # Public hostname of the tunnel → http://kamino:8080
+      TUNNEL_TOKEN: ${CLOUDFLARED_TOKEN:-}
+    depends_on:
+      - kamino
+
+volumes:
+  kamino-data:
+  postgres-data:

@@ -20,6 +20,7 @@ import { registerDevCommands } from "./dev/commands.js";
 import { detectLanguage, t } from "./i18n/index.js";
 import { SettingsStore } from "./settings/store.js";
 import { SettingsTab } from "./settings/SettingsTab.js";
+import { CONFLICT_COPY_LABEL } from "@kamino/sync-engine";
 import { EngineState } from "./state/engine-state.js";
 import { InsistentNotices } from "./state/insistent-notices.js";
 import { FakeSyncState } from "./state/fake.js";
@@ -200,7 +201,12 @@ export default class SyncPlugin extends Plugin {
         onHostChange: (cb) => host?.onChange(cb) ?? (() => {}),
         device: deviceInfo,
         notice: (msg) => new Notice(msg),
-        comingSoon: m.conflict.comingSoon,
+        labels: {
+          copy: CONFLICT_COPY_LABEL[lang],
+          webApp: m.conflict.webApp,
+          otherDevice: m.conflict.otherDevice,
+          failed: m.conflict.failed,
+        },
       });
 
     const ctx: UiContext = {

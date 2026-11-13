@@ -25,7 +25,10 @@ export class BulkResolveModal extends Modal {
     this.titleEl.textContent = m.title;
     const root = this.contentEl;
     root.replaceChildren();
-    this.ids = this.ctx.source.conflicts().map((c) => c.id);
+    this.ids = this.ctx.source
+      .conflicts()
+      .filter((c) => !c.elsewhere)
+      .map((c) => c.id);
 
     const apply = root.ownerDocument.createElement("button");
     apply.className = "mod-cta";

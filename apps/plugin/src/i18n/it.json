@@ -141,7 +141,10 @@
     "unchangedLines": "$ righe invariate",
     "failed": "Non è stato possibile applicare la scelta. Riprova.",
     "unsavedMerge": "La tua unione non è stata salvata: eccola, puoi copiarla.",
-    "comingSoon": "La risoluzione dei conflitti arriva in una prossima versione: intanto entrambe le versioni sono al sicuro."
+    "webApp": "web app",
+    "otherDevice": "un altro dispositivo",
+    "unknownTime": "ora sconosciuta",
+    "elsewhere": "Questo conflitto si risolve dal dispositivo che ha l'altra versione, oppure dalla web app. Entrambe le versioni sono al sicuro."
   },
   "bulk": {
     "title": "Risolvi tutti i conflitti",

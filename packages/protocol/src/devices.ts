@@ -21,4 +21,5 @@ export const Device = z.object({
 });
 export type Device = z.infer<typeof Device>;
 export const DeviceList = z.array(Device);
+export type DeviceList = z.infer<typeof DeviceList>;
 export const DevicePatch = z.object({ name: z.string().trim().min(1).max(100) });

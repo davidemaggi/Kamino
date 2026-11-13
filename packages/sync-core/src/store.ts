@@ -179,10 +179,15 @@ export class MemoryStore {
         })),
       openConflicts: [...this.conflicts.values()]
         .filter((c) => c.status === "open")
-        .map((c) => ({
-          conflictId: c.conflictId,
-          fileId: c.fileId,
-        })),
+        .map((c) => {
+          const f = this.files.get(c.fileId);
+          return {
+            conflictId: c.conflictId,
+            fileId: c.fileId,
+            headVersionId: f?.headVersionId ?? c.headVersionId,
+            contentHash: f?.headHash ?? null,
+          };
+        }),
     };
   }
 

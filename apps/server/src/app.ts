@@ -31,6 +31,7 @@ import { VaultService } from "./vaults/service.js";
 import { healthRoutes } from "./routes/health.js";
 import { versionRoutes } from "./routes/version.js";
 import { webRoutes } from "./web.js";
+import { securityHeaders } from "./http/security.js";
 import { SystemConfigService } from "./system/config.js";
 import { QuotaService } from "./quota/service.js";
 import { Outbox } from "./email/outbox.js";
@@ -80,6 +81,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
           ? (_addr: string, hop: number) => hop < tp
           : tp,
   });
+  securityHeaders(app, deps.config.publicUrl);
   const auth = deps.auth ?? new AuthService(deps.db, deps.kek, PRODUCT_NAME);
   await registerAuthHttp(app, auth);
   const systemConfig =

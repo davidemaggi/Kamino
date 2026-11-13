@@ -5,6 +5,10 @@ import { App } from "./App.js";
 import { createI18n, detectLanguage } from "./i18n/index.js";
 import { ThemeProvider } from "./theme/ThemeProvider.js";
 import "./index.css";
+import { config as zodConfig } from "zod";
+
+// The CSP forbids eval (M7a): zod must not try its JIT, which would log a violation.
+zodConfig({ jitless: true });
 
 const i18n = createI18n(detectLanguage(navigator.language));
 document.documentElement.lang = i18n.language;

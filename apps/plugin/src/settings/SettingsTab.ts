@@ -194,6 +194,12 @@ export class SettingsTab extends PluginSettingTab {
     new Setting(containerEl).setName(m.version).setDesc(APP_VERSION);
     new Setting(containerEl).setName(m.release).setDesc(APP_CODENAME);
     new Setting(containerEl).setName(m.protocol).setDesc(String(PROTOCOL_VERSION));
+    new Setting(containerEl)
+      .setName(m.diagnostics)
+      .setDesc(m.diagnosticsDesc)
+      .addButton((b) =>
+        b.setButtonText(m.copyDiagnostics).onClick(() => void ctx.copyDiagnostics()),
+      );
   }
 
   private p(text: string): HTMLParagraphElement {

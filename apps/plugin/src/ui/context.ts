@@ -40,4 +40,6 @@ export interface UiContext {
   openClaim(link: PairingLink): void;
   openAddDevice(request?: PairingRequest): void;
   confirm(opts: ConfirmOptions): Promise<boolean>;
+  /** Copies the diagnostic report (codes only) to the clipboard. */
+  copyDiagnostics(): Promise<void>;
 }

@@ -52,7 +52,10 @@
     "about": "Informazioni",
     "cancel": "Annulla",
     "confirmUnlink": "Scollega",
-    "reloadToApply": "La configurazione sincronizzata è cambiata: ricarica Obsidian per applicarla."
+    "reloadToApply": "La configurazione sincronizzata è cambiata: ricarica Obsidian per applicarla.",
+    "diagnostics": "Diagnostica",
+    "diagnosticsDesc": "Copia un registro tecnico da incollare in una richiesta di assistenza. Contiene solo codici di evento e orari: nessun nome di file, percorso o contenuto.",
+    "copyDiagnostics": "Copia"
   },
   "dev": {
     "statusGallery": "Mostra galleria stati (sviluppo)",
@@ -217,7 +220,8 @@
   },
   "commands": {
     "connect": "Collega questo vault",
-    "addDevice": "Aggiungi un dispositivo"
+    "addDevice": "Aggiungi un dispositivo",
+    "copyDiagnostics": "Copia la diagnostica"
   },
   "connect": {
     "titleCreate": "È il primo dispositivo",
@@ -280,5 +284,9 @@
     "dontAsk": "Non chiedere più fino al riavvio di Obsidian",
     "proceed": "Usa questa rete",
     "wait": "Aspetta il Wi-Fi"
+  },
+  "diagnostics": {
+    "copied": "Diagnostica copiata negli appunti.",
+    "copyFailed": "Impossibile copiare la diagnostica."
   }
 }

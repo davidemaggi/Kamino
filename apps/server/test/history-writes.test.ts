@@ -99,6 +99,21 @@ describe.skipIf(dockerUnavailable)("conflict resolution and restores (M3a)", () 
     });
   });
 
+  it("keep mine on a file deleted meanwhile brings it back instead of leaving it to expire", async () => {
+    const { mac, mario, c } = await world();
+    t.clock.now += 60_000;
+    await commit(mac, { type: "delete", opId: `o${++op}`, fileId: "f1", baseVersionId: "v2" });
+    expect((await resolve(mario, c.id, "keep_mine", c.incoming.at)).statusCode).toBe(204);
+    expect((await journal(mac)).slice(-2).map((e) => e.type)).toEqual([
+      "file_restored",
+      "conflict_resolved",
+    ]);
+    const trash = TrashList.parse(
+      (await t.call(mario, "GET", `/vaults/${mac.vaultId}/trash`)).json(),
+    );
+    expect(trash.items).toEqual([]);
+  });
+
   it("keep incoming: a new current version with the incoming content", async () => {
     const { mac, mario, c } = await world();
     expect((await resolve(mario, c.id, "keep_incoming", c.incoming.at)).statusCode).toBe(204);
@@ -167,18 +182,33 @@ describe.skipIf(dockerUnavailable)("conflict resolution and restores (M3a)", () 
     expect(again).toMatchObject({ status: "rejected", code: "stale_resolution" });
   });
 
-  it("resolve-all: only the ids seen, skipping unknown or closed ones", async () => {
+  it("resolve-all: only those seen as seen, skipping unknown, closed or changed ones", async () => {
     const { mac, phone, mario, c } = await world();
     await put(mac, "f2", "w1", "b.md", "b", null);
     await put(mac, "f2", "w2", "b.md", "b mac", "w1");
     expect(await put(phone, "f2", "w3", "b.md", "b phone", "w1")).toBe("conflict");
+    await put(mac, "f3", "x1", "c.md", "c", null);
+    await put(mac, "f3", "x2", "c.md", "c mac", "x1");
+    expect(await put(phone, "f3", "x3", "c.md", "c phone", "x1")).toBe("conflict");
     const list = ConflictList.parse((await t.call(mario, "GET", "/conflicts")).json());
+    const item = (x: (typeof list)[number]) => ({
+      id: x.id,
+      expectedIncomingAt: x.incoming.at,
+      expectedMineAt: x.mine.at,
+    });
+    // A newer incoming version on c.md after the list was shown: it must not be resolved blind.
+    expect(await put(phone, "f3", "x4", "c.md", "c phone 2", "x1")).toBe("conflict");
     const r = await t.call(mario, "POST", "/conflicts/resolve-all", {
       strategy: "keep_incoming",
-      ids: [...list.map((x) => x.id), "nope", c.id],
+      items: [
+        ...list.map(item),
+        { id: "nope", expectedIncomingAt: c.incoming.at },
+        item(list.find((x) => x.id === c.id)!),
+      ],
     });
     expect([r.statusCode, r.json()]).toEqual([200, { resolved: 2 }]);
-    expect((await t.call(mario, "GET", "/conflicts")).json()).toEqual([]);
+    const left = ConflictList.parse((await t.call(mario, "GET", "/conflicts")).json());
+    expect(left.map((x) => x.path)).toEqual(["c.md"]);
   });
 
   it("restores an old version and a deleted file (next to a taken path)", async () => {
@@ -232,7 +262,7 @@ describe.skipIf(dockerUnavailable)("conflict resolution and restores (M3a)", () 
     }
     const all = await t.call(luigi, "POST", "/conflicts/resolve-all", {
       strategy: "keep_mine",
-      ids: [c.id],
+      items: [{ id: c.id, expectedIncomingAt: c.incoming.at }],
     });
     expect(all.json()).toEqual({ resolved: 0 });
   });

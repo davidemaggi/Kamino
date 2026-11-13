@@ -1,4 +1,5 @@
 import {
+  type ConflictSummary,
   AdminUser,
   AdminUserList,
   AuditPage,
@@ -114,10 +115,17 @@ export const api = {
       method: "POST",
       body: { resolution, expectedIncomingAt, ...(expectedMineAt ? { expectedMineAt } : {}) },
     }),
-  resolveAll: (strategy: BulkStrategy, ids: string[]) =>
+  resolveAll: (strategy: BulkStrategy, conflicts: readonly ConflictSummary[]) =>
     request(ResolveAllResponse, "/conflicts/resolve-all", {
       method: "POST",
-      body: { strategy, ids },
+      body: {
+        strategy,
+        items: conflicts.map((c) => ({
+          id: c.id,
+          expectedIncomingAt: c.incoming.at,
+          expectedMineAt: c.mine.at,
+        })),
+      },
     }),
   files: (vaultId: string, q: string) =>
     request(FileList, `/vaults/${encodeURIComponent(vaultId)}/files?q=${encodeURIComponent(q)}`),

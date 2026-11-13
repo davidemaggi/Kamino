@@ -209,7 +209,16 @@ export const conflictHandlers = [
     const b = ResolveAllRequest.safeParse(await json(request));
     if (!b.success) return fail(400, "internal");
     const before = ud.conflicts.length;
-    ud.conflicts = ud.conflicts.filter((c) => !b.data.ids.includes(c.id));
+    // Only those still as the user saw them.
+    ud.conflicts = ud.conflicts.filter(
+      (c) =>
+        !b.data.items.some(
+          (i) =>
+            i.id === c.id &&
+            i.expectedIncomingAt === c.incoming.at &&
+            (i.expectedMineAt === undefined || i.expectedMineAt === c.mine.at),
+        ),
+    );
     refreshVaults();
     return unauthorized() ?? HttpResponse.json({ resolved: before - ud.conflicts.length });
   }),

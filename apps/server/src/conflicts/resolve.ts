@@ -1,4 +1,4 @@
-import type { BulkStrategy, ResolveKeep, Resolution } from "@kamino/protocol";
+import type { BulkStrategy, ResolveAllRequest, ResolveKeep, Resolution } from "@kamino/protocol";
 import { CONFLICT_COPY_LABEL, conflictCopyPath, conflictStamp } from "@kamino/sync-core";
 import { and, desc, eq } from "drizzle-orm";
 import { uuidv7 } from "../auth/tokens.js";
@@ -12,6 +12,9 @@ import type { Vault, VaultService } from "../vaults/service.js";
 import type { VaultCrypto } from "../vaults/vault-crypto.js";
 
 const stale = () => new ApiError("stale_resolution", 409);
+const matches = (seen: Seen, e: { incomingAt: string; mineAt?: string | undefined }) =>
+  seen.incoming.at.toISOString() === e.incomingAt &&
+  (e.mineAt === undefined || seen.headAt.toISOString() === e.mineAt);
 
 interface Seen {
   fileId: string;
@@ -43,32 +46,37 @@ export class ResolutionService {
   ): Promise<void> {
     const vc = this.vaults.cryptoOf(vault);
     const seen = await this.state(vc, conflictId);
-    if (!seen) throw stale();
-    if (seen.incoming.at.toISOString() !== expected.incomingAt) throw stale();
-    if (expected.mineAt !== undefined && seen.headAt.toISOString() !== expected.mineAt)
-      throw stale();
+    if (!seen || !matches(seen, expected)) throw stale();
     const keep = await this.keepOf(vc, lang, seen, resolution);
     await this.commit(vc, conflictId, seen, keep);
   }
 
-  /** Only the ids the user saw; those closed or changed meanwhile are skipped, not an error. */
+  /**
+   * Only the conflicts the user saw, as they saw them: those closed or changed meanwhile, or
+   * that cannot be resolved this way (e.g. no room for the copy), are skipped, not an error.
+   */
   async resolveAll(
     owned: Vault[],
     lang: "it" | "en",
     strategy: BulkStrategy,
-    ids: string[],
+    items: ResolveAllRequest["items"],
   ): Promise<number> {
     let resolved = 0;
-    for (const id of new Set(ids)) {
+    const done = new Set<string>();
+    for (const item of items) {
+      if (done.has(item.id)) continue;
+      done.add(item.id);
       for (const vault of owned) {
         const vc = this.vaults.cryptoOf(vault);
-        const seen = await this.state(vc, id);
+        const seen = await this.state(vc, item.id);
         if (!seen) continue;
+        const expected = { incomingAt: item.expectedIncomingAt, mineAt: item.expectedMineAt };
+        if (!matches(seen, expected)) break;
         try {
-          await this.commit(vc, id, seen, await this.keepOf(vc, lang, seen, strategy));
+          await this.commit(vc, item.id, seen, await this.keepOf(vc, lang, seen, strategy));
           resolved++;
         } catch (e) {
-          if (!(e instanceof ApiError && e.code === "stale_resolution")) throw e;
+          if (!(e instanceof ApiError)) throw e;
         }
         break;
       }
@@ -158,7 +166,7 @@ export class ResolutionService {
       )
       .leftJoin(devices, eq(devices.id, fileVersions.deviceId))
       .where(and(eq(conflictCandidates.vaultId, v), eq(conflictCandidates.conflictId, c.id)))
-      .orderBy(desc(conflictCandidates.createdAt))
+      .orderBy(desc(conflictCandidates.createdAt), desc(conflictCandidates.versionId))
       .limit(1);
     if (!cand) return null;
     return {

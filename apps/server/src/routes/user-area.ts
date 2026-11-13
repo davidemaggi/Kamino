@@ -191,7 +191,7 @@ export function userAreaRoutes(deps: {
       const b = parse(ResolveAllRequest, req, reply);
       if (!b) return reply;
       const mine = await vaultsSvc.listForUser(s.user.id);
-      return { resolved: await resolver.resolveAll(mine, langOf(s.user), b.strategy, b.ids) };
+      return { resolved: await resolver.resolveAll(mine, langOf(s.user), b.strategy, b.items) };
     });
 
     app.post<{ Params: IdParams }>("/conflicts/:id/resolve", async (req, reply) => {

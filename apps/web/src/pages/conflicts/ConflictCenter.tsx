@@ -42,10 +42,7 @@ export function ConflictCenter({ selectedId }: { selectedId?: string }) {
   const applyBulk = async (strategy: BulkStrategy) => {
     setBulkBusy(true);
     try {
-      const { resolved } = await api.resolveAll(
-        strategy,
-        list.map((c) => c.id),
-      );
+      const { resolved } = await api.resolveAll(strategy, list);
       toast(t("conflicts.bulkDone", { count: resolved }));
       setBulkOpen(false);
       await qc.invalidateQueries();

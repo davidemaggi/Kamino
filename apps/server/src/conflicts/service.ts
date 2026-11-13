@@ -107,7 +107,8 @@ export class ConflictService {
       .select({ versionId: conflictCandidates.versionId })
       .from(conflictCandidates)
       .where(and(eq(conflictCandidates.vaultId, v), eq(conflictCandidates.conflictId, c.id)))
-      .orderBy(desc(conflictCandidates.createdAt))
+      // Same order as ResolutionService.state: ties broken by version id.
+      .orderBy(desc(conflictCandidates.createdAt), desc(conflictCandidates.versionId))
       .limit(1);
     if (!cand) return null;
     const sides = await this.db

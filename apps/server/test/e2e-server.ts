@@ -1,8 +1,12 @@
 /**
  * Playwright's backend (apps/web/e2e): a real server on a throwaway Postgres (testcontainers),
  * seeded with a user ("mario", password PW) whose vault "Note" has a.md in two versions, a
- * conflict on it and gone.md in the trash. Listens on KAMINO_E2E_PORT (default 8181).
+ * conflict on it and gone.md in the trash, plus the admin "root" (password PW, TOTP on: the secret
+ * goes to KAMINO_E2E_TOTP_FILE) and the user "luigi" for the admin tests. Listens on
+ * KAMINO_E2E_PORT (default 8181).
  */
+import { writeFileSync } from "node:fs";
+import { rootAdminWithSecret } from "./helpers/admin.js";
 import { testApp } from "./helpers/app.js";
 import { startPostgres } from "./helpers/postgres.js";
 import { linkDevice, uploadContent, user, type TestDevice } from "./helpers/sync.js";
@@ -38,6 +42,13 @@ async function put(
   });
 }
 
+// The first admin comes from /setup, which only works on an empty server.
+const { secret } = await rootAdminWithSecret(t);
+const totpFile = process.env["KAMINO_E2E_TOTP_FILE"];
+if (totpFile) writeFileSync(totpFile, secret, { mode: 0o600 });
+
+// "luigi" is the one the admin e2e blocks: mario's sessions must survive it.
+await user(t, "luigi");
 const enroll = await user(t, "mario");
 const mac = await linkDevice(t, enroll, undefined, "Mac");
 const phone = await linkDevice(t, enroll, mac.vaultId, "iPhone");

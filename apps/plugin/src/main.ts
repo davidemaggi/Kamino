@@ -168,6 +168,7 @@ export default class SyncPlugin extends Plugin {
         }),
       );
       this.register(real.onChange(() => void host.refresh()));
+      this.register(() => real.dispose());
       void host.refresh();
       server = real;
       transfer = new RealTransfer(() => host.engine());

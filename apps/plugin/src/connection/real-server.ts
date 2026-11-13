@@ -219,6 +219,7 @@ export class RealConnection implements ConnectionService {
     } catch {
       // Revoked or unreachable: the device token is dropped anyway.
     }
+    this.dispose();
     this.o.store.save(null);
     this.emit({ type: "unlinked" });
   }
@@ -384,8 +385,14 @@ export class RealConnection implements ConnectionService {
     let s;
     try {
       s = await this.api(c.server).claimState(claimId, c.secret);
-    } catch {
-      // Offline for a moment: keep waiting until the flow's own expiry.
+    } catch (e) {
+      // Offline or a server hiccup: keep waiting until the flow's own expiry. Anything else
+      // (unknown claim, refused) won't get better by asking again.
+      const transient =
+        !(e instanceof ApiError) ||
+        e.kind === "network" ||
+        (e.status !== undefined && (e.status >= 500 || e.status === 429));
+      if (!transient) return this.settle(claimId, c, "expired");
       return c.expiresAt <= this.now() ? this.settle(claimId, c, "expired") : "pending";
     }
     switch (s.status) {
@@ -409,7 +416,7 @@ export class RealConnection implements ConnectionService {
       case "denied":
         return this.settle(claimId, c, "denied");
       default:
-        // Expired, withdrawn, or the token already went to a poll whose answer was lost.
+        // Expired or withdrawn (a lost approval is handed out again within the ten minutes).
         return this.settle(claimId, c, "expired");
     }
   }
@@ -430,6 +437,14 @@ export class RealConnection implements ConnectionService {
     } catch {
       // Offline: the origin's request expires on its own.
     }
+  }
+
+  /** Unload or unlink: open offers stop being watched, claims and requests are forgotten. */
+  dispose(): void {
+    this.offers.clear();
+    for (const c of this.claims.values()) c.secret = "";
+    this.claims.clear();
+    this.requests.clear();
   }
 
   onChange(cb: (event: ConnectionEvent) => void): () => void {

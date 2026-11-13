@@ -352,6 +352,80 @@ describe("RealConnection", () => {
     expect(await conn.claimStatus("c1")).toBe("expired");
   });
 
+  it("a poll the server refuses settles the claim; a hiccup or a lost answer doesn't", async () => {
+    const ok = {
+      status: 200,
+      json: { claimId: "c1", claimSecret: "s", verificationCode: "AB3K", expiresAt: EXPIRES },
+    };
+    const approved = {
+      status: 200,
+      json: {
+        status: "approved",
+        deviceId: "d9",
+        deviceToken: "t",
+        username: "ada",
+        vault: { id: "v1", name: "Notes" },
+      },
+    };
+    let poll: () => HttpResponse = () => approved;
+    const { conn, stored } = setup((r) => (r.path === "/pairings/claim" ? ok : poll()), false, {
+      now: () => Date.parse(EXPIRES) - 60_000,
+    });
+    for (const res of [err(404, "not_found"), err(401, "unauthorized"), err(403, "forbidden")]) {
+      await conn.claim(LINK, "iPhone");
+      poll = () => res;
+      expect(await conn.claimStatus("c1")).toBe("expired");
+      poll = () => approved;
+      expect(await conn.claimStatus("c1")).toBe("expired");
+    }
+    // 5xx, 429 and the network: wait.
+    for (const res of [{ status: 503 }, err(429, "rate_limited")]) {
+      await conn.claim(LINK, "iPhone");
+      poll = () => res;
+      expect(await conn.claimStatus("c1")).toBe("pending");
+    }
+    // The approving answer is lost on the way: the next poll gets the token again.
+    poll = () => {
+      throw new Error("offline");
+    };
+    expect(await conn.claimStatus("c1")).toBe("pending");
+    expect(stored()).toBeNull();
+    poll = () => approved;
+    expect(await conn.claimStatus("c1")).toBe("approved");
+    expect(stored()?.deviceToken).toBe("t");
+  });
+
+  it("dispose forgets offers, requests and claims", async () => {
+    const ok = {
+      status: 200,
+      json: { claimId: "c1", claimSecret: "s", verificationCode: "AB3K", expiresAt: EXPIRES },
+    };
+    const { conn, log } = setup(
+      (r) => (r.path === "/pairings/claim" ? ok : { status: 204 }),
+      false,
+      {
+        now: () => Date.parse(EXPIRES) - 60_000,
+      },
+    );
+    await conn.claim(LINK, "iPhone");
+    conn.receive({
+      type: "pairing_request",
+      pairingId: "p1",
+      deviceName: "Pixel",
+      platform: "android",
+      pluginVersion: "0.2.0",
+      code: "AB3K",
+      expiresAt: EXPIRES,
+    });
+    expect(conn.pairingRequests()).toHaveLength(1);
+    conn.dispose();
+    expect(conn.pairingRequests()).toEqual([]);
+    const before = log.length;
+    expect(await conn.claimStatus("c1")).toBe("expired");
+    await conn.cancelClaim("c1");
+    expect(log.length).toBe(before);
+  });
+
   it("origin: offers, hears the request over realtime, answers with the device token", async () => {
     const { conn, log, events } = setup(
       (r) => {

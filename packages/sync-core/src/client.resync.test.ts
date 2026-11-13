@@ -1,4 +1,4 @@
-import type { Op } from "@kamino/protocol";
+import type { FileOp } from "@kamino/protocol";
 import { describe, expect, it } from "vitest";
 import { initialState, step, type ClientEvent, type ClientState, type Effect } from "./client.js";
 import { ALL_CONFIG, DEFAULT_SETTINGS } from "./exclusions.js";
@@ -62,7 +62,7 @@ const put = (
   path: string,
   hash: string,
   base: string | null,
-): Op => ({
+): FileOp => ({
   type: "put",
   opId: `o-${versionId}`,
   fileId,

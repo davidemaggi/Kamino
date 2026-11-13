@@ -3,7 +3,7 @@
 > **Da leggere per primo** quando si riprende il lavoro (anche da un altro PC).
 > Questo file è mantenuto **sempre aggiornato, committato e pushato** dopo ogni task completato o decisione rilevante.
 
-**Ultimo aggiornamento:** 2026-11-13 — **P3 di M4+M5+M6 (pairing con QR e magic link) completata** sul branch `m6-pairing` (Task 14–15), revisione finale e PR. Con il suo merge il pacchetto M4–M6 è chiuso; prima di considerare M6 rilasciabile serve una prova del pairing con una persona vera su due dispositivi.
+**Ultimo aggiornamento:** 2026-11-13 — **M3a fatta** (server + web app: risoluzione dei conflitti, ripristini, retention, GC dei blob) sul branch `m3-conflicts-history`, PR aperta. Poi **M3b** (client: sync-core, motore, plugin). Le prove con persone e dispositivi veri sono rinviate dal committente alla fine di tutto lo sviluppo. Processo snello deciso dal committente: niente cerimonia superpowers, spec leggera, solo le scelte vere.
 
 ## Dove siamo
 
@@ -20,10 +20,11 @@
 | Fase UI — sotto-fase 4c: area admin della web app (spec `docs/superpowers/specs/2026-11-08-ui-web-admin-design.md`, piano `docs/superpowers/plans/2026-11-08-ui-web-admin.md`) | ✅ implementata, rivista (5 importanti + 8 minori corretti); mergiata su `main` (PR #7) |
 | M1 — divisa in M1a (sync-core), M1b (crypto + auth), M1c (vault/file/blob/commit sul server), M1d (motore del plugin, dopo gli spike) | ✅ M1a (spec `docs/superpowers/specs/2026-11-09-m1a-sync-core-design.md`): mergiata (PR #8) · ✅ M1b (crypto + auth web; spec `docs/superpowers/specs/2026-11-09-m1b-crypto-auth-design.md`): mergiata (PR #9) · 🔧 M1c (server di sync; spec `docs/superpowers/specs/2026-11-09-m1c-sync-server-design.md`, piano `docs/superpowers/plans/2026-11-09-m1c-sync-server.md`): mergiata (PR #10) · ✅ M1d (spec `docs/superpowers/specs/2026-11-10-m1d-plugin-engine-design.md`, piano `docs/superpowers/plans/2026-11-10-m1d-plugin-engine.md`): mergiata (PR #12) |
 | M2 — divisa in M2a (server: WebSocket, fan-out, compattazione, dispositivi, impostazioni) e M2b (parte plugin, dopo M1d) | 🔧 M2a (spec `docs/superpowers/specs/2026-11-10-m2a-realtime-design.md`, piano `docs/superpowers/plans/2026-11-10-m2a-realtime.md`): mergiata (PR #11) · ✅ M2b: mergiata (PR #13); ⏳ test sui dispositivi D-1…D-7 e settimana d'uso |
-| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | ✅ P1 area utente (Task 1–7): mergiata (PR #14) · ✅ P2 admin/quote/email (Task 8–13): mergiata (PR #15) · 🔧 P3 pairing (Task 14–15): PR su `m6-pairing`; ⏳ prova con una persona vera |
-| M3…M7 | ⏳ |
+| M4+M5+M6 — pacchetto unico (spec `docs/superpowers/specs/2026-11-11-m456-server-routes-design.md`, piano `docs/superpowers/plans/2026-11-11-m456-server-routes.md`; tre PR) | ✅ P1 area utente (Task 1–7): mergiata (PR #14) · ✅ P2 admin/quote/email (Task 8–13): mergiata (PR #15) · ✅ P3 pairing (Task 14–15): mergiata (PR #16); ⏳ prova con una persona vera (a fine sviluppo) |
+| M3 — conflitti e storico (spec leggera `docs/superpowers/specs/2026-11-13-m3-conflicts-history-design.md`; due PR) | 🔧 M3a server + web: fatta, PR aperta · ⏳ M3b client |
+| M7 | ⏳ |
 
-**Branch di lavoro:** `m6-pairing` (P3, PR in attesa di merge).
+**Branch di lavoro:** `m3-conflicts-history` (M3a in revisione; M3b su un branch nuovo dopo il merge).
 **Metodo:** M0 è stata eseguita con *subagent-driven-development*. **Dalla fase UI in poi lo standard è *executing-plans* nella sessione corrente**, a blocchi con checkpoint e una sola revisione finale del branch con un subagente (meno token; vedi `CLAUDE.md`).
 
 ### Task di M0
@@ -81,10 +82,11 @@ Blocco F — Task 11 ✅ `66d63f2` (mappa delle categorie, override del disposit
 
 ## Prossimi passi
 
-1. **Pacchetto M4+M5+M6**: P1 e P2 mergiate, P3 fatta (PR aperta). Dopo il merge il pacchetto è chiuso. **Prima di rilasciare M6:** prova del pairing con una persona vera (QR inquadrato col telefono che apre Obsidian, stesso codice sui due lati, approvazione dal desktop e dalla web app, link via email), insieme ai test sui dispositivi del punto 2.
-2. **Test sui dispositivi** D-1…D-7 (`docs/spikes/README.md`) e la **settimana d'uso** con due desktop e un telefono, che chiude M2. Nessuna release pubblica prima.
-3. **M3** (conflitti e storico) e **M7** (hardening, release) restano milestone a sé.
-4. Minori rinviati dalle revisioni di M1d e M2b: elencati nelle rispettive sezioni qui sotto.
+1. **M3b** dopo il merge di M3a: B1–B4 della spec (azione di risoluzione in sync-core, i tre casi di `conflict_resolved` con test di proprietà, `resolve()` nel motore, stato e azioni vere nel plugin), più A4 (nessuna perdita della copia locale quando si risolve dal plugin).
+2. **Prima di rilasciare M6:** prova del pairing con una persona vera (QR inquadrato col telefono che apre Obsidian, stesso codice sui due lati, approvazione dal desktop e dalla web app, link via email), insieme ai test sui dispositivi del punto 2.
+3. **Test sui dispositivi** D-1…D-7 (`docs/spikes/README.md`) e la **settimana d'uso** con due desktop e un telefono, che chiude M2. Nessuna release pubblica prima.
+4. **M7** (hardening, release) resta una milestone a sé.
+5. Minori rinviati dalle revisioni di M1d e M2b: elencati nelle rispettive sezioni qui sotto.
 
 **Accelerazioni decise dal committente (2026-11-11):** (1) M4, M5 e M6 in un unico pacchetto; (2) spec leggere per le parti a basso rischio (rotte, schermate), rigore pieno solo dove si possono perdere dati (M2b, M3); (3) la simulazione profonda (`test:deep`) gira in CI, non a ogni modifica in locale (in locale bastano i 150 scenari di `pnpm test`); (4) quando possibile lavorare dal Mac.
 
@@ -173,6 +175,19 @@ Brainstorming del 2026-11-08, dettagli in `docs/superpowers/specs/2026-11-08-ui-
 | V5 | Viste su interfacce `SyncStateSource`/`ConflictActions`; `FakeSyncState` in memoria fino a M1/M3 |
 | V6 | Nel diff unificato il documento è la tua versione (base comune del merge su desktop e mobile); colori riallineati via CSS |
 | V7 | Bundle di produzione del plugin: 14,9 KB → 99,4 KB con `@codemirror/merge`; minificazione rinviata (vedi punti aperti) |
+
+### Decisioni di M3a (conflitti e storico, server + web)
+
+| # | Decisione | Costo se sbagliata |
+|---|---|---|
+| M3-1 | La risoluzione è un'op `resolve` nel normale `/commits`, decisa dall'arbitro puro (`decideResolve`), non una rotta dispositivo a parte: stesso lock, stessa idempotenza, testabile nel simulatore | Basso: una rotta dedicata si aggiungerebbe sopra |
+| M3-2 | Scritture della web app senza dispositivo: versioni con `device_id` nullo, journal con l'UUID nullo `WEB_AUTHOR`; nessuna migrazione | Basso: una colonna `author` si può aggiungere in seguito |
+| M3-3 | Ripristini = `put` costruiti dal server con base = testa letta; se la testa cambia nel frattempo il ripristino diventa candidata di conflitto (niente si perde) | Basso |
+| M3-4 | GC dei blob: prima la riga (lock del vault + advisory lock sulla chiave), poi l'oggetto; un crash lascia solo spazio sprecato | Basso: spazio orfano, recuperabile con una scansione dello storage |
+| M3-5 | La copia di "tieni entrambe" dalla web app ha l'orario in UTC (il server non conosce il fuso dell'utente) | Minimo: solo il nome del file |
+| M3-6 | Un file nel cestino con un conflitto aperto non viene svuotato; le versioni fissate da conflitti aperti (base, testa, candidate) non scadono | Nessuno: occupa solo spazio |
+| M3-7 | M3a non si rilascia senza M3b: il plugin di oggi ignora `conflict_resolved` e resterebbe bloccato sui file risolti dalla web app | Nessuno finché non c'è una release tra le due |
+| M3-8 | Minori rinviati dalla revisione di M3a: un ripristino dalla web app che diventa candidata di conflitto risponde comunque 204 (finestra di millisecondi; il contenuto è nel centro conflitti); i retry della web app usano un `opId` nuovo (409 o una versione in più, mai perdite); sessioni di upload scadute ma non ancora spazzate trattengono il blob fino allo sweep; un dispositivo molto indietro che rigioca `file_put` di blob già raccolti va verificato in M3b | Basso |
 
 ### Decisioni di P3 (M6: pairing con QR e magic link)
 

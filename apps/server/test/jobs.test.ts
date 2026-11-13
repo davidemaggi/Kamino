@@ -23,6 +23,7 @@ describe.skipIf(dockerUnavailable)("background jobs (pg-boss)", () => {
         email: async () => ran.push("email"),
         exports: async () => ran.push("exports"),
         finalize: async () => ran.push("finalize"),
+        retention: async () => ran.push("retention"),
       },
       pino({ level: "silent" }),
       { pollingIntervalSeconds: 0.5 },
@@ -33,13 +34,15 @@ describe.skipIf(dockerUnavailable)("background jobs (pg-boss)", () => {
     await jobs.runNow("email");
     await jobs.runNow("exports");
     await jobs.runNow("finalize");
-    expect(ran).toEqual(["compact", "sweep", "purge", "email", "exports", "finalize"]);
+    await jobs.runNow("retention");
+    expect(ran).toEqual(["compact", "sweep", "purge", "email", "exports", "finalize", "retention"]);
     const db = createDb(url);
     const schedules = await db.$client<
       { name: string }[]
     >`select name from pgboss.schedule order by name`;
     expect(schedules.map((s) => s.name)).toEqual([
       "email-outbox",
+      "history-retention",
       "journal-compact",
       "upload-sweep",
       "user-deletion-finalize",

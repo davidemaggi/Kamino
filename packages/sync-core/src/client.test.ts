@@ -1,4 +1,4 @@
-import type { Op, OpResult } from "@kamino/protocol";
+import type { FileOp, OpResult } from "@kamino/protocol";
 import { describe, expect, it } from "vitest";
 import {
   initialState,
@@ -62,7 +62,7 @@ function joined(platform: "linux" | "windows" = "linux"): ClientState {
 function push(s: ClientState, store: MemoryStore, scan: ReturnType<typeof scanItem>[]) {
   const r1 = run(s, { type: "sync", scan });
   const p = ofType(r1.effects, "push")[0];
-  if (!p) return { ...finishPulls(r1, store), ops: [] as Op[] };
+  if (!p) return { ...finishPulls(r1, store), ops: [] as FileOp[] };
   for (const h of p.hashes) store.blobs.add(h);
   const res = store.commit(p.ops, "dev");
   const r2 = run(r1.state, {

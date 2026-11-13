@@ -230,8 +230,7 @@
     }
   },
   "common": {
-    "close": "Chiudi",
-    "comingSoon": "In arrivo: per ora puoi solo consultare."
+    "close": "Chiudi"
   },
   "overview": {
     "title": "Panoramica",

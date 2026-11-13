@@ -1,5 +1,5 @@
 import type { BlockReason, SyncSnapshot } from "@kamino/status";
-import type { Op } from "@kamino/protocol";
+import type { FileOp } from "@kamino/protocol";
 import { nextOps, type ClientState } from "@kamino/sync-core";
 
 /** `vault_gone`: the vault was deleted or suspended on the server (re-link to another one). */
@@ -22,7 +22,7 @@ export interface DeferredFile {
 }
 
 /** Every op the client would still send: the unconfirmed batch first, then the rest. */
-export function pendingOps(s: ClientState): Op[] {
+export function pendingOps(s: ClientState): FileOp[] {
   const all = { ...s.config, batchSize: Number.MAX_SAFE_INTEGER };
   const sentIds = new Set(s.durable.sent.map((op) => op.fileId));
   const rest = nextOps(

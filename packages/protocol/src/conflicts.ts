@@ -35,13 +35,30 @@ export const Resolution = z.union([
   z.object({ manual: z.string() }),
 ]);
 export type Resolution = z.infer<typeof Resolution>;
-/** expectedIncomingAt: the incoming version the user looked at (protocol §9.3, stale_resolution). */
-export const ResolveRequest = z.object({ resolution: Resolution, expectedIncomingAt: z.string() });
+/**
+ * expectedIncomingAt / expectedMineAt: the incoming and current versions the user looked at
+ * (protocol §9.3): if either changed meanwhile the server answers 409 stale_resolution.
+ */
+export const ResolveRequest = z.object({
+  resolution: Resolution,
+  expectedIncomingAt: z.string(),
+  expectedMineAt: z.string().optional(),
+});
 
 export const BulkStrategy = z.enum(["keep_mine", "keep_incoming", "keep_both"]);
 export type BulkStrategy = z.infer<typeof BulkStrategy>;
+/** The conflicts the user saw, each with the versions shown: those changed meanwhile are skipped. */
 export const ResolveAllRequest = z.object({
   strategy: BulkStrategy,
-  ids: z.array(z.string()).min(1),
+  items: z
+    .array(
+      z.object({
+        id: z.string(),
+        expectedIncomingAt: z.string(),
+        expectedMineAt: z.string().optional(),
+      }),
+    )
+    .min(1),
 });
+export type ResolveAllRequest = z.infer<typeof ResolveAllRequest>;
 export const ResolveAllResponse = z.object({ resolved: z.number().int().min(0) });

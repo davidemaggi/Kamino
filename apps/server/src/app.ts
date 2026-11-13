@@ -124,6 +124,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       store: blobStore,
       hub,
       config: systemConfig,
+      sync,
+      uploads,
       now: deps.now ?? Date.now,
     }),
     { prefix: "/api/v1" },

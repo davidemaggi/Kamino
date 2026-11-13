@@ -2,7 +2,7 @@ import type {
   AcceptedResult,
   ErrorCode,
   JournalEntry,
-  Op,
+  FileOp,
   OpResult,
   RejectedResult,
   Snapshot,
@@ -99,7 +99,7 @@ export interface Durable {
   /** Absent in states saved before M1d. */
   folders: Record<string, FolderEntry>;
   /** Ops sent with unknown outcome: resent identical (same opId) before anything else. */
-  sent: Op[];
+  sent: FileOp[];
   cursor: number;
   joined: boolean;
 }
@@ -170,7 +170,7 @@ export type NotifyKind = "conflict" | "blocked" | "restored" | "renamed" | "upda
 export type Effect =
   | { type: "persist" }
   | { type: "snapshot"; requestId: string }
-  | { type: "push"; requestId: string; ops: Op[]; hashes: string[] }
+  | { type: "push"; requestId: string; ops: FileOp[]; hashes: string[] }
   | { type: "pull"; requestId: string; after: number }
   /** Write only if the file at `path` still has hash `expect` (null = must not exist). */
   | { type: "write"; fileId: string; path: string; hash: string; expect: string | null }
@@ -734,9 +734,9 @@ function renameFolderLocally(c: Ctx, from: string, to: string): void {
 /** Folder ops: deletes (deepest first), moves and mkdirs (shallowest first). */
 function nextFolderOps(s: ClientState, env: ClientEnv) {
   const depth = (p: string) => p.split("/").length;
-  const del: { op: Op; d: number }[] = [];
-  const mov: { op: Op; d: number }[] = [];
-  const mk: { op: Op; d: number }[] = [];
+  const del: { op: FileOp; d: number }[] = [];
+  const mov: { op: FileOp; d: number }[] = [];
+  const mk: { op: FileOp; d: number }[] = [];
   for (const f of folderList(s)) {
     if (f.pending || f.blocked || folderSkipped(s, f.path)) continue;
     const d = depth(f.path);
@@ -764,17 +764,17 @@ function nextFolderOps(s: ClientState, env: ClientEnv) {
         d,
       });
   }
-  const ops = (xs: { op: Op; d: number }[], dir: 1 | -1) =>
+  const ops = (xs: { op: FileOp; d: number }[], dir: 1 | -1) =>
     xs.sort((a, b) => dir * (a.d - b.d)).map((x) => x.op);
   return { deletes: ops(del, -1), moves: ops(mov, 1), mkdirs: ops(mk, 1) };
 }
 
-const isFolderOp = (s: ClientState, op: Op) =>
+const isFolderOp = (s: ClientState, op: FileOp) =>
   op.type === "mkdir" || (op.type !== "put" && s.durable.folders[op.fileId] !== undefined);
 
 function onFolderAccepted(
   c: Ctx,
-  op: Op,
+  op: FileOp,
   res: Pick<AcceptedResult, "seq" | "path" | "fileId">,
 ): void {
   const { s } = c;
@@ -845,7 +845,7 @@ function onFolderAccepted(
   }
 }
 
-function onFolderRejected(c: Ctx, op: Op, res: RejectedResult): void {
+function onFolderRejected(c: Ctx, op: FileOp, res: RejectedResult): void {
   const f = c.s.durable.folders[op.fileId];
   if (!f) return;
   f.blocked = res.code;
@@ -1080,11 +1080,11 @@ function onLocalRename(c: Ctx, from: string, to: string): void {
 // ---------- push ----------
 
 /** Ops for every difference between this device and the server (Z8): one per file, deletes → moves → puts. */
-export function nextOps(s: ClientState, env: ClientEnv): Op[] {
+export function nextOps(s: ClientState, env: ClientEnv): FileOp[] {
   if (s.durable.sent.length > 0) return s.durable.sent;
-  const deletes: Op[] = [];
-  const moves: Op[] = [];
-  const puts: Op[] = [];
+  const deletes: FileOp[] = [];
+  const moves: FileOp[] = [];
+  const puts: FileOp[] = [];
   for (const e of entries(s)) {
     if (e.conflictId || e.pendingWrite || e.blocked || e.trashing || e.ignored) continue;
     if (!e.confirmed) {
@@ -1174,7 +1174,7 @@ function onPushResult(c: Ctx, results: OpResult[]): void {
   if (!startPush(c)) startPull(c);
 }
 
-function applyResult(c: Ctx, op: Op, r: OpResult): void {
+function applyResult(c: Ctx, op: FileOp, r: OpResult): void {
   const res = r.status === "duplicate" ? r.original : r;
   if (isFolderOp(c.s, op)) {
     if (res.status === "accepted") onFolderAccepted(c, op, res);
@@ -1191,7 +1191,7 @@ function applyResult(c: Ctx, op: Op, r: OpResult): void {
 }
 
 /** Idempotent: the same result may arrive from the response and from the journal. */
-function onAccepted(c: Ctx, e: Entry, op: Op, res: Pick<AcceptedResult, "seq" | "path">): void {
+function onAccepted(c: Ctx, e: Entry, op: FileOp, res: Pick<AcceptedResult, "seq" | "path">): void {
   const wasConfirmed = e.confirmed;
   e.confirmed = true;
   if (op.type === "put") {
@@ -1234,7 +1234,7 @@ function bury(e: Entry): void {
   e.baseHash = null;
 }
 
-function onRejected(c: Ctx, e: Entry, op: Op, res: RejectedResult): void {
+function onRejected(c: Ctx, e: Entry, op: FileOp, res: RejectedResult): void {
   e.blocked = res.code;
   switch (res.code) {
     case "moved_elsewhere":

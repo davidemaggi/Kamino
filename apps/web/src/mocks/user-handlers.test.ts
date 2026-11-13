@@ -66,7 +66,10 @@ describe("user area fake API", () => {
     expect(await code(api.resolveConflict("c-shopping", "keep_mine", fresh.incoming.at))).toBe(
       "not_found",
     );
-    expect(await api.resolveAll("keep_both", ["c-plan", "c-photo"])).toEqual({ resolved: 2 });
+    const rest = await api.conflicts();
+    const stale = { ...rest[0]!, incoming: { ...rest[0]!.incoming, at: "2000-01-01T00:00:00Z" } };
+    expect(await api.resolveAll("keep_both", [stale, rest[1]!])).toEqual({ resolved: 1 });
+    expect(await api.resolveAll("keep_both", await api.conflicts())).toEqual({ resolved: 1 });
     expect(ud.vaults.every((v) => v.conflicts === 0)).toBe(true);
   });
 

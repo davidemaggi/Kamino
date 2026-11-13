@@ -1,4 +1,4 @@
-import type { Op } from "@kamino/protocol";
+import type { FileOp } from "@kamino/protocol";
 import { describe, expect, it } from "vitest";
 import { initialState, step, type ClientEvent, type ClientState, type Effect } from "./client.js";
 import { ALL_CONFIG, DEFAULT_SETTINGS } from "./exclusions.js";
@@ -54,7 +54,7 @@ function joined(store: MemoryStore, deviceId = "dev"): ClientState {
 function cycle(s: ClientState, store: MemoryStore, scan: Item[], folders: string[]) {
   const r1 = run(s, { type: "sync", scan, folders });
   const p = ofType(r1.effects, "push")[0];
-  if (!p) return { ...finishPulls(r1, store), ops: [] as Op[] };
+  if (!p) return { ...finishPulls(r1, store), ops: [] as FileOp[] };
   for (const h of p.hashes) store.blobs.add(h);
   const res = store.commit(p.ops, s.config.deviceId);
   const r2 = run(r1.state, {

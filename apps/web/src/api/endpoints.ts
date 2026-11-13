@@ -1,4 +1,5 @@
 import {
+  type ConflictSummary,
   AdminUser,
   AdminUserList,
   AuditPage,
@@ -104,15 +105,27 @@ export const api = {
     requestVoid(`/pairings/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
   conflicts: () => request(ConflictList, "/conflicts"),
   conflict: (id: string) => request(ConflictDetail, `/conflicts/${encodeURIComponent(id)}`),
-  resolveConflict: (id: string, resolution: Resolution, expectedIncomingAt: string) =>
+  resolveConflict: (
+    id: string,
+    resolution: Resolution,
+    expectedIncomingAt: string,
+    expectedMineAt?: string,
+  ) =>
     requestVoid(`/conflicts/${encodeURIComponent(id)}/resolve`, {
       method: "POST",
-      body: { resolution, expectedIncomingAt },
+      body: { resolution, expectedIncomingAt, ...(expectedMineAt ? { expectedMineAt } : {}) },
     }),
-  resolveAll: (strategy: BulkStrategy, ids: string[]) =>
+  resolveAll: (strategy: BulkStrategy, conflicts: readonly ConflictSummary[]) =>
     request(ResolveAllResponse, "/conflicts/resolve-all", {
       method: "POST",
-      body: { strategy, ids },
+      body: {
+        strategy,
+        items: conflicts.map((c) => ({
+          id: c.id,
+          expectedIncomingAt: c.incoming.at,
+          expectedMineAt: c.mine.at,
+        })),
+      },
     }),
   files: (vaultId: string, q: string) =>
     request(FileList, `/vaults/${encodeURIComponent(vaultId)}/files?q=${encodeURIComponent(q)}`),

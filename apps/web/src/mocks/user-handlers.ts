@@ -180,7 +180,7 @@ export const pairingHandlers = [
   ),
 ];
 
-/** P1 (M4): served by the real server in hybrid mode (resolving answers 501 there). */
+/** P1 (M4): served by the real server in hybrid mode (writes since M3). */
 export const conflictHandlers = [
   http.get(
     `${API}/conflicts`,
@@ -209,7 +209,16 @@ export const conflictHandlers = [
     const b = ResolveAllRequest.safeParse(await json(request));
     if (!b.success) return fail(400, "internal");
     const before = ud.conflicts.length;
-    ud.conflicts = ud.conflicts.filter((c) => !b.data.ids.includes(c.id));
+    // Only those still as the user saw them.
+    ud.conflicts = ud.conflicts.filter(
+      (c) =>
+        !b.data.items.some(
+          (i) =>
+            i.id === c.id &&
+            i.expectedIncomingAt === c.incoming.at &&
+            (i.expectedMineAt === undefined || i.expectedMineAt === c.mine.at),
+        ),
+    );
     refreshVaults();
     return unauthorized() ?? HttpResponse.json({ resolved: before - ud.conflicts.length });
   }),
@@ -220,7 +229,11 @@ export const conflictHandlers = [
     if (!c) return unauthorized() ?? fail(404, "not_found");
     const b = ResolveRequest.safeParse(await json(request));
     if (!b.success) return fail(400, "internal");
-    if (ud.staleNext || b.data.expectedIncomingAt !== c.incoming.at) {
+    if (
+      ud.staleNext ||
+      b.data.expectedIncomingAt !== c.incoming.at ||
+      (b.data.expectedMineAt !== undefined && b.data.expectedMineAt !== c.mine.at)
+    ) {
       ud.staleNext = false;
       c.incoming = { ...c.incoming, at: new Date().toISOString() };
       if (!c.binary) c.incomingText = `${c.incomingText}- newer line\n`;
@@ -232,7 +245,7 @@ export const conflictHandlers = [
   }),
 ];
 
-/** P1 (M4): served by the real server in hybrid mode (restoring answers 501 there). */
+/** P1 (M4): served by the real server in hybrid mode (writes since M3). */
 export const historyHandlers = [
   http.get(`${API}/vaults/:id/files`, ({ request, params }) => {
     const q = (new URL(request.url).searchParams.get("q") ?? "").toLowerCase();

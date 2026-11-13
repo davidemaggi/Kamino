@@ -1,16 +1,19 @@
-import { VaultDelete, VaultPatch } from "@kamino/protocol";
+import { ResolveAllRequest, ResolveRequest, VaultDelete, VaultPatch } from "@kamino/protocol";
 import { and, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { requireUser } from "../auth/http.js";
-import { readPlain } from "../blobs/uploads.js";
+import { readPlain, type UploadService } from "../blobs/uploads.js";
 import type { BlobStore } from "../blobs/store.js";
+import { ResolutionService } from "../conflicts/resolve.js";
 import { ConflictService } from "../conflicts/service.js";
 import type { Db } from "../db/client.js";
 import { files, fileVersions } from "../db/schema.js";
+import { RestoreService } from "../history/restore.js";
 import { HistoryService } from "../history/service.js";
 import { zipFileName, zipStream } from "../history/zip.js";
-import { ApiError, notFound, notImplemented } from "../http/errors.js";
+import { ApiError, notFound } from "../http/errors.js";
 import type { Hub } from "../realtime/hub.js";
+import type { SyncService } from "../sync/commit.js";
 import { ownedVault } from "../vaults/access.js";
 import { deleteVault } from "../vaults/delete.js";
 import type { Vault, VaultService } from "../vaults/service.js";
@@ -23,7 +26,7 @@ type IdParams = { id: string };
 /**
  * P1 (M4): the user area over the owner's vaults. Every route resolves the vault through
  * `ownedVault` or the user's own vault list: someone else's vault is a 404, admins included.
- * History, trash and conflicts are read only for now (F2): restore and resolve answer 501.
+ * Restores and resolutions (M3) are ops built by the server and committed like a device's.
  */
 export function userAreaRoutes(deps: {
   db: Db;
@@ -31,9 +34,14 @@ export function userAreaRoutes(deps: {
   store: BlobStore;
   hub: Hub;
   config: SystemConfigService;
+  sync: SyncService;
+  uploads: UploadService;
   now: () => number;
 }) {
   const { db, vaults: vaultsSvc, store, hub, config, now } = deps;
+  const resolver = new ResolutionService(db, deps.sync, vaultsSvc, deps.uploads);
+  const restorer = new RestoreService(db, deps.sync);
+  const langOf = (u: { locale: string }) => (u.locale === "en" ? "en" : "it");
   const maxDays = async () => (await config.effective()).maxRetentionDays;
   const history = new HistoryService(db, store, now, maxDays);
   const conflictsSvc = new ConflictService(db, store, vaultsSvc);
@@ -161,14 +169,42 @@ export function userAreaRoutes(deps: {
       },
     );
 
-    // F2: writing history and resolving conflicts arrive with M3.
-    const later = async (req: FastifyRequest, reply: FastifyReply) => {
-      if (!requireUser(req, reply)) return reply;
-      throw notImplemented();
-    };
-    app.post("/versions/:id/restore", later);
-    app.post("/trash/:id/restore", later);
-    app.post("/conflicts/resolve-all", later);
-    app.post("/conflicts/:id/resolve", later);
+    app.post<{ Params: IdParams }>("/versions/:id/restore", async (req, reply) => {
+      const s = requireUser(req, reply);
+      if (!s) return reply;
+      const v = await vaultHolding(s.user.id, fileVersions, req.params.id);
+      await restorer.version(vaultsSvc.cryptoOf(v), req.params.id);
+      return reply.code(204).send();
+    });
+
+    app.post<{ Params: IdParams }>("/trash/:id/restore", async (req, reply) => {
+      const s = requireUser(req, reply);
+      if (!s) return reply;
+      const v = await vaultHolding(s.user.id, files, req.params.id);
+      await restorer.trash(vaultsSvc.cryptoOf(v), req.params.id);
+      return reply.code(204).send();
+    });
+
+    app.post("/conflicts/resolve-all", async (req, reply) => {
+      const s = requireUser(req, reply);
+      if (!s) return reply;
+      const b = parse(ResolveAllRequest, req, reply);
+      if (!b) return reply;
+      const mine = await vaultsSvc.listForUser(s.user.id);
+      return { resolved: await resolver.resolveAll(mine, langOf(s.user), b.strategy, b.items) };
+    });
+
+    app.post<{ Params: IdParams }>("/conflicts/:id/resolve", async (req, reply) => {
+      const s = requireUser(req, reply);
+      if (!s) return reply;
+      const b = parse(ResolveRequest, req, reply);
+      if (!b) return reply;
+      const v = await conflictsSvc.vaultOf(s.user.id, req.params.id);
+      await resolver.resolve(v, langOf(s.user), req.params.id, b.resolution, {
+        incomingAt: b.expectedIncomingAt,
+        mineAt: b.expectedMineAt,
+      });
+      return reply.code(204).send();
+    });
   };
 }

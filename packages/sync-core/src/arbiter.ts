@@ -9,6 +9,7 @@ import type {
   Op,
   PutOp,
   RejectedResult,
+  ResolveOp,
 } from "@kamino/protocol";
 import { ALWAYS_EXCLUDED, globMatch } from "./exclusions.js";
 import { collisionKey, conflictSiblingPath, isCanonical } from "./paths.js";
@@ -32,6 +33,21 @@ export interface OpenConflict {
   candidates: string[];
 }
 
+export interface CandidateRecord {
+  versionId: string;
+  hash: string;
+  size: number;
+  mtime: number;
+}
+
+/** A conflict by id, open or not, with what its candidates hold (for resolve). */
+export interface ConflictRecord {
+  conflictId: string;
+  fileId: string;
+  open: boolean;
+  candidates: CandidateRecord[];
+}
+
 /**
  * What the rules read. The server (M1c) implements it with queries inside the commit
  * transaction, with the vault row locked; MemoryStore implements it in memory.
@@ -42,6 +58,7 @@ export interface ArbiterView {
   /** Live (not deleted) file or folder with this collision key. */
   liveAt(key: string): FileRecord | undefined;
   openConflict(fileId: string): OpenConflict | undefined;
+  conflict(conflictId: string): ConflictRecord | undefined;
   hasLiveDescendants(path: string): boolean;
   /** A version (current, old or candidate) with this id already exists. */
   versionExists(versionId: string): boolean;
@@ -87,6 +104,7 @@ export type Mutation =
       candidate: string;
     }
   | { type: "addCandidate"; conflictId: string; versionId: string }
+  | { type: "resolveConflict"; conflictId: string }
   | { type: "journal"; entry: JournalDraft };
 
 /** Accepted results get their `seq` from the store (the op's journal entry, or the head). */
@@ -152,6 +170,8 @@ export function decide(view: ArbiterView, op: Op, ctx: ArbiterCtx): Decision {
       return decideDelete(view, op);
     case "mkdir":
       return decideMkdir(view, op);
+    case "resolve":
+      return decideResolve(view, op);
   }
 }
 
@@ -373,4 +393,158 @@ function decideMkdir(view: ArbiterView, op: MkdirOp): Decision {
     deleted: false,
   };
   return accept(op.fileId, op.path, [{ type: "createFile", file: folder }, journal]);
+}
+
+/** 03 §9.3: closes an open conflict; whatever wins, every content stays in the history. */
+function decideResolve(view: ArbiterView, op: ResolveOp): Decision {
+  const c = view.conflict(op.conflictId);
+  if (!c) return reject("not_found");
+  const f = view.file(c.fileId);
+  if (!f || f.kind !== "file") return reject("not_found");
+  // Already closed (elsewhere), or the head moved on since the resolver looked: show it again.
+  if (!c.open || f.headVersionId !== op.expectedHeadVersionId) return reject("stale_resolution");
+  const k = op.keep;
+  const closing = (versionId: string, hash: string | null): Mutation[] => [
+    { type: "resolveConflict", conflictId: c.conflictId },
+    {
+      type: "journal",
+      entry: {
+        type: "conflict_resolved",
+        fileId: f.fileId,
+        kind: "file",
+        path: f.path,
+        conflictId: c.conflictId,
+        versionId,
+        ...(hash === null ? {} : { contentHash: hash }),
+      },
+    },
+  ];
+  const head = f.headVersionId ?? "";
+  /** On a file deleted while the conflict was open: back at its path, or next to it if taken. */
+  const backPath = (): string => {
+    const other = view.liveAt(collisionKey(f.path));
+    return other && other.fileId !== f.fileId ? freeSibling(view, f.path, f.fileId) : f.path;
+  };
+  if (k.kind === "head") {
+    if (!f.deleted) return accept(f.fileId, f.path, closing(head, f.headHash), head);
+    // Keeping a version of a file in the trash must not leave it there to expire.
+    const path = backPath();
+    const close = closing(head, f.headHash);
+    const closeEntry = close[1];
+    if (closeEntry?.type === "journal") closeEntry.entry.path = path;
+    return accept(
+      f.fileId,
+      path,
+      [
+        ...(path !== f.path ? [{ type: "path", fileId: f.fileId, path } as const] : []),
+        { type: "undelete", fileId: f.fileId },
+        {
+          type: "journal",
+          entry: {
+            type: "file_restored",
+            fileId: f.fileId,
+            kind: "file",
+            path,
+            versionId: head,
+            ...(f.headHash === null ? {} : { contentHash: f.headHash }),
+            size: f.size,
+            mtime: f.mtime,
+          },
+        },
+        ...close,
+      ],
+      head,
+    );
+  }
+
+  let content: CandidateRecord;
+  if (k.kind === "content") {
+    if (!view.blobPresent(k.contentHash)) return reject("blob_missing");
+    content = { versionId: k.versionId, hash: k.contentHash, size: k.size, mtime: k.mtime };
+  } else {
+    const cand = c.candidates.find((x) => x.versionId === k.candidateVersionId);
+    if (!cand) return reject("invalid_request");
+    content = cand;
+  }
+  if (view.versionExists(k.versionId)) return reject("invalid_request");
+
+  if (k.kind === "both") {
+    if (view.file(k.fileId)) return reject("invalid_request");
+    const bad = pathError(k.path);
+    if (bad) return reject(bad);
+    const path = view.liveAt(collisionKey(k.path)) ? freeSibling(view, k.path, k.fileId) : k.path;
+    const file: FileRecord = {
+      fileId: k.fileId,
+      kind: "file",
+      path,
+      headVersionId: k.versionId,
+      headHash: content.hash,
+      size: content.size,
+      mtime: content.mtime,
+      deleted: false,
+    };
+    const v = {
+      versionId: k.versionId,
+      hash: content.hash,
+      size: content.size,
+      mtime: content.mtime,
+    };
+    return accept(
+      f.fileId,
+      f.path,
+      [
+        { type: "createFile", file },
+        { type: "version", fileId: k.fileId, baseVersionId: null, ...v },
+        {
+          type: "journal",
+          entry: {
+            type: "file_put",
+            fileId: k.fileId,
+            kind: "file",
+            path,
+            versionId: v.versionId,
+            contentHash: v.hash,
+            size: v.size,
+            mtime: v.mtime,
+          },
+        },
+        ...closing(head, f.headHash),
+      ],
+      head,
+    );
+  }
+
+  // candidate / content: a new current version on top of the head the resolver saw.
+  const v = {
+    versionId: k.versionId,
+    hash: content.hash,
+    size: content.size,
+    mtime: content.mtime,
+  };
+  const mutations: Mutation[] = [
+    { type: "version", fileId: f.fileId, baseVersionId: f.headVersionId, ...v },
+  ];
+  // Same rule as a put on a deleted file.
+  const path = f.deleted ? backPath() : f.path;
+  if (path !== f.path) mutations.push({ type: "path", fileId: f.fileId, path });
+  mutations.push(
+    { type: "head", fileId: f.fileId, ...v },
+    {
+      type: "journal",
+      entry: {
+        type: f.deleted ? "file_restored" : "file_put",
+        fileId: f.fileId,
+        kind: "file",
+        path,
+        versionId: v.versionId,
+        contentHash: v.hash,
+        size: v.size,
+        mtime: v.mtime,
+      },
+    },
+  );
+  const close = closing(k.versionId, content.hash);
+  const closeEntry = close[1];
+  if (closeEntry?.type === "journal") closeEntry.entry.path = path;
+  return accept(f.fileId, path, [...mutations, ...close], k.versionId);
 }

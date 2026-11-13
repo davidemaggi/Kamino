@@ -12,6 +12,7 @@ import { createDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { startJobs, type Jobs } from "./jobs/boss.js";
 import { compactJournal } from "./jobs/compact.js";
+import { applyRetention } from "./jobs/retention.js";
 import { purgeDeletedVaults } from "./jobs/purge.js";
 import { drainOutbox } from "./jobs/email.js";
 import { finalizeDeletions, runExports } from "./jobs/deletion.js";
@@ -127,6 +128,8 @@ async function main(): Promise<void> {
       email: () => drainOutbox(outbox),
       exports: () => runExports(deletion),
       finalize: () => finalizeDeletions(deletion),
+      retention: async () =>
+        applyRetention(db, store, Date.now(), (await systemConfig.effective()).maxRetentionDays),
     },
     logger,
   );

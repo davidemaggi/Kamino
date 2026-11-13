@@ -92,7 +92,7 @@ describe("user area contract", () => {
     for (const r of ["keep_mine", "keep_incoming", "keep_both", { manual: "x" }])
       expect(Resolution.safeParse(r).success).toBe(true);
     expect(Resolution.safeParse("keep_all").success).toBe(false);
-    expect(ResolveAllRequest.safeParse({ strategy: "keep_both", ids: [] }).success).toBe(false);
+    expect(ResolveAllRequest.safeParse({ strategy: "keep_both", items: [] }).success).toBe(false);
   });
 
   it("new error codes", () => {

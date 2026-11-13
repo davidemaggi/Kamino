@@ -36,6 +36,12 @@ export class CursorTooOld extends Error {
   }
 }
 
+/**
+ * Journal author for writes made from the web app (resolutions, restores): it has no device.
+ * Versions get a null device instead; clients only compare it with their own id.
+ */
+export const WEB_AUTHOR = "00000000-0000-0000-0000-000000000000";
+
 /** The vault was deleted while the request was on its way (checked under the vault lock). */
 export class VaultGone extends Error {
   constructor() {
@@ -49,10 +55,13 @@ export class SyncService {
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** 03 §5: ops in order, each atomic on its own, vault row locked. */
+  /**
+   * 03 §5: ops in order, each atomic on its own, vault row locked. `deviceId` null = the web
+   * app (its ops are built by the server: resolutions and restores).
+   */
   async commit(
     vc: VaultCrypto,
-    deviceId: string,
+    deviceId: string | null,
     ops: Op[],
   ): Promise<{ results: OpResult[]; head: number }> {
     const results: OpResult[] = [];
@@ -62,14 +71,20 @@ export class SyncService {
       .select({ head: vaults.headSeq })
       .from(vaults)
       .where(eq(vaults.id, vc.vaultId));
-    await this.db
-      .update(devices)
-      .set({ lastSyncAt: new Date(this.now()) })
-      .where(eq(devices.id, deviceId));
+    if (deviceId !== null)
+      await this.db
+        .update(devices)
+        .set({ lastSyncAt: new Date(this.now()) })
+        .where(eq(devices.id, deviceId));
     return { results, head: v?.head ?? 0 };
   }
 
-  private async applyOne(tx: Tx, vc: VaultCrypto, deviceId: string, op: Op): Promise<OpResult> {
+  private async applyOne(
+    tx: Tx,
+    vc: VaultCrypto,
+    deviceId: string | null,
+    op: Op,
+  ): Promise<OpResult> {
     const [locked] = await tx
       .select({ head: vaults.headSeq, status: vaults.status })
       .from(vaults)
@@ -204,6 +219,39 @@ export class SyncService {
         });
         return;
       }
+      case "conflictById": {
+        const [c] = await tx
+          .select()
+          .from(conflicts)
+          .where(and(eq(conflicts.vaultId, v), eq(conflicts.id, need.conflictId)));
+        if (!c) {
+          view.conflictsById.set(need.conflictId, null);
+          return;
+        }
+        const cands = await tx
+          .select({ v: fileVersions })
+          .from(conflictCandidates)
+          .innerJoin(
+            fileVersions,
+            and(
+              eq(fileVersions.vaultId, conflictCandidates.vaultId),
+              eq(fileVersions.id, conflictCandidates.versionId),
+            ),
+          )
+          .where(and(eq(conflictCandidates.vaultId, v), eq(conflictCandidates.conflictId, c.id)));
+        view.conflictsById.set(need.conflictId, {
+          conflictId: c.id,
+          fileId: c.fileId,
+          open: c.status === "open",
+          candidates: cands.map(({ v: x }) => ({
+            versionId: x.id,
+            hash: vc.dec("file_versions", "content_hash", `${v}:${x.id}`, x.contentHashEnc),
+            size: x.size,
+            mtime: x.mtime,
+          })),
+        });
+        return;
+      }
       case "descendants": {
         // C8: paths are encrypted, so the prefix check decrypts the vault's live paths in memory.
         const prefix = `${collisionKey(need.path)}/`;
@@ -241,7 +289,7 @@ export class SyncService {
   private async mutate(
     tx: Tx,
     vc: VaultCrypto,
-    deviceId: string,
+    deviceId: string | null,
     m: Exclude<Mutation, { type: "journal" }>,
   ): Promise<void> {
     const v = vc.vaultId;
@@ -332,13 +380,19 @@ export class SyncService {
           createdAt: new Date(this.now()),
         });
         return;
+      case "resolveConflict":
+        await tx
+          .update(conflicts)
+          .set({ status: "resolved", resolvedAt: new Date(this.now()) })
+          .where(and(eq(conflicts.vaultId, v), eq(conflicts.id, m.conflictId)));
+        return;
     }
   }
 
   private async insertJournal(
     tx: Tx,
     vc: VaultCrypto,
-    deviceId: string,
+    deviceId: string | null,
     opId: string,
     seq: number,
     e: Extract<Mutation, { type: "journal" }>["entry"],
@@ -363,7 +417,7 @@ export class SyncService {
       size: e.size ?? null,
       mtime: e.mtime ?? null,
       conflictId: e.conflictId ?? null,
-      deviceId,
+      deviceId: deviceId ?? WEB_AUTHOR,
       at: new Date(this.now()),
     });
   }

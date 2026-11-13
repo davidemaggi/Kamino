@@ -30,6 +30,20 @@ describe("websocket messages", () => {
       "error",
     );
     expect(ServerMessage.parse({ type: "device_revoked" }).type).toBe("device_revoked");
+    const request = {
+      type: "pairing_request",
+      pairingId: "p",
+      deviceName: "iPhone",
+      platform: "ios",
+      pluginVersion: "1.0.0",
+      code: "AB23",
+      expiresAt: "2026-11-13T10:00:00.000Z",
+    };
+    expect(ServerMessage.parse(request).type).toBe("pairing_request");
+    expect(ServerMessage.safeParse({ ...request, code: "AB" }).success).toBe(false);
+    expect(ServerMessage.parse({ type: "pairing_closed", pairingId: "p" }).type).toBe(
+      "pairing_closed",
+    );
   });
 });
 

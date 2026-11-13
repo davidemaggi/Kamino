@@ -44,6 +44,20 @@ export const ServerMessage = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("device_revoked") }),
   z.object({ type: z.literal("vault_settings_changed"), settings: SyncSettings }),
+  /** 03 §10: a new device claimed a pairing of this vault (sent to the vault's devices). */
+  z.object({
+    type: z.literal("pairing_request"),
+    pairingId: z.string(),
+    deviceName: z.string(),
+    platform: z.string(),
+    pluginVersion: z.string(),
+    code: z.string().length(4),
+    expiresAt: z.string(),
+  }),
+  /** Approved, denied or cancelled (here or elsewhere): drop the request. */
+  z.object({ type: z.literal("pairing_closed"), pairingId: z.string() }),
+  /** The link of an open pairing was presented again after its claim. */
+  z.object({ type: z.literal("pairing_reused"), pairingId: z.string() }),
   z.object({ type: z.literal("error"), code: ErrorCode, message: z.string() }),
   z.object({ type: z.literal("ping") }),
   z.object({ type: z.literal("pong") }),

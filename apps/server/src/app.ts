@@ -2,6 +2,8 @@ import { PRODUCT_NAME } from "@kamino/brand";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { registerAuthHttp } from "./auth/http.js";
+import { PairingService } from "./pairing/service.js";
+import { pairingRoutes } from "./routes/pairing.js";
 import { AuthService } from "./auth/service.js";
 import type { BuildInfo } from "./build-info.js";
 import type { Config } from "./config/schema.js";
@@ -143,6 +145,15 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       log: deps.logger,
     });
   await app.register(exportRoutes(deletion, now), { prefix: "/api/v1" });
+  await app.register(
+    pairingRoutes({
+      db: deps.db,
+      vaults: vaultsSvc,
+      pairing: new PairingService(deps.db, vaultsSvc, hub, outbox, deps.config.publicUrl, now),
+      now,
+    }),
+    { prefix: "/api/v1" },
+  );
   await app.register(
     adminRoutes({
       users: new AdminUsers(deps.db, auth, hub, systemConfig, outbox, deps.config.publicUrl, now),

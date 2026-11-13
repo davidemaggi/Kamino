@@ -9,6 +9,7 @@ const conn = (vaultId: string, deviceId: string, log: string[], userId = "u"): C
   deviceId,
   userId,
   wake: () => log.push(`wake ${deviceId}`),
+  push: (m) => log.push(`push ${deviceId} ${m.type}`),
   close: (code) => log.push(`close ${deviceId} ${code}`),
 });
 
@@ -22,6 +23,15 @@ describe("hub", () => {
     expect(log).toEqual(["wake d1"]);
     hub.wakeAll();
     expect(log).toEqual(["wake d1", "wake d1", "wake d2"]);
+  });
+
+  it("sends a message to the vault's devices only", () => {
+    const hub = new Hub();
+    const log: string[] = [];
+    hub.add(conn("v1", "d1", log));
+    hub.add(conn("v2", "d2", log));
+    hub.sendToVault("v1", { type: "pairing_closed", pairingId: "p" });
+    expect(log).toEqual(["push d1 pairing_closed"]);
   });
 
   it("caps sockets per device, closing the oldest", () => {

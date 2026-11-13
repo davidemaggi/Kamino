@@ -7,6 +7,8 @@ export interface Conn {
   readonly userId: string;
   /** New journal entries may exist: read them (coalesced by the socket). */
   wake(): void;
+  /** A one-off message (pairing): sent only if the socket is live, never queued. */
+  push(message: ServerMessage): void;
   close(code: number, message?: ServerMessage): void;
 }
 
@@ -49,6 +51,11 @@ export class Hub {
 
   notify(vaultId: string): void {
     for (const c of this.byVault.get(vaultId) ?? []) c.wake();
+  }
+
+  /** A message for every live device of the vault (single instance, 04 §8). */
+  sendToVault(vaultId: string, message: ServerMessage): void {
+    for (const c of this.byVault.get(vaultId) ?? []) c.push(message);
   }
 
   /** After a dropped LISTEN connection a notification may be lost: everyone re-reads. */

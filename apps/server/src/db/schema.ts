@@ -405,3 +405,40 @@ export const userExports = pgTable("user_exports", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const pairingStatus = pgEnum("pairing_status", [
+  "waiting",
+  "requested",
+  "approved",
+  "consumed",
+  "denied",
+  "cancelled",
+]);
+
+/**
+ * 03 §10 / F11: one QR or magic-link pairing. Only hashes of the link token, of the claim secret
+ * and of the future device token are kept: nothing here lets anyone sign in as a device.
+ */
+export const pairings = pgTable("pairings", {
+  id: uuid("id").primaryKey(),
+  vaultId: uuid("vault_id")
+    .notNull()
+    .references(() => vaults.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** The device that offered it; null = the web app. */
+  originDeviceId: uuid("origin_device_id"),
+  tokenHash: text("token_hash").notNull().unique(),
+  status: pairingStatus("status").notNull().default("waiting"),
+  claimId: uuid("claim_id").unique(),
+  claimSecretHash: text("claim_secret_hash"),
+  /** Hash of the device token derived from the claim secret: the device is created with it. */
+  deviceTokenHash: text("device_token_hash"),
+  /** { deviceName, platform, pluginVersion, protocolVersion, code } of the claim. */
+  request: jsonb("request"),
+  deviceId: uuid("device_id"),
+  reusedAt: timestamp("reused_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

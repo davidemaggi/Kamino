@@ -59,5 +59,7 @@ export const PairingState = z.object({
       code: z.string().length(4),
     })
     .optional(),
+  /** Someone tried the link again after it was claimed: the origin should not trust it. */
+  reused: z.boolean().optional(),
 });
 export type PairingState = z.infer<typeof PairingState>;

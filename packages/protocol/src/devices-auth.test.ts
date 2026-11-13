@@ -26,3 +26,20 @@ describe("device enrollment contract", () => {
     );
   });
 });
+
+describe("pairing contract (03 §10)", () => {
+  it("a claim names the device; the approved state carries the token once", async () => {
+    const { PairingClaimRequest, PairingClaimState } = await import("./index.js");
+    const claim = {
+      token: "t",
+      deviceName: "iPhone",
+      platform: "ios",
+      pluginVersion: "1.0.0",
+      protocolVersion: 1,
+    };
+    expect(PairingClaimRequest.safeParse(claim).success).toBe(true);
+    expect(PairingClaimRequest.safeParse({ ...claim, deviceName: " " }).success).toBe(false);
+    expect(PairingClaimState.parse({ status: "consumed" }).status).toBe("consumed");
+    expect(PairingClaimState.safeParse({ status: "approved" }).success).toBe(false);
+  });
+});

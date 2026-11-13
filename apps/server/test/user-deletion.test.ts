@@ -1,7 +1,15 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import yauzl from "yauzl";
-import { auditLog, blobs, emailOutbox, userExports, users, vaults } from "../src/db/schema.js";
+import {
+  auditLog,
+  blobs,
+  emailOutbox,
+  pairings,
+  userExports,
+  users,
+  vaults,
+} from "../src/db/schema.js";
 import { purgeDeletedVaults } from "../src/jobs/purge.js";
 import { DELETION_GRACE_MS } from "../src/users/deletion.js";
 import { login, rootAdmin, secondAdmin } from "./helpers/admin.js";
@@ -233,9 +241,23 @@ describe.skipIf(dockerUnavailable)("user deletion", () => {
     const d = await linkDevice(t, await user(t, "mario"));
     await putFile(d, "a.md");
     const id = await idOf(t, "mario");
+    const offer = (await d.call("POST", `/vaults/${d.vaultId}/pairings`)).json() as {
+      link: string;
+    };
     expect((await del(t, admin, id, { confirmUsername: "mario", sendZip: false })).statusCode).toBe(
       204,
     );
+    // An open pairing link dies with the account.
+    expect(await t.db.select().from(pairings)).toEqual([]);
+    const token = new URL(offer.link).searchParams.get("token")!;
+    const claim = await raw(t, "POST", "/pairings/claim", {
+      token,
+      deviceName: "iPhone",
+      platform: "ios",
+      pluginVersion: "0.2.0",
+      protocolVersion: 1,
+    });
+    expect(claim.statusCode).toBe(400);
     expect(await t.deletion.finalizeDue()).toBe(1);
     expect((await t.db.select().from(users).where(eq(users.id, id)))[0]!.status).toBe("deleted");
     // The username can be used again.

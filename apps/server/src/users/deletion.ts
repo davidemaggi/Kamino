@@ -21,6 +21,7 @@ import {
 import type { Db } from "../db/client.js";
 import {
   oneTimeTokens,
+  pairings,
   recoveryCodes,
   securityEvents,
   userExports,
@@ -131,6 +132,7 @@ export class UserDeletion {
       await this.d.auth.revokeOtherSessions(u.id, null, tx);
       // Pending invitation or reset links die with the account.
       await tx.delete(oneTimeTokens).where(eq(oneTimeTokens.userId, u.id));
+      await tx.delete(pairings).where(eq(pairings.userId, u.id));
       if (r.sendZip)
         await tx
           .insert(userExports)

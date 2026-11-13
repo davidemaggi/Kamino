@@ -57,6 +57,22 @@ describe("arbiter: resolve (03 §9.3)", () => {
     expect(checkInvariants(s)).toEqual([]);
   });
 
+  it("keep head on a file deleted meanwhile brings it back: the kept content never sits in the trash", () => {
+    const { s, conflictId } = conflicted();
+    expect(one(s, { type: "delete", opId: id(), fileId: "f", baseVersionId: "v2" }).status).toBe(
+      "accepted",
+    );
+    one(s, put("g", "Nota.md", null, H1, "g1"));
+    const r = one(s, resolve(conflictId, "v2", { kind: "head" }));
+    expect(r).toMatchObject({ status: "accepted", versionId: "v2", path: "Nota (1).md" });
+    expect(s.files.get("f")).toMatchObject({ deleted: false, path: "Nota (1).md" });
+    expect(s.journal.slice(-2).map((e) => [e.type, e.versionId, e.path])).toEqual([
+      ["file_restored", "v2", "Nota (1).md"],
+      ["conflict_resolved", "v2", "Nota (1).md"],
+    ]);
+    expect(checkInvariants(s)).toEqual([]);
+  });
+
   it("keep candidate: a new head with the candidate's content, base = old head", () => {
     const { s, conflictId } = conflicted();
     const r = one(

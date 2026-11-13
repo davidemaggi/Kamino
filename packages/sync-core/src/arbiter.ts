@@ -420,7 +420,42 @@ function decideResolve(view: ArbiterView, op: ResolveOp): Decision {
     },
   ];
   const head = f.headVersionId ?? "";
-  if (k.kind === "head") return accept(f.fileId, f.path, closing(head, f.headHash), head);
+  /** On a file deleted while the conflict was open: back at its path, or next to it if taken. */
+  const backPath = (): string => {
+    const other = view.liveAt(collisionKey(f.path));
+    return other && other.fileId !== f.fileId ? freeSibling(view, f.path, f.fileId) : f.path;
+  };
+  if (k.kind === "head") {
+    if (!f.deleted) return accept(f.fileId, f.path, closing(head, f.headHash), head);
+    // Keeping a version of a file in the trash must not leave it there to expire.
+    const path = backPath();
+    const close = closing(head, f.headHash);
+    const closeEntry = close[1];
+    if (closeEntry?.type === "journal") closeEntry.entry.path = path;
+    return accept(
+      f.fileId,
+      path,
+      [
+        ...(path !== f.path ? [{ type: "path", fileId: f.fileId, path } as const] : []),
+        { type: "undelete", fileId: f.fileId },
+        {
+          type: "journal",
+          entry: {
+            type: "file_restored",
+            fileId: f.fileId,
+            kind: "file",
+            path,
+            versionId: head,
+            ...(f.headHash === null ? {} : { contentHash: f.headHash }),
+            size: f.size,
+            mtime: f.mtime,
+          },
+        },
+        ...close,
+      ],
+      head,
+    );
+  }
 
   let content: CandidateRecord;
   if (k.kind === "content") {
@@ -489,13 +524,9 @@ function decideResolve(view: ArbiterView, op: ResolveOp): Decision {
   const mutations: Mutation[] = [
     { type: "version", fileId: f.fileId, baseVersionId: f.headVersionId, ...v },
   ];
-  let path = f.path;
-  if (f.deleted) {
-    // Same rule as a put on a deleted file: back at its path, or next to it if taken.
-    const other = view.liveAt(collisionKey(f.path));
-    if (other && other.fileId !== f.fileId) path = freeSibling(view, f.path, f.fileId);
-    if (path !== f.path) mutations.push({ type: "path", fileId: f.fileId, path });
-  }
+  // Same rule as a put on a deleted file.
+  const path = f.deleted ? backPath() : f.path;
+  if (path !== f.path) mutations.push({ type: "path", fileId: f.fileId, path });
   mutations.push(
     { type: "head", fileId: f.fileId, ...v },
     {

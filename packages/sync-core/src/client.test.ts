@@ -486,3 +486,44 @@ describe("client", () => {
     expect(ofType(r3.effects, "push")[0]?.ops).toMatchObject([{ type: "put", path: "a.md" }]);
   });
 });
+
+/** rc.4: the plugin sets a file aside in its own folder while replacing it; Obsidian reports a rename. */
+describe("the plugin's own folder is never a user move (rc.4)", () => {
+  const ASIDE = "{config}/plugins/kamino-sync/tmp/0123456789abcdef01234567.old";
+  function synced() {
+    const store = new MemoryStore();
+    const { state, ops } = push(joined(), store, [scanItem("a.md", H1)]);
+    return { store, state, fileId: (ops[0] as FileOp).fileId };
+  }
+
+  it("a rename to or from it changes nothing", () => {
+    const { state, fileId } = synced();
+    const s = run(state, { type: "localRename", from: "a.md", to: ASIDE }).state;
+    expect(s.durable.index[fileId]).toMatchObject({ path: "a.md", ignored: false });
+    const back = run(s, { type: "localRename", from: ASIDE, to: "b.md" }).state;
+    expect(back.durable.index[fileId]).toMatchObject({ path: "a.md", ignored: false });
+  });
+
+  it("a device already in that state downloads the file again, never deletes it", () => {
+    const { store, state, fileId } = synced();
+    const e = state.durable.index[fileId]!;
+    e.path = ASIDE; // what the old rule did
+    e.ignored = true;
+    const { state: s, effects, ops } = push(state, store, []);
+    expect(ops).toEqual([]);
+    expect(ofType(effects, "write")).toMatchObject([{ fileId, path: "a.md", expect: null }]);
+    expect(s.durable.index[fileId]).toMatchObject({ path: "a.md", ignored: false });
+    expect(store.files.get(fileId)!.deleted).toBe(false);
+  });
+
+  it("…and with the file still at its path, it is simply followed again", () => {
+    const { store, state, fileId } = synced();
+    const e = state.durable.index[fileId]!;
+    e.path = ASIDE;
+    e.ignored = true;
+    const { state: s, effects, ops } = push(state, store, [scanItem("a.md", H1)]);
+    expect(ops).toEqual([]);
+    expect(ofType(effects, "write")).toEqual([]);
+    expect(s.durable.index[fileId]).toMatchObject({ path: "a.md", localHash: H1, ignored: false });
+  });
+});

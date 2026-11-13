@@ -363,7 +363,9 @@ export class Plugin {
     this.statusBarItems.push(el);
     return el;
   }
+  ribbonCalls: { icon: string; title: string }[] = [];
   addRibbonIcon(icon: string, title: string, callback: (evt: MouseEvent) => unknown): HTMLElement {
+    this.ribbonCalls.push({ icon, title });
     const el = document.createElement("div");
     setIcon(el, icon);
     el.setAttribute("aria-label", title);

@@ -1,4 +1,5 @@
 {
+  "ribbon": { "status": "Stato della sincronizzazione" },
   "settings": {
     "title": "Impostazioni",
     "version": "Versione",

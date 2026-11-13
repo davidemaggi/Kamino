@@ -1,4 +1,5 @@
 {
+  "ribbon": { "status": "Sync status" },
   "settings": {
     "title": "Settings",
     "version": "Version",

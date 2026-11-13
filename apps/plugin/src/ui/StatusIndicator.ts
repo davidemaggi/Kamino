@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@kamino/brand";
 import { MarkdownView, Notice, setIcon, type Plugin } from "obsidian";
 import {
   formatStatusMessage,
@@ -6,6 +7,8 @@ import {
   type StatusDescription,
   type SyncSnapshot,
 } from "@kamino/status";
+import { t } from "../i18n/index.js";
+import { BRAND_ICON } from "./brand-icon.js";
 import {
   renderStatusIndicator,
   resolveIcon,
@@ -60,7 +63,12 @@ export class StatusIndicator {
       this.statusBarEl = this.plugin.addStatusBarItem();
       this.statusBarEl.addEventListener("click", () => this.showDetails());
     }
-    this.ribbonEl = this.plugin.addRibbonIcon("clock", "", () => this.showDetails());
+    // The mobile ribbon menu shows only the icon and title given here: the logo and a real title.
+    this.ribbonEl = this.plugin.addRibbonIcon(
+      BRAND_ICON,
+      `${PRODUCT_NAME}: ${t(this.deps.lang).ribbon.status}`,
+      () => this.showDetails(),
+    );
     this.plugin.registerEvent(
       this.plugin.app.workspace.on("active-leaf-change", () => this.syncHeaderAction(true)),
     );

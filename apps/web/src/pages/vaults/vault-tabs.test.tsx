@@ -2,7 +2,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/endpoints.js";
-import { features } from "../../lib/features.js";
 import { signInAs } from "../../mocks/db.js";
 import { ud } from "../../mocks/userdata.js";
 import { renderRoute } from "../../test/render.js";
@@ -10,7 +9,6 @@ import { renderRoute } from "../../test/render.js";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  features.historyWrites = true;
 });
 
 describe("History and trash", () => {
@@ -29,25 +27,6 @@ describe("History and trash", () => {
     await waitFor(() =>
       expect(ud.files.find((f) => f.fileId === "f-idee")!.versions.length).toBe(before + 1),
     );
-  });
-
-  it("against the real server, restoring is disabled and says it is coming", async () => {
-    features.historyWrites = false;
-    signInAs("demo");
-    await renderRoute("/vaults/v-notes?tab=history");
-    const trash = await screen.findByRole("region", { name: "Cestino" });
-    const restoreFile = (await within(trash).findAllByRole("button", { name: "Ripristina" }))[0]!;
-    expect((restoreFile as HTMLButtonElement).disabled).toBe(true);
-    expect(within(trash).getByText("In arrivo: per ora puoi solo consultare.")).toBeDefined();
-    fireEvent.change(screen.getByLabelText("Cerca un file"), { target: { value: "idee" } });
-    fireEvent.click(await screen.findByRole("button", { name: /Idee\.md/ }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.click((await within(dialog).findAllByRole("button", { name: /MacBook|iPhone/ }))[1]!);
-    const restore = await within(dialog).findByRole("button", {
-      name: "Ripristina questa versione",
-    });
-    expect((restore as HTMLButtonElement).disabled).toBe(true);
-    expect(within(dialog).getByText("In arrivo: per ora puoi solo consultare.")).toBeDefined();
   });
 
   it("trash: restore a file", async () => {

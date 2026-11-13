@@ -104,10 +104,15 @@ export const api = {
     requestVoid(`/pairings/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
   conflicts: () => request(ConflictList, "/conflicts"),
   conflict: (id: string) => request(ConflictDetail, `/conflicts/${encodeURIComponent(id)}`),
-  resolveConflict: (id: string, resolution: Resolution, expectedIncomingAt: string) =>
+  resolveConflict: (
+    id: string,
+    resolution: Resolution,
+    expectedIncomingAt: string,
+    expectedMineAt?: string,
+  ) =>
     requestVoid(`/conflicts/${encodeURIComponent(id)}/resolve`, {
       method: "POST",
-      body: { resolution, expectedIncomingAt },
+      body: { resolution, expectedIncomingAt, ...(expectedMineAt ? { expectedMineAt } : {}) },
     }),
   resolveAll: (strategy: BulkStrategy, ids: string[]) =>
     request(ResolveAllResponse, "/conflicts/resolve-all", {

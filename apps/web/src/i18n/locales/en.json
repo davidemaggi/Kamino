@@ -230,8 +230,7 @@
     }
   },
   "common": {
-    "close": "Close",
-    "comingSoon": "Coming soon: read only for now."
+    "close": "Close"
   },
   "overview": {
     "title": "Overview",

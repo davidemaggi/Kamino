@@ -10,7 +10,6 @@ import { errorMessage } from "../../api/errors.js";
 import { ApiError } from "../../api/http.js";
 import { DiffView, type DiffViewApi } from "../../components/DiffView.js";
 import { Button } from "../../components/ui/button.js";
-import { features } from "../../lib/features.js";
 import { formatBytes, formatDateTime } from "../../lib/format.js";
 import { useIsNarrow } from "../../lib/useMediaQuery.js";
 
@@ -40,7 +39,7 @@ export function ConflictDetailPane({
   const [stale, setStale] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const locked = busy || !features.historyWrites;
+  const locked = busy;
   const diff = useRef<DiffViewApi>(null);
   const alive = useRef(true);
   useEffect(() => {
@@ -100,7 +99,7 @@ export function ConflictDetailPane({
     if (typeof resolution === "object") setDraft(resolution.manual);
     setBusy(true);
     try {
-      await api.resolveConflict(d.id, resolution, d.incoming.at);
+      await api.resolveConflict(d.id, resolution, d.incoming.at, d.mine.at);
       const key =
         typeof resolution === "object"
           ? "doneMerge"
@@ -254,9 +253,6 @@ export function ConflictDetailPane({
             />
           )}
         </>
-      )}
-      {!features.historyWrites && (
-        <p className="text-muted-foreground text-sm">{t("common.comingSoon")}</p>
       )}
       <div className={narrow ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}>
         {editing ? (

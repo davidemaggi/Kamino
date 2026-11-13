@@ -9,7 +9,6 @@ import { errorMessage } from "../../api/errors.js";
 import { useDocumentTitle } from "../../app/useDocumentTitle.js";
 import { LevelBadge } from "../../components/status/LevelBadge.js";
 import { Button } from "../../components/ui/button.js";
-import { features } from "../../lib/features.js";
 import { useIsNarrow } from "../../lib/useMediaQuery.js";
 import { BulkResolveDialog } from "./BulkResolveDialog.js";
 import { ConflictDetailPane } from "./ConflictDetailPane.js";
@@ -86,11 +85,7 @@ export function ConflictCenter({ selectedId }: { selectedId?: string }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="font-serif text-2xl font-semibold">{t("conflicts.title")}</h1>
           {list.length >= 2 && (
-            <Button
-              variant="outline"
-              disabled={!features.historyWrites}
-              onClick={() => setBulkOpen(true)}
-            >
+            <Button variant="outline" onClick={() => setBulkOpen(true)}>
               {t("conflicts.resolveAll")}
             </Button>
           )}

@@ -1,6 +1,8 @@
 import {
   type ChangesResponse,
   ErrorCode,
+  type ForcedForDevice,
+  type ForceSyncState,
   PROTOCOL_MIN_SUPPORTED,
   PROTOCOL_VERSION,
   type SyncSettings,
@@ -243,6 +245,8 @@ export class Engine {
   private readonly authors = new Map<string, { deviceId: string; at: number }>();
   private deviceNames: Map<string, string> | null = null;
   private unreadable: string[] = [];
+  /** Forced sync reports in flight (ADR-0019), so each goes once. */
+  private readonly reporting = new Set<string>();
   /** Files waiting for streaming or a higher limit, by local path; rebuilt each cycle. */
   private readonly waiting = new Map<string, DeferredFile>();
   /** I1 (review): files that vanished in one scan, held until the user confirms. */
@@ -745,6 +749,22 @@ export class Engine {
     return out.map((r) => r ?? "stale");
   }
 
+  /**
+   * ADR-0019: this device's files overwrite the same paths on `targetDeviceIds`; their different
+   * copies go to the history first. The request reaches this device through the next cycle.
+   */
+  async forceSyncFrom(targetDeviceIds: string[]): Promise<ForceSyncState> {
+    const r = await this.api.requestForceSync(this.d.config.deviceId, targetDeviceIds);
+    void this.kick();
+    return r;
+  }
+
+  /** This device's part in a forced sync, if any. */
+  forcedSync(): { role: "source" | "target"; state: "pending" | "working" | "done" } | null {
+    const f = this.st.durable.forced;
+    return f ? { role: f.role, state: f.state } : null;
+  }
+
   onChange(cb: () => void): () => void {
     this.listeners.add(cb);
     return () => this.listeners.delete(cb);
@@ -820,13 +840,29 @@ export class Engine {
       const n = normalizePath(p, this.d.config.configDir);
       return n.ok ? [n.path] : [];
     });
-    await this.dispatch({ type: "sync", scan: scan.files, folders: scan.folders, unreadable });
+    // ADR-0019: a target must know before it sends anything, or its edit would become the head.
+    let forced: ForcedForDevice | undefined;
+    try {
+      forced = await this.api.forcedFor();
+    } catch {
+      forced = undefined; // the cycle's own requests report the failure
+    }
+    await this.dispatch({
+      type: "sync",
+      scan: scan.files,
+      folders: scan.folders,
+      unreadable,
+      ...(forced === undefined ? {} : { forced }),
+    });
     await this.settled();
     await this.flush();
     if (this.stopReason) return;
     await this.report();
     if (this.netFailed) this.scheduleRetry();
     else this.attempt = 0;
+    // A realign learned during the cycle starts at the next one, at once.
+    const f = this.st.durable.forced;
+    if (!this.netFailed && f?.role === "target" && f.state === "pending") this.wanted = true;
   }
 
   /**
@@ -1024,6 +1060,17 @@ export class Engine {
         return;
       case "ack":
         this.track(api.ack(vaultId, fx.seq).catch((e: unknown) => this.failure(e)));
+        return;
+      case "forced":
+        if (this.reporting.has(fx.requestId)) return;
+        this.reporting.add(fx.requestId);
+        this.track(
+          api
+            .forcedDone(fx.requestId, fx.role)
+            .then(() => this.dispatch({ type: "forcedReported", requestId: fx.requestId }))
+            .catch((e: unknown) => this.failure(e))
+            .finally(() => this.reporting.delete(fx.requestId)),
+        );
         return;
       case "notify":
         if (fx.kind === "update_required") this.halt("update_required");

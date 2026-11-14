@@ -82,12 +82,19 @@ class Device {
   /** `forced` = what the server answers before the cycle (the engine asks it). */
   sync(rounds = 4, forced?: { requestId: string; role: "source" | "target" }): void {
     for (let i = 0; i < rounds; i++) {
-      const scan = [...this.disk].map(([path, hash]) => ({ path, hash, size: 1, mtime: 0 }));
+      const scan = [...this.disk].map(([path, hash]) => ({
+        path,
+        hash,
+        size: sizeOf(hash),
+        mtime: 0,
+      }));
       this.effects(this.run({ type: "sync", scan, folders: [], forced: forced ?? null }));
     }
   }
 }
 
+/** Each content has its own size: an op must send the size of what it sends. */
+const sizeOf = (hash: string) => Number.parseInt(hash.slice(0, 4), 16);
 const versionsOf = (store: MemoryStore, fileId: string) =>
   [...store.versions.values()].filter((v) => v.fileId === fileId).map((v) => v.hash);
 const fileAt = (store: MemoryStore, path: string) =>
@@ -141,6 +148,8 @@ describe("forced sync (ADR-0019)", () => {
     const a = fileAt(store, "a.md");
     expect(a.headHash).toBe(H("1"));
     expect(versionsOf(store, a.fileId)).toContain(H("7"));
+    const archived = [...store.versions.values()].find((v) => v.hash === H("7"))!;
+    expect(archived.size).toBe(sizeOf(H("7")));
     expect(dst.disk.get("a.md")).toBe(H("1"));
     expect(dst.disk.get("b.md")).toBe(H("2"));
     expect(dst.disk.get("x.md")).toBe(H("8"));

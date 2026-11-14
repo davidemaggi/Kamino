@@ -22,6 +22,8 @@ import { Hub } from "./realtime/hub.js";
 import { keepListening } from "./realtime/listener.js";
 import { wsRoutes } from "./routes/ws.js";
 import { deviceRoutes } from "./routes/devices.js";
+import { forceSyncRoutes } from "./routes/force-sync.js";
+import { ForceSyncService } from "./devices/force-sync.js";
 import { DeviceService } from "./devices/service.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { SettingsService } from "./vaults/settings.js";
@@ -120,6 +122,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const devicesSvc = new DeviceService(deps.db, vaultsSvc, hub, deps.now ?? Date.now);
   await app.register(enrollRoutes(deps.db, auth, vaultsSvc, devicesSvc), { prefix: "/api/v1" });
   await app.register(deviceRoutes(deps.db, devicesSvc), { prefix: "/api/v1" });
+  const forceSync = new ForceSyncService(deps.db, vaultsSvc, deps.now ?? Date.now);
+  await app.register(forceSyncRoutes(deps.db, vaultsSvc, forceSync), { prefix: "/api/v1" });
   const settings = new SettingsService(deps.db, vaultsSvc, deps.now ?? Date.now);
   await app.register(settingsRoutes(deps.db, settings), { prefix: "/api/v1" });
   const blobStore = deps.blobStore ?? createBlobStore(deps.config.storage);

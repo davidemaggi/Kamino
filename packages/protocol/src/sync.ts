@@ -144,6 +144,8 @@ export const JournalType = z.enum([
   "conflict_opened",
   "conflict_resolved",
   "vault_settings_changed",
+  "force_push",
+  "realign",
 ]);
 export type JournalType = z.infer<typeof JournalType>;
 /** `type` is a free string: clients skip unknown types only when `ignorable` (03 §13). */

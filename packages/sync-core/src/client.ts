@@ -2170,6 +2170,8 @@ function onSnapshot(c: Ctx, snap: Snapshot): void {
       remotePath: r.path,
       unavailable: null,
       archive: r.contentHash !== e.localHash,
+      // The archive put sends the local content: its size, not the server's.
+      ...(r.contentHash !== e.localHash ? { size: e.size, mtime: e.mtime } : {}),
     });
     s.durable.index[r.fileId] = aligned;
     if (e.path !== r.path) {

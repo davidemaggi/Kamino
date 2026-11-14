@@ -184,6 +184,85 @@ describe("arbiter: put (03 §5.3)", () => {
   });
 });
 
+describe("arbiter: forced sync (ADR-0019)", () => {
+  const forced = (op: Op): Op => ({ ...op, force: true }) as Op;
+  const archived = (op: Op): Op => ({ ...op, archive: true }) as Op;
+  const openOn = (s: MemoryStore, fileId: string, cand: string) =>
+    s.conflicts.set("c", {
+      conflictId: "c",
+      fileId,
+      kind: "concurrent_edit",
+      baseVersionId: "v1",
+      headVersionId: "v1",
+      candidates: [cand],
+      status: "open",
+    });
+
+  it("a forced stale put on a note becomes the head and closes the open conflict", () => {
+    const s = store();
+    one(s, put("f", "a.md", null, H1, "v1"));
+    one(s, put("f", "a.md", "v1", H2, "v2"));
+    openOn(s, "f", "v2");
+    const r = one(s, forced(put("f", "a.md", "v1", H1, "v3")), "src");
+    expect(r).toMatchObject({ status: "accepted", fileId: "f", versionId: "v3" });
+    expect(s.files.get("f")).toMatchObject({ headVersionId: "v3", headHash: H1 });
+    expect(s.conflicts.get("c")!.status).not.toBe("open");
+    expect(s.versions.has("v2")).toBe(true);
+  });
+
+  it("a forced put with the head's content still closes the open conflict", () => {
+    const s = store();
+    one(s, put("f", "a.md", null, H1, "v1"));
+    one(s, put("x", "b.md", null, H2, "vx"));
+    s.versions.set("v2", { ...s.versions.get("vx")!, fileId: "f" });
+    openOn(s, "f", "v2");
+    const r = one(s, forced(put("f", "a.md", "v1", H1, "v3")), "src");
+    expect(r).toMatchObject({ status: "accepted", fileId: "f", versionId: "v1" });
+    expect(s.conflicts.get("c")!.status).not.toBe("open");
+    expect(s.journal.at(-1)).toMatchObject({ type: "conflict_resolved", versionId: "v1" });
+  });
+
+  it("a forced new note at a taken path becomes a version of that file", () => {
+    const s = store();
+    one(s, put("f", "a.md", null, H1, "v1"));
+    const r = one(s, forced(put("g", "a.md", null, H2, "v2")), "src");
+    expect(r).toMatchObject({ status: "accepted", fileId: "f", versionId: "v2" });
+    expect(s.files.get("f")).toMatchObject({ headVersionId: "v2", headHash: H2 });
+  });
+
+  it("an archive put goes to the history and leaves the head alone", () => {
+    const s = store();
+    one(s, put("f", "a.md", null, H1, "v1"));
+    const head = s.head;
+    const r = one(s, archived(put("f", "a.md", "v1", H2, "v2")), "dst");
+    expect(r).toEqual({
+      status: "accepted",
+      seq: head,
+      fileId: "f",
+      versionId: "v1",
+      path: "a.md",
+    });
+    expect(s.files.get("f")).toMatchObject({ headVersionId: "v1", headHash: H1 });
+    expect(s.versions.get("v2")).toMatchObject({ fileId: "f", hash: H2 });
+    expect(s.head).toBe(head);
+  });
+
+  it("an archive put of a new file at a taken path goes to that file's history", () => {
+    const s = store();
+    one(s, put("f", "a.md", null, H1, "v1"));
+    const r = one(s, archived(put("g", "A.md", null, H2, "v2")), "dst");
+    expect(r).toMatchObject({ status: "accepted", fileId: "f", versionId: "v1" });
+    expect(s.versions.get("v2")).toMatchObject({ fileId: "f" });
+    expect(s.files.has("g")).toBe(false);
+  });
+
+  it("an archive put with nothing at its path creates the file", () => {
+    const s = store();
+    const r = one(s, archived(put("g", "a.md", null, H2, "v2")), "dst");
+    expect(r).toMatchObject({ status: "accepted", fileId: "g", versionId: "v2" });
+  });
+});
+
 describe("arbiter: version ids", () => {
   // fast-check counterexample (store.test.ts): two puts with the same versionId overwrote a stored version.
   it("a version id is never reused by another op", () => {

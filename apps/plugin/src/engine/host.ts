@@ -58,6 +58,16 @@ export class EngineHost {
     return this.current;
   }
 
+  /** The other active devices of this vault (forced sync targets, ADR-0019). */
+  async otherDevices(): Promise<{ id: string; name: string }[]> {
+    const link = this.o.current();
+    if (!this.io || !link) return [];
+    const all = await this.io.api.vaultDevices();
+    return all
+      .filter((d) => !d.revoked && d.id !== link.deviceId)
+      .map((d) => ({ id: d.id, name: d.name }));
+  }
+
   /** Follows the link: call at startup and whenever it changes. */
   refresh(): Promise<void> {
     this.chain = this.chain

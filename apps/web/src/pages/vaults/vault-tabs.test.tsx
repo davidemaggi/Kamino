@@ -127,3 +127,28 @@ describe("Vault settings", () => {
     await waitFor(() => expect(ud.vaults.find((v) => v.id === "v-notes")!.retentionDays).toBe(7));
   });
 });
+
+describe("Forced sync", () => {
+  it("choose the source and the targets, then see who is aligned", async () => {
+    signInAs("demo");
+    await renderRoute("/vaults/v-notes?tab=devices");
+    const open = await screen.findByRole("button", { name: "Forza la sincronizzazione" });
+    await waitFor(() => expect((open as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(open);
+    const dialog = await screen.findByRole("dialog");
+    const confirm = within(dialog).getByRole("button", { name: "Forza la sincronizzazione" });
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole("radio", { name: "MacBook" }));
+    // The source is not among the targets.
+    expect(within(dialog).queryByRole("checkbox", { name: "MacBook" })).toBeNull();
+    expect(within(dialog).queryByRole("radio", { name: "Vecchio portatile" })).toBeNull();
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "iPhone" }));
+    fireEvent.click(confirm);
+    expect(await screen.findByText("Ultima sincronizzazione forzata")).toBeDefined();
+    expect(ud.forceSyncs.get("v-notes")).toMatchObject({
+      source: { id: "d-mac" },
+      targets: [{ id: "d-iphone" }],
+    });
+    expect(screen.getByText(/in attesa dell'origine/)).toBeDefined();
+  });
+});

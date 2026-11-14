@@ -155,6 +155,20 @@ export class MemoryStore {
     }
   }
 
+  /** A journal entry about the vault, not a file (forced sync, ADR-0019): ignorable. */
+  event(type: "force_push" | "realign", subjectId: string, deviceId: string): void {
+    this.head++;
+    this.journal.push({
+      seq: this.head,
+      type,
+      fileId: subjectId,
+      path: subjectId,
+      deviceId,
+      at: new Date(0).toISOString(),
+      ignorable: true,
+    });
+  }
+
   changes(
     after: number,
     limit = 1000,

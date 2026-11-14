@@ -123,7 +123,7 @@ Per ogni op accettata il server: inserisce la versione, aggiorna la testa del fi
 GET /api/v1/vaults/:vaultId/changes?after=<seq>&limit=<n>   → { entries: Entry[], head, hasMore }
 ```
 
-Tipi di voce: `file_put`, `file_moved`, `file_deleted`, `file_restored`, `folder_created`, `folder_deleted`, `conflict_opened`, `conflict_resolved`, `vault_settings_changed`.
+Tipi di voce: `file_put`, `file_moved`, `file_deleted`, `file_restored`, `folder_created`, `folder_deleted`, `conflict_opened`, `conflict_resolved`, `vault_settings_changed`, `force_push`, `realign` (questi ultimi tre `ignorable`, §9.5).
 Ogni voce: `{ seq, type, fileId, versionId?, path, contentHash?, size?, mtime?, deviceId, at }`. I path sono decifrati al momento della consegna al proprietario.
 
 ### 6.2 Snapshot (bootstrap e recupero)
@@ -287,6 +287,23 @@ keep: { kind: "head" }                                           // la versione 
 | Spostamento verso path occupato | Suffisso deterministico `(1)`, `(2)`... |
 | Due creazioni di cartelle con lo stesso path | Si fondono nella stessa cartella. |
 | Due creazioni di file con lo stesso path | Conflitto `both_created` (scelta dell'utente). |
+
+### 9.5 Sincronizzazione forzata (ADR-0019)
+
+```
+POST /api/v1/vaults/:id/force-sync         { sourceDeviceId, targetDeviceIds[] }  → { request }   (web, solo vault proprie)
+GET  /api/v1/vaults/:id/force-sync                                               → { request | null }
+POST /api/v1/vault/force-sync              { sourceDeviceId, targetDeviceIds[] }  → { request }   (dispositivo della vault)
+GET  /api/v1/vault/force-sync                                                    → { forced: { requestId, role } | null }
+POST /api/v1/vault/force-sync/:id/done     { role }                              → 204 (idempotente)
+```
+
+- Una richiesta per vault: una nuova sostituisce la precedente. Sorgente e destinazioni devono essere dispositivi attivi della vault; la sorgente non può essere tra le destinazioni.
+- Il server scrive `force_push` (deviceId = sorgente, `fileId` = id della richiesta). Quando la sorgente conferma, scrive un `realign` per ogni destinazione. Le voci servono a svegliare il dispositivo; lo stato vero è sul server.
+- Il client chiede `GET /vault/force-sync` **prima di ogni ciclo**: una destinazione deve saperlo prima di inviare qualunque cosa, altrimenti una sua modifica sulla base corrente diventerebbe la versione corrente. Così anche un dispositivo rientrato dallo snapshot (journal compattato) non perde la richiesta.
+- Sorgente: `put` con `force: true` per ogni file il cui contenuto non è la versione corrente del server, per i file non confermati e per quelli in conflitto. Una `put` forzata diventa la corrente qualunque sia la base; con lo stesso contenuto della corrente chiude solo il conflitto aperto.
+- Destinazione: all'inizio di un ciclo fermo, azzera indice e cursore e si riaggancia dallo snapshot. Un file locale diverso sullo stesso path sale con `archive: true` (solo storico, la corrente non cambia), poi viene sovrascritto con quello del server se nel frattempo non è cambiato. I file solo locali salgono come nuovi.
+- Ciascun dispositivo conferma con `done` quando non ha più `put` forzate o d'archivio in sospeso.
 
 ## 10. Pairing (QR / magic link)
 

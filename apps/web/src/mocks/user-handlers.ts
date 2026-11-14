@@ -100,6 +100,40 @@ export const vaultDetailHandlers = [
     ud.syncSettings.set(v.id, b.data);
     return HttpResponse.json(b.data);
   }),
+  http.get(`${API}/vaults/:id/force-sync`, ({ params }) => {
+    const v = ud.vaults.find((x) => x.id === params["id"]);
+    if (!v) return unauthorized() ?? fail(404, "not_found");
+    return unauthorized() ?? HttpResponse.json({ request: ud.forceSyncs.get(v.id) ?? null });
+  }),
+  http.post(`${API}/vaults/:id/force-sync`, async ({ request, params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
+    const v = ud.vaults.find((x) => x.id === params["id"]);
+    if (!v) return fail(404, "not_found");
+    // Fake device ids are not UUIDs: the shape only.
+    const raw = (await json(request)) as { sourceDeviceId?: unknown; targetDeviceIds?: unknown };
+    const ids = Array.isArray(raw?.targetDeviceIds) ? (raw.targetDeviceIds as unknown[]) : [];
+    if (
+      typeof raw?.sourceDeviceId !== "string" ||
+      ids.length === 0 ||
+      ids.includes(raw.sourceDeviceId)
+    )
+      return fail(400, "invalid_request");
+    const b = { data: { sourceDeviceId: raw.sourceDeviceId, targetDeviceIds: ids.map(String) } };
+    const live = (id: string) =>
+      ud.devices.find((d) => d.id === id && d.vaultId === v.id && !d.revoked);
+    const src = live(b.data.sourceDeviceId);
+    const targets = b.data.targetDeviceIds.map(live);
+    if (!src || targets.some((d) => !d)) return fail(400, "invalid_request");
+    const state = {
+      id: `fs-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      source: { id: src.id, name: src.name, done: false },
+      targets: targets.map((d) => ({ id: d!.id, name: d!.name, done: false })),
+    };
+    ud.forceSyncs.set(v.id, state);
+    return HttpResponse.json({ request: state });
+  }),
   http.delete(`${API}/vaults/:id`, async ({ request, params }) => {
     const deny = unauthorized();
     if (deny) return deny;

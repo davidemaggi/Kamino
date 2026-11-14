@@ -582,5 +582,20 @@
       "invalidNumber": "Enter a valid number.",
       "defaultQuotaUnlimited": "Unlimited default quota"
     }
+  },
+  "forceSync": {
+    "open": "Force sync",
+    "title": "Force sync",
+    "text": "The source device's files overwrite the same files on the devices you choose. Their different copies stay in the history; files only they have are kept. Each device realigns at its next connection.",
+    "source": "Source device",
+    "targets": "Devices to align",
+    "confirm": "Force sync",
+    "cancel": "Cancel",
+    "sent": "Forced sync requested.",
+    "statusTitle": "Last forced sync",
+    "waitingSource": "waiting for the source",
+    "waiting": "waiting",
+    "done": "aligned",
+    "needTwo": "At least two active devices are needed."
   }
 }

@@ -4,6 +4,8 @@
 
 ### Patch Changes
 
+- Forced sync: choose a source device and the devices to align, from the web app (vault › Devices) or from the plugin ("Force sync from this device"). The source's files overwrite the same files on the chosen devices; their different copies stay in the history, and files only they have are kept. Each device realigns at its next connection.
+
 - Configuration folder files (`.obsidian`) no longer open conflicts: the last change to arrive wins, and the other stays in the history. Open conflicts on those files close at the next change. A new file with the same content as one already at its path joins it. The configuration folder sync is marked Beta.
 - Opening a conflict in the web app no longer fails with a server error when a version's content is missing from storage: the conflict shows without a preview and can still be resolved.
 

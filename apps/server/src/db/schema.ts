@@ -442,3 +442,34 @@ export const pairings = pgTable("pairings", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Forced sync (ADR-0019): one request per vault at a time (a new one replaces the old). The
+ * source pushes its files, then each target joins again.
+ */
+export const forceSyncs = pgTable("force_syncs", {
+  id: uuid("id").primaryKey(),
+  vaultId: uuid("vault_id")
+    .notNull()
+    .unique()
+    .references(() => vaults.id, { onDelete: "cascade" }),
+  sourceDeviceId: uuid("source_device_id")
+    .notNull()
+    .references(() => devices.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  sourceDoneAt: timestamp("source_done_at", { withTimezone: true }),
+});
+
+export const forceSyncTargets = pgTable(
+  "force_sync_targets",
+  {
+    forceSyncId: uuid("force_sync_id")
+      .notNull()
+      .references(() => forceSyncs.id, { onDelete: "cascade" }),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.forceSyncId, t.deviceId] })],
+);

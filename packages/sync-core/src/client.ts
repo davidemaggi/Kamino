@@ -1,5 +1,6 @@
 import type {
   AcceptedResult,
+  ConflictResult,
   ErrorCode,
   JournalEntry,
   FileOp,
@@ -69,6 +70,18 @@ export interface Entry {
   candidate: { versionId: string; hash: string } | null;
   /** The user's choice for the open conflict, until the server confirms it (absent before M3b). */
   resolving: Resolving | null;
+  /** Forced sync, source (ADR-0019): the local content goes up as a forced put. */
+  force?: boolean;
+  /** Forced sync, target (ADR-0019): the local content goes to the history, then the head is written. */
+  archive?: boolean;
+}
+
+/** A forced sync this device takes part in (ADR-0019). */
+export interface Forced {
+  requestId: string;
+  role: "source" | "target";
+  /** pending = not started (target: waits for an idle cycle); done = to report to the server. */
+  state: "pending" | "working" | "done";
 }
 
 /**
@@ -126,6 +139,10 @@ export interface Durable {
   conflictFiles: Record<string, string>;
   cursor: number;
   joined: boolean;
+  /** Absent before rc.10. */
+  forced?: Forced | null;
+  /** The last forced sync reported: the server may still list it for a moment. */
+  lastForced?: string | null;
 }
 
 export interface Volatile {
@@ -168,6 +185,11 @@ export type ClientEvent =
       folders?: string[];
       /** Canonical paths on disk that couldn't be read: present, content unknown (never deleted). */
       unreadable?: string[];
+      /**
+       * The forced sync the server has for this device (ADR-0019), asked before the cycle: a
+       * target must know before it pushes anything.
+       */
+      forced?: { requestId: string; role: Forced["role"] } | null;
     }
   | { type: "folderDone"; fileId: string; op: "mkdir" | "rmdir" | "leftover"; ok: boolean }
   | { type: "localRename"; from: string; to: string }
@@ -188,7 +210,9 @@ export type ClientEvent =
   | { type: "renamed"; fileId: string; to: string; ok: boolean }
   | { type: "trashed"; fileId: string; ok: boolean }
   /** The user resolved the conflict of this file; `head` = the server version they saw. */
-  | { type: "resolve"; fileId: string; choice: ResolveChoice; head: string; copyPath?: string };
+  | { type: "resolve"; fileId: string; choice: ResolveChoice; head: string; copyPath?: string }
+  /** The server knows this device finished its part of the forced sync. */
+  | { type: "forcedReported"; requestId: string };
 
 export type NotifyKind = "conflict" | "blocked" | "restored" | "renamed" | "update_required";
 
@@ -208,6 +232,8 @@ export type Effect =
   /** Remove the folder only if empty; `leftover` = an old path left by a remote move. */
   | { type: "rmdir"; fileId: string; path: string; leftover: boolean }
   | { type: "ack"; seq: number }
+  /** Tell the server this device finished its part of a forced sync (ADR-0019). */
+  | { type: "forced"; requestId: string; role: Forced["role"] }
   | { type: "notify"; kind: NotifyKind; fileId?: string; code?: ErrorCode };
 
 export interface ClientEnv {
@@ -265,6 +291,7 @@ export function step(
   const c: Ctx = { s, env, fx: [] };
   switch (event.type) {
     case "sync":
+      if (event.forced) takeForced(c, event.forced.requestId, event.forced.role);
       onSync(c, event.scan, event.folders, event.unreadable ?? []);
       break;
     case "folderDone":
@@ -302,6 +329,12 @@ export function step(
       break;
     case "resolve":
       onResolve(c, event);
+      break;
+    case "forcedReported":
+      if (s.durable.forced?.requestId === event.requestId && s.durable.forced.state === "done") {
+        s.durable.forced = null;
+        s.durable.lastForced = event.requestId;
+      }
       break;
   }
   return { state: s, effects: [{ type: "persist" }, ...c.fx] };
@@ -549,9 +582,11 @@ function onSync(
   unreadable: string[],
 ): void {
   const { s } = c;
+  startRealign(s);
   for (const e of entries(s)) e.blocked = null;
   for (const f of folderList(s)) f.blocked = null;
   applyScan(c, scan, unreadable);
+  forcedProgress(c);
   if (folderScan) applyFolderScan(c, folderScan);
   if (s.vol.phase !== "idle") return;
   if (!s.durable.joined) {
@@ -1160,6 +1195,21 @@ export function nextOps(s: ClientState, env: ClientEnv, opts: NextOpsOptions = {
   const resolves: Op[] = [];
   for (const e of entries(s)) {
     if (e.pendingWrite || (e.blocked && !opts.includeBlocked) || e.trashing || e.ignored) continue;
+    if ((e.force || e.archive) && e.localHash !== null) {
+      puts.push({
+        type: "put",
+        opId: env.newId(),
+        fileId: e.fileId,
+        versionId: env.newId(),
+        path: e.path,
+        baseVersionId: e.confirmed ? e.head : null,
+        contentHash: e.localHash,
+        size: e.size,
+        mtime: e.mtime,
+        ...(e.archive ? { archive: true as const } : { force: true as const }),
+      });
+      continue;
+    }
     if (e.conflictId) {
       const op = e.resolving ? resolveOp(s, env, e) : null;
       if (op) resolves.push(op);
@@ -1536,6 +1586,7 @@ function onPushResult(c: Ctx, results: OpResult[]): void {
     const r = results[i];
     if (r) applyResult(c, op, r);
   });
+  forcedProgress(c);
   if (!startPush(c)) startPull(c);
 }
 
@@ -1552,6 +1603,11 @@ function applyResult(c: Ctx, op: Op, r: OpResult): void {
   }
   const e = c.s.durable.index[op.fileId];
   if (!e) return;
+  if (op.type === "put" && op.archive) {
+    onArchived(c, e, op, res);
+    return;
+  }
+  if (op.type === "put" && op.force && res.status === "rejected") e.force = false;
   if (res.status === "accepted" && op.type === "put" && res.fileId !== op.fileId)
     adoptAccepted(c, e, op, res);
   else if (res.status === "accepted") onAccepted(c, e, op, res);
@@ -1577,6 +1633,7 @@ function adoptAccepted(
 ): void {
   const index = c.s.durable.index;
   const t = index[res.fileId];
+  if (op.force) e.force = false;
   if (!t) {
     delete index[e.fileId];
     e.fileId = res.fileId;
@@ -1610,6 +1667,11 @@ function onAccepted(
 ): void {
   const wasConfirmed = e.confirmed;
   e.confirmed = true;
+  if (op.type === "put" && op.force) {
+    // Forced: the server took this content and closed any open conflict on the file.
+    e.force = false;
+    clearConflict(e);
+  }
   // A both_created loser whose put went through as a file of its own (the other file left the
   // path meanwhile): its content is safe there, the old conflict is not this file's any more.
   if (!wasConfirmed && e.conflictId) clearConflict(e);
@@ -1785,6 +1847,11 @@ function applyEntry(c: Ctx, entry: JournalEntry): boolean {
       for (const e of entries(s))
         if (e.conflictId !== null && e.conflictId === entry.conflictId)
           closedElsewhere(c, e, entry.fileId);
+      return true;
+    case "force_push":
+    case "realign":
+      if (entry.deviceId === s.config.deviceId)
+        takeForced(c, entry.fileId, entry.type === "force_push" ? "source" : "target");
       return true;
     case "folder_created":
     case "folder_deleted":
@@ -2081,7 +2148,9 @@ function onSnapshot(c: Ctx, snap: Snapshot): void {
     if (e.confirmed || e.localHash === null) continue;
     const r = remote.get(diskKey(s, e.path));
     if (!r || r.versionId === null || r.contentHash === null) continue;
-    if (r.contentHash !== e.localHash) continue; // both kept: our put meets both_created
+    const realign = s.durable.forced?.role === "target" && s.durable.forced.state === "working";
+    // Both kept: our put meets both_created. Realigning: ours goes to the history, theirs here.
+    if (r.contentHash !== e.localHash && !realign) continue;
     remote.delete(diskKey(s, e.path));
     delete s.durable.index[e.fileId];
     const aligned = remoteEntry(s, {
@@ -2100,6 +2169,9 @@ function onSnapshot(c: Ctx, snap: Snapshot): void {
       materialized: true,
       remotePath: r.path,
       unavailable: null,
+      archive: r.contentHash !== e.localHash,
+      // The archive put sends the local content: its size, not the server's.
+      ...(r.contentHash !== e.localHash ? { size: e.size, mtime: e.mtime } : {}),
     });
     s.durable.index[r.fileId] = aligned;
     if (e.path !== r.path) {
@@ -2138,5 +2210,91 @@ function onSnapshot(c: Ctx, snap: Snapshot): void {
   }
   s.durable.cursor = snap.head;
   s.durable.joined = true;
+  forcedProgress(c);
   if (!startPush(c)) startPull(c);
+}
+
+// ---------- forced sync (ADR-0019) ----------
+
+/** A forced sync request for this device, from the journal or asked before the cycle. */
+function takeForced(c: Ctx, requestId: string, role: Forced["role"]): void {
+  const { s } = c;
+  if (s.durable.forced?.requestId === requestId || s.durable.lastForced === requestId) return;
+  if (role === "source") startForcePush(c, requestId);
+  else s.durable.forced = { requestId, role, state: "pending" };
+}
+
+/**
+ * Source: every local file whose content the server doesn't have as its current version goes up
+ * as a forced put. The state is the one at the request's journal position.
+ */
+function startForcePush(c: Ctx, requestId: string): void {
+  const { s } = c;
+  // A forced put with the head's content closes the conflict open on the file (whoever lost it).
+  const conflicted = new Set(Object.values(s.durable.conflictFiles));
+  for (const e of entries(s)) {
+    if (e.ignored || e.unavailable || e.pendingWrite || e.trashing || e.localHash === null)
+      continue;
+    if (
+      e.confirmed &&
+      e.localHash === e.headHash &&
+      !e.headDeleted &&
+      !e.conflictId &&
+      !conflicted.has(e.fileId)
+    )
+      continue;
+    e.force = true;
+    e.resolving = null;
+    e.blocked = null;
+  }
+  s.durable.forced = { requestId, role: "source", state: "working" };
+}
+
+/**
+ * Target: at an idle start of a cycle, this device forgets what it knew and joins again like a
+ * new one; the snapshot sends its different contents to the history before writing the server's.
+ */
+function startRealign(s: ClientState): void {
+  const f = s.durable.forced;
+  if (f?.role !== "target" || f.state !== "pending") return;
+  if (s.vol.phase !== "idle" || s.durable.sent.length > 0) return;
+  s.durable.index = {};
+  s.durable.folders = {};
+  s.durable.conflictFiles = {};
+  s.durable.cursor = 0;
+  s.durable.joined = false;
+  f.state = "working";
+}
+
+function forcedProgress(c: Ctx): void {
+  const { s } = c;
+  const f = s.durable.forced;
+  if (!f) return;
+  if (f.state === "working") {
+    const busy =
+      !s.durable.joined ||
+      s.durable.sent.some((op) => op.type === "put" && (op.force || op.archive)) ||
+      entries(s).some((e) => (f.role === "source" ? e.force : e.archive));
+    if (busy) return;
+    f.state = "done";
+  }
+  if (f.state === "done") c.fx.push({ type: "forced", requestId: f.requestId, role: f.role });
+}
+
+/** The local content is in the server's history now: the server's version replaces it here. */
+function onArchived(
+  c: Ctx,
+  e: Entry,
+  op: Extract<FileOp, { type: "put" }>,
+  res: AcceptedResult | RejectedResult | ConflictResult,
+): void {
+  if (res.status === "rejected") {
+    e.blocked = res.code;
+    // Not uploaded yet: retried at the next cycle. Otherwise the file follows the usual rules.
+    if (res.code !== "blob_missing") e.archive = false;
+    return;
+  }
+  e.archive = false;
+  if (res.status !== "accepted" || res.fileId !== e.fileId) return;
+  if (e.localHash === op.contentHash && e.localHash !== e.headHash) write(c, e);
 }

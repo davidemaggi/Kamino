@@ -19,6 +19,10 @@ export const PutOp = z.object({
   contentHash: ContentHash,
   size: z.number().int().min(0),
   mtime: z.number().int(),
+  /** Forced sync, source (ADR-0019): becomes the head whatever its base; an open conflict closes. */
+  force: z.literal(true).optional(),
+  /** Forced sync, target (ADR-0019): stored in the history only, the head stays. */
+  archive: z.literal(true).optional(),
 });
 export const MkdirOp = z.object({
   type: z.literal("mkdir"),
@@ -140,6 +144,8 @@ export const JournalType = z.enum([
   "conflict_opened",
   "conflict_resolved",
   "vault_settings_changed",
+  "force_push",
+  "realign",
 ]);
 export type JournalType = z.infer<typeof JournalType>;
 /** `type` is a free string: clients skip unknown types only when `ignorable` (03 §13). */

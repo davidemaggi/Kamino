@@ -29,6 +29,9 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 /** 02 §110: one notification per journal entry, `<vaultId>:<seq>`, sent only if the commit lands. */
 export const NOTIFY_CHANNEL = `${PRODUCT_SLUG}_vault`;
 
+/** Entries that are not about files: older clients skip them (03 §13). */
+const IGNORABLE = new Set(["vault_settings_changed", "force_push", "realign"]);
+
 /** The cursor is not in the journal (compacted, or beyond the head): start again from the snapshot. */
 export class CursorTooOld extends Error {
   constructor() {
@@ -463,7 +466,7 @@ export class SyncService {
           ...(r.mtime !== null ? { mtime: r.mtime } : {}),
           ...(r.conflictId ? { conflictId: r.conflictId } : {}),
           // Entries about the vault, not a file: clients that don't know them skip them (03 §13).
-          ...(r.type === "vault_settings_changed" ? { ignorable: true } : {}),
+          ...(IGNORABLE.has(r.type) ? { ignorable: true } : {}),
         }));
         return { entries, head: h?.head ?? 0, hasMore: rows.length > limit };
       },

@@ -4,6 +4,8 @@ import {
   ChangesResponse,
   CommitResponse,
   DeviceList,
+  ForcedResponse,
+  ForceSyncResponse,
   DeviceLoginResponse,
   DeviceSettings,
   EnrollVault,
@@ -20,6 +22,9 @@ import {
   UploadSession,
   UploadStatus,
   type DeviceStatusReport,
+  type ForcedForDevice,
+  type ForceSyncRole,
+  type ForceSyncState,
   type LinkDeviceRequest,
   type PairingClaimRequest,
   type Op,
@@ -187,6 +192,31 @@ export class Api {
       method: "PUT",
       path: "/device/settings",
       json: { override },
+    });
+  }
+
+  // --- forced sync (ADR-0019) ---
+
+  async requestForceSync(
+    sourceDeviceId: string,
+    targetDeviceIds: string[],
+  ): Promise<ForceSyncState> {
+    const r = await this.json(ForceSyncResponse, {
+      method: "POST",
+      path: "/vault/force-sync",
+      json: { sourceDeviceId, targetDeviceIds },
+    });
+    return r.request;
+  }
+  /** What the server has for this device, asked before each cycle. */
+  async forcedFor(): Promise<ForcedForDevice> {
+    return (await this.json(ForcedResponse, { method: "GET", path: "/vault/force-sync" })).forced;
+  }
+  async forcedDone(requestId: string, role: ForceSyncRole): Promise<void> {
+    await this.send({
+      method: "POST",
+      path: `/vault/force-sync/${encodeURIComponent(requestId)}/done`,
+      json: { role },
     });
   }
 

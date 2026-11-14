@@ -14,6 +14,7 @@ import { RealConnection } from "./connection/real-server.js";
 import { RealTransfer } from "./connection/real-transfer.js";
 import type { ConnectionService, InitialTransfer } from "./connection/types.js";
 import { EngineHost, type SyncPlatform } from "./engine/host.js";
+import { ForceSyncModal } from "./ui/ForceSyncModal.js";
 import { ObsidianFs } from "./engine/obsidian-fs.js";
 import { ObsidianHttp } from "./engine/obsidian-http.js";
 import { ObsidianNetwork } from "./engine/obsidian-network.js";
@@ -190,6 +191,20 @@ export default class SyncPlugin extends Plugin {
         log: (code) => diag.add(code),
       });
       this.host = host;
+      this.addCommand({
+        id: "force-sync",
+        name: m.commands.forceSync,
+        checkCallback: (checking) => {
+          const engine = host.engine();
+          if (!engine) return false;
+          if (!checking)
+            new ForceSyncModal(this.app, lang, {
+              devices: () => host.otherDevices(),
+              request: async (targets) => void (await engine.forceSyncFrom(targets)),
+            }).open();
+          return true;
+        },
+      });
       this.register(
         settings.onChange(() => {
           // M10: the device's choice applies at once, the server confirms it.

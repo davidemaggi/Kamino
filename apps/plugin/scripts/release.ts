@@ -1,5 +1,6 @@
 // Release helpers for the plugin (ADR 0011, M7c C3). Run through tsx:
-//   tsx scripts/release.ts versions   → records the current version in versions.json
+//   tsx scripts/release.ts versions   → records the current version in versions.json and copies
+//                                       manifest.json + versions.json to the repo root (store)
 //   tsx scripts/release.ts info       → JSON { tag, title, prerelease } for the release workflow
 //   tsx scripts/release.ts notes      → the current version's CHANGELOG section
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -7,12 +8,13 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { codenameFor, PRODUCT_NAME, type Registry } from "@kamino/brand";
 import { PLUGIN_ROOT } from "./build-constants.js";
-import { MIN_APP_VERSION } from "./write-manifest.js";
+import { buildManifest, MIN_APP_VERSION } from "./write-manifest.js";
 
-export type Paths = { pluginRoot: string; registryFile: string };
+export type Paths = { pluginRoot: string; repoRoot: string; registryFile: string };
 
 const DEFAULT_PATHS: Paths = {
   pluginRoot: PLUGIN_ROOT,
+  repoRoot: resolve(PLUGIN_ROOT, "../.."),
   registryFile: resolve(PLUGIN_ROOT, "../../release-names.json"),
 };
 
@@ -31,6 +33,17 @@ export function updateVersions(p: Paths = DEFAULT_PATHS, minApp = MIN_APP_VERSIO
   versions[version] = minApp;
   writeFileSync(file, `${JSON.stringify(versions, null, 2)}\n`);
   return true;
+}
+
+/**
+ * The Obsidian community store reads manifest.json and versions.json from the root of the default
+ * branch: copies of the plugin's, rewritten at every release so they never drift.
+ */
+export function writeRootFiles(p: Paths = DEFAULT_PATHS): void {
+  const json = (v: unknown) => `${JSON.stringify(v, null, 2)}\n`;
+  writeFileSync(resolve(p.repoRoot, "manifest.json"), json(buildManifest(versionOf(p))));
+  const versions = readJson<Record<string, string>>(resolve(p.pluginRoot, "versions.json"));
+  writeFileSync(resolve(p.repoRoot, "versions.json"), json(versions));
 }
 
 /** Tag (the bare version, as Obsidian and BRAT expect), title with the codename, pre-release flag. */
@@ -64,6 +77,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const cmd = process.argv[2];
   if (cmd === "versions") {
     console.log(updateVersions() ? "versions.json updated" : "versions.json already current");
+    writeRootFiles();
   } else if (cmd === "info") {
     console.log(JSON.stringify(releaseInfo()));
   } else if (cmd === "notes") {

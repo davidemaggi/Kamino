@@ -6,11 +6,11 @@ import { pluginVersion } from "./build-constants.js";
 /** Lowest Obsidian version we support; recorded in versions.json too. */
 export const MIN_APP_VERSION = "1.5.0";
 
-export function buildManifest() {
+export function buildManifest(version = pluginVersion()) {
   return {
     id: PLUGIN_ID,
     name: PRODUCT_NAME,
-    version: pluginVersion(),
+    version,
     minAppVersion: MIN_APP_VERSION,
     description: "Self-hosted sync for your vaults across desktop and mobile.",
     author: "Davide Maggi",

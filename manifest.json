@@ -1,7 +1,7 @@
 {
   "id": "kamino-sync",
   "name": "Kamino",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.5.0",
   "description": "Self-hosted sync for your vaults across desktop and mobile.",
   "author": "Davide Maggi",

@@ -101,6 +101,12 @@ Until Kamino is listed in the Obsidian community store, install it with [BRAT](h
 > [!NOTE]
 > The plugin needs a Kamino server and an account on it. It talks only to the server you configure: no telemetry, no third parties.
 
+**What the plugin accesses, and why**
+
+- **Every file in the vault**, to sync it (except the paths you exclude). The configuration folder is synced only if you turn it on.
+- **The network**, only to reach your server: HTTPS for files and a WebSocket for real-time updates.
+- **The clipboard**, only for writing, and only when you tap a "Copy" button: a pairing link or the diagnostics report. The plugin never reads the clipboard.
+
 ## 🔧 How it works
 
 ```mermaid

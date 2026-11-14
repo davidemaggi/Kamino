@@ -5,6 +5,7 @@
 ### Patch Changes
 
 - Configuration folder files (`.obsidian`) no longer open conflicts: the last change to arrive wins, and the other stays in the history. Open conflicts on those files close at the next change. A new file with the same content as one already at its path joins it. The configuration folder sync is marked Beta.
+- Opening a conflict in the web app no longer fails with a server error when a version's content is missing from storage: the conflict shows without a preview and can still be resolved.
 
 ## 1.0.0-rc.9
 

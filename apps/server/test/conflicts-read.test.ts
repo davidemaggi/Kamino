@@ -1,4 +1,6 @@
 import { ConflictDetail, ConflictList } from "@kamino/protocol";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { FsBlobStore } from "../src/blobs/fs-store.js";
 import { ConflictService } from "../src/conflicts/service.js";
@@ -88,6 +90,19 @@ describe.skipIf(dockerUnavailable)("conflicts (read only)", () => {
       binary: true,
       mineFile: { size: 3, mime: "image/png", previewUrl: null },
       incomingFile: { size: 4, mime: "image/png", previewUrl: null },
+    });
+  });
+
+  // rc.10: a blob missing from the store (moved data directory) made the detail a 500.
+  it("shows a conflict whose content is missing from the store as metadata", async () => {
+    const { ownerId, vault } = await conflicted("a.md", Buffer.from("mac"), Buffer.from("phone"));
+    await rm(join(t.dirs.blobs, vault.id), { recursive: true, force: true });
+    const [s] = await c.list(ownerId);
+    const d = ConflictDetail.parse(await c.detail(vault, s!.id));
+    expect(d).toMatchObject({
+      binary: true,
+      mineFile: { size: 3, previewUrl: null },
+      incomingFile: { size: 5, previewUrl: null },
     });
   });
 

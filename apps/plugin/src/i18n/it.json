@@ -3,7 +3,9 @@
     "text": "Un altro dispositivo ha cambiato la configurazione di Obsidian (plugin, aspetto o impostazioni). Ricarica Obsidian per applicarla.",
     "button": "Ricarica ora"
   },
-  "ribbon": { "status": "Stato della sincronizzazione" },
+  "ribbon": {
+    "status": "Stato della sincronizzazione"
+  },
   "settings": {
     "title": "Impostazioni",
     "version": "Versione",
@@ -226,7 +228,8 @@
   "commands": {
     "connect": "Collega questo vault",
     "addDevice": "Aggiungi un dispositivo",
-    "copyDiagnostics": "Copia la diagnostica"
+    "copyDiagnostics": "Copia la diagnostica",
+    "forceSync": "Forza la sincronizzazione da questo dispositivo"
   },
   "connect": {
     "titleCreate": "È il primo dispositivo",
@@ -294,5 +297,15 @@
   "diagnostics": {
     "copied": "Diagnostica copiata negli appunti.",
     "copyFailed": "Impossibile copiare la diagnostica."
+  },
+  "forceSync": {
+    "title": "Forza la sincronizzazione da questo dispositivo",
+    "text": "I file di questo dispositivo sovrascrivono gli stessi file sui dispositivi che scegli. Le loro copie diverse restano nello storico; i file che hanno solo loro restano dove sono. Ogni dispositivo si riallinea alla prossima connessione.",
+    "loading": "Carico i dispositivi…",
+    "none": "Nessun altro dispositivo è collegato a questo vault.",
+    "cancel": "Annulla",
+    "confirm": "Forza",
+    "sent": "Sincronizzazione forzata richiesta: i dispositivi scelti si riallineano alla prossima connessione.",
+    "failed": "Il server non risponde. Riprova."
   }
 }

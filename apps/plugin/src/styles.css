@@ -300,3 +300,11 @@
   color: var(--text-muted);
   font-size: var(--font-ui-small);
 }
+
+/* Forced sync (ADR-0019) */
+.kamino-force-sync__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  margin-block: var(--size-4-3);
+}

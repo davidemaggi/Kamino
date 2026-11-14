@@ -3,7 +3,9 @@
     "text": "Another device changed Obsidian's configuration (plugins, appearance or settings). Reload Obsidian to apply it.",
     "button": "Reload now"
   },
-  "ribbon": { "status": "Sync status" },
+  "ribbon": {
+    "status": "Sync status"
+  },
   "settings": {
     "title": "Settings",
     "version": "Version",
@@ -226,7 +228,8 @@
   "commands": {
     "connect": "Link this vault",
     "addDevice": "Add a device",
-    "copyDiagnostics": "Copy diagnostics"
+    "copyDiagnostics": "Copy diagnostics",
+    "forceSync": "Force sync from this device"
   },
   "connect": {
     "titleCreate": "This is the first device",
@@ -294,5 +297,15 @@
   "diagnostics": {
     "copied": "Diagnostics copied to the clipboard.",
     "copyFailed": "Could not copy the diagnostics."
+  },
+  "forceSync": {
+    "title": "Force sync from this device",
+    "text": "The files on this device overwrite the same files on the devices you choose. Their different copies stay in the history; files only they have are kept. Each device realigns at its next connection.",
+    "loading": "Loading devices…",
+    "none": "No other device is linked to this vault.",
+    "cancel": "Cancel",
+    "confirm": "Force",
+    "sent": "Forced sync requested: the chosen devices realign at their next connection.",
+    "failed": "The server could not be reached. Try again."
   }
 }

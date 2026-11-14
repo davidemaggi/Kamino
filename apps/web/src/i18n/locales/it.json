@@ -582,5 +582,20 @@
       "invalidNumber": "Inserisci un numero valido.",
       "defaultQuotaUnlimited": "Quota predefinita illimitata"
     }
+  },
+  "forceSync": {
+    "open": "Forza la sincronizzazione",
+    "title": "Forza la sincronizzazione",
+    "text": "I file del dispositivo di origine sovrascrivono gli stessi file sui dispositivi che scegli. Le loro copie diverse restano nello storico; i file che hanno solo loro restano dove sono. Ogni dispositivo si riallinea alla prossima connessione.",
+    "source": "Dispositivo di origine",
+    "targets": "Dispositivi da allineare",
+    "confirm": "Forza la sincronizzazione",
+    "cancel": "Annulla",
+    "sent": "Sincronizzazione forzata richiesta.",
+    "statusTitle": "Ultima sincronizzazione forzata",
+    "waitingSource": "in attesa dell'origine",
+    "waiting": "in attesa",
+    "done": "allineato",
+    "needTwo": "Servono almeno due dispositivi attivi."
   }
 }

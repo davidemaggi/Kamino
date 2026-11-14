@@ -1,5 +1,7 @@
 import {
   SyncSettings,
+  ForceSyncResponse,
+  type ForceSyncRequest,
   type ConflictSummary,
   AdminUser,
   AdminUserList,
@@ -88,6 +90,13 @@ export const api = {
   setVaultSyncSettings: (id: string, body: SyncSettings) =>
     request(SyncSettings, `/vaults/${encodeURIComponent(id)}/sync-settings`, {
       method: "PUT",
+      body,
+    }),
+  forceSync: (id: string) =>
+    request(ForceSyncResponse, `/vaults/${encodeURIComponent(id)}/force-sync`),
+  requestForceSync: (id: string, body: ForceSyncRequest) =>
+    request(ForceSyncResponse, `/vaults/${encodeURIComponent(id)}/force-sync`, {
+      method: "POST",
       body,
     }),
   deleteVault: (id: string, confirmName: string) =>

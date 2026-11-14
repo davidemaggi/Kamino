@@ -13,7 +13,7 @@ describe("ConfigReloadPrompt", () => {
     p.configApplied();
     p.configApplied();
     expect(Notice.shown).toEqual(["changed"]);
-    const button = Notice.last!.noticeEl.querySelector("button")!;
+    const button = Notice.last!.messageEl.querySelector("button")!;
     expect(button.textContent).toBe("Reload");
     button.click();
     expect(reload).toHaveBeenCalledOnce();

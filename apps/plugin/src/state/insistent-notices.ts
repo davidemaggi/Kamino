@@ -28,11 +28,11 @@ export class InsistentNotices {
 
   start(): () => void {
     const off = this.o.source.onChange(() => this.check());
-    const timer = setInterval(() => this.check(), CHECK_MS);
+    const timer = window.setInterval(() => this.check(), CHECK_MS);
     this.check();
     return () => {
       off();
-      clearInterval(timer);
+      window.clearInterval(timer);
     };
   }
 

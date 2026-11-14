@@ -47,7 +47,7 @@ export function setIcon(parent: HTMLElement, iconId: string): void {
 export class Notice {
   static shown: string[] = [];
   static last: Notice | null = null;
-  noticeEl: HTMLElement = document.createElement("div");
+  messageEl: HTMLElement = document.createElement("div");
   constructor(message: string, duration?: number) {
     void duration;
     Notice.shown.push(message);

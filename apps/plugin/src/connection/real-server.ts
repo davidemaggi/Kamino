@@ -68,7 +68,7 @@ export class RealConnection implements ConnectionService {
 
   constructor(private readonly o: RealConnectionOptions) {
     this.now = o.now ?? Date.now;
-    this.sleep = o.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+    this.sleep = o.sleep ?? ((ms) => new Promise((r) => window.setTimeout(r, ms)));
   }
 
   private stored(): StoredLink | null {

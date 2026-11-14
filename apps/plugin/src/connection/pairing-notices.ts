@@ -10,7 +10,7 @@ export function watchPairingEvents(ctx: UiContext): () => void {
   return ctx.connection.onChange((e) => {
     if (e.type === "pairing_request" && !AddDeviceModal.isShowing(e.request.pairingId)) {
       const notice = new Notice(m.noticeRequest, 15_000);
-      notice.noticeEl.addEventListener("click", () => ctx.openAddDevice(e.request));
+      notice.messageEl.addEventListener("click", () => ctx.openAddDevice(e.request));
     } else if (e.type === "device_joined") {
       new Notice(fmt(m.noticeJoined, { name: e.deviceName }));
     } else if (e.type === "pairing_reused") {

@@ -1,5 +1,11 @@
 # @kamino/plugin
 
+## 1.0.2
+
+### Patch Changes
+
+- Address the community store review: Obsidian 1.8.7 or later is now required (the plugin awaits `revealLeaf` and uses `Notice.messageEl`), timers go through `window` for popout windows, and the repository no longer ships the old prototypes.
+
 ## 1.0.1
 
 ### Patch Changes

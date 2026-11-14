@@ -18,7 +18,7 @@ export class ConfigReloadPrompt {
     const notice = new Notice(this.texts.text, 0);
     const button = document.createElement("button");
     button.textContent = this.texts.button;
-    notice.noticeEl.append(button);
+    notice.messageEl.append(button);
     button.addEventListener("click", (e) => {
       e.stopPropagation();
       notice.hide();

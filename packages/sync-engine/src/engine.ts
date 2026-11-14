@@ -31,6 +31,7 @@ import { EchoGuard } from "./echo.js";
 import type { Network } from "./network.js";
 import { sha256Hex } from "./hash.js";
 import type { Clock, Http, VaultFs } from "./ports.js";
+import { ObsidianView } from "./obsidian-view.js";
 import { Scanner, type StatCache } from "./scanner.js";
 import {
   backlogOf,
@@ -260,6 +261,8 @@ export class Engine {
   private readonly allowOnce = new Set<string>();
   /** F4: what the engine just did to the vault, to tell its own events apart. */
   private readonly echo: EchoGuard;
+  /** ADR-0020: what Obsidian holds in memory of the JSON files the engine replaced. */
+  private readonly view: ObsidianView;
   /** I7: the state has changes not saved yet (outcomes of file effects only). */
   private unsaved = false;
   private notifyQueued = false;
@@ -294,6 +297,7 @@ export class Engine {
     );
     this.lastConfirmedAt = meta.lastConfirmedAt ?? null;
     this.echo = new EchoGuard(() => d.clock.now());
+    this.view = new ObsidianView(d.fs, d.config.configDir);
     this.mode = d.mode?.mode ?? "live";
     this.periodicMinutes = d.mode?.periodicMinutes ?? 15;
   }
@@ -832,6 +836,12 @@ export class Engine {
       this.changed();
       return;
     }
+    // ADR-0020: Obsidian rewrote a JSON file over another device's version from a stale memory.
+    const merged = await this.view.reconcile(scan.files, (path, item) => {
+      this.scanner.cache[path] = { size: item.size, mtime: item.mtime, hash: item.hash };
+      this.echo.record(path, { size: item.size, mtime: item.mtime });
+    });
+    if (merged > 0) this.d.onConfigApplied?.();
     // C1 (review): unreadable files are present with unknown content, never taken for deleted.
     // I4: files too big to hash here are present too, and wait as deferred.
     for (const f of scan.tooLarge)
@@ -1210,6 +1220,7 @@ export class Engine {
           // I4: replacing a local file too big to check here waits, unread.
           const local = fs.streaming ? null : await fs.stat(fx.path).catch(() => null);
           if (local && this.tooBig(local.size)) throw new TooLarge(local.size);
+          await this.view.beforeWrite(fx.path);
           const parts = this.transfers.download(
             this.d.vaultId,
             fx.hash,
@@ -1235,6 +1246,7 @@ export class Engine {
           else if (e instanceof ApiError) this.failure(e);
           else this.log("write_failed");
         }
+        await this.view.afterWrite(fx.path, ok);
         ev = { type: "written", fileId: fx.fileId, hash: fx.hash, ok };
         break;
       }

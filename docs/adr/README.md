@@ -22,5 +22,6 @@ Una ADR non si modifica dopo l'accettazione: se la decisione cambia, se ne scriv
 | [0015](0015-precedenza-configurazione.md) | Precedenza della configurazione: l'ambiente vince | Accettata |
 | [0016](0016-codemirror-merge.md) | `@codemirror/merge` per diff e merge in web e plugin | Accettata |
 | [0017](0017-http-per-scritture-ws-per-push.md) | HTTP per le scritture, WebSocket per il push | Accettata |
-| [0018](0018-configurazione-vince-l-ultimo.md) | Cartella di configurazione: vince l'ultima scrittura | Accettata |
+| [0018](0018-configurazione-vince-l-ultimo.md) | Cartella di configurazione: vince l'ultima scrittura | Accettata, in parte sostituita da [0020](0020-merge-dei-json-di-configurazione.md) |
 | [0019](0019-sincronizzazione-forzata.md) | Sincronizzazione forzata da un dispositivo | Accettata |
+| [0020](0020-merge-dei-json-di-configurazione.md) | JSON di configurazione: merge con la vista di Obsidian | Accettata |

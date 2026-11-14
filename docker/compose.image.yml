@@ -20,7 +20,7 @@ x-logging: &logging
 
 services:
   kamino:
-    image: ghcr.io/davidemaggi/kamino:${KAMINO_VERSION:?set KAMINO_VERSION (e.g. 1.0.0-rc.5) in .env}
+    image: ghcr.io/davidemaggi/kamino:${KAMINO_VERSION:?set KAMINO_VERSION (e.g. 1.0.0) in .env}
     restart: unless-stopped
     logging: *logging
     depends_on:

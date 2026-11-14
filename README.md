@@ -1,57 +1,107 @@
 <div align="center">
 
-<img src="assets/icon.svg" alt="Kamino" width="128" height="128" />
+<img src="assets/icon.svg" alt="Kamino" width="120" height="120" />
 
 # Kamino
 
-**Self-hosted sync for your Obsidian vaults: real-time, encrypted at rest, and conflicts you actually understand.**
+### Your Obsidian vaults, on every device, on your own server.
 
-Your notes, every device, your server. No subscriptions, no black boxes, no silent failures.
+Self-hosted sync for Obsidian with near real-time updates, encryption at rest, and conflicts you can actually read.<br/>
+**You never lose anything, and you always know whether you're safe.**
 
 <p>
-  <img alt="Status: early development" src="https://img.shields.io/badge/status-early%20development-orange" />
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green" /></a>
-  <img alt="Release: Ash" src="https://img.shields.io/badge/release-Ash%20(0.x)-6FF2E4" />
+  <a href="https://github.com/davidemaggi/Kamino/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/davidemaggi/Kamino?label=release&color=7C3AED" /></a>
+  <a href="https://github.com/davidemaggi/Kamino/pkgs/container/kamino"><img alt="Docker image" src="https://img.shields.io/badge/ghcr.io-kamino-2496ED?logo=docker&logoColor=white" /></a>
+  <img alt="Obsidian desktop and mobile" src="https://img.shields.io/badge/Obsidian-desktop%20%2B%20mobile-7C3AED?logo=obsidian&logoColor=white" />
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue" /></a>
   <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" />
-  <img alt="Self-hosted with Docker" src="https://img.shields.io/badge/self--hosted-docker%20compose-2496ED?logo=docker&logoColor=white" />
-  <img alt="Desktop and mobile" src="https://img.shields.io/badge/Obsidian-desktop%20%2B%20mobile-7C3AED?logo=obsidian&logoColor=white" />
 </p>
 
-[Why Kamino](#why-kamino) · [Features](#features) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Roadmap](#roadmap) · [Docs](#documentation)
+[Quick start](#-quick-start) · [Features](#-features) · [Screenshots](#-a-quick-tour) · [How it works](#-how-it-works) · [Comparison](#-kamino-vs-the-alternatives) · [Docs](#-documentation)
+
+<br/>
+
+<img src="docs/assets/screenshots/overview.webp" alt="The Kamino dashboard: storage, vaults and the devices that need attention" width="900" />
 
 </div>
 
-> [!WARNING]
-> **Kamino is in early development.** The foundations (milestone M0) are in place, but sync does not work yet. Star or watch the repo to follow along, and don't trust it with your only copy of a vault until 1.0 ships.
-
 ---
 
-## Why Kamino
+## 💡 Why Kamino
 
-Kamino began with a vault that was lost.
+Kamino started with a vault that was lost.
 
-A self-hosted sync server stopped working without telling anyone. A fresh Windows install later, the vault could not be recovered. Git worked on desktop but was painful on mobile. The popular sync plugins were fiddly to configure, and when two devices disagreed you were left guessing which version would survive.
+A self-hosted sync server stopped working and didn't tell anyone. After a fresh Windows install, the vault couldn't be recovered. Git worked on the desktop but was a pain on the phone. The popular sync plugins were fiddly to set up, and when two devices disagreed, you had to guess which version would survive.
 
-Kamino is built around one promise:
+So Kamino makes one promise and builds everything around it: **nothing is ever thrown away, and the state of every device is always visible.** If a device falls behind, you see it. If two edits collide, you keep both and choose with a diff in front of you. If you delete something by mistake, it waits in the trash.
 
-> **You never lose anything, and you always know whether you're safe.**
+## ✨ Features
 
-## Features
+|                                |                                                                                                                                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⚡ **Near real-time sync**     | Changes reach your other devices within seconds over WebSocket. A device that was offline for minutes or for months catches up as soon as it reconnects.                                    |
+| 🚨 **No silent failures**      | Every device shows when it last synced and how many changes are still waiting to reach the server. If something stalls, Kamino keeps warning you until it's fixed.                          |
+| 🧭 **Conflicts you can read**  | When two devices edit the same note, you see both versions side by side. Keep yours, take theirs, keep both, or merge them by hand, in Obsidian or in the browser.                          |
+| 🗄️ **A safety net, built in**  | Every deleted file stays in the trash for at least 7 days, and each vault keeps up to 90 days of history. You can also export any vault as a ZIP, as it is now or as it was on a past date. |
+| 📱 **Pair a phone in seconds** | Scan a QR code or open a link. The device that made the link confirms the pairing with a short code, so there are no config files to copy around.                                           |
+| 🔐 **Encrypted at rest**       | File contents, paths and vault names are encrypted with per-vault keys, wrapped by a master key that never touches the database. A stolen dump or bucket is useless on its own.             |
+| 🙈 **Admins can't peek**       | Multi-user from day one. Admins manage users, quotas and email, but they never see a note's name or contents, in the UI or in the API.                                                      |
+| 🎛️ **Sync your way**           | Choose live, periodic or manual sync for each device. Large attachments can wait for Wi-Fi. `.obsidian` settings can sync category by category if you opt in.                               |
+| 🐳 **One compose file**        | Two containers: Kamino and Postgres. The image runs on amd64 and arm64, so a Raspberry Pi works. Ready-made setups cover LAN, Tailscale, Cloudflare Tunnel and Caddy.                       |
+| 🌍 **Polished, everywhere**    | A web dashboard with 2FA, light and dark themes, English and Italian, and a plugin that runs the same on desktop, iOS and Android.                                                          |
 
-|                                 |                                                                                                                                                                                                            |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ⚡ **Near real-time sync**      | Changes reach connected devices within seconds over WebSocket. Offline devices catch up the moment they reconnect, whether they were gone for minutes or months.                                           |
-| 🚨 **No silent failures**       | Every device shows when it last synced and how many changes haven't reached the server yet. If something stalls, Kamino warns you persistently.                                                            |
-| 🧭 **Conflicts you can read**   | When two devices edit the same note, you see what's coming in next to your own version, then keep yours, take theirs, or keep both. You can do this right inside Obsidian. No version is ever thrown away. |
-| 📱 **Pair a phone in seconds**  | Scan a QR code or tap a magic link. The device that created the link confirms the pairing with a short verification code. There are no config files to copy around.                                        |
-| 🔐 **Encrypted at rest**        | File contents, paths and vault names are encrypted with per-vault keys wrapped by a master key that never touches the database. A stolen database dump or storage bucket is useless on its own.            |
-| 🙈 **Admins can't peek**        | Kamino is multi-user and each user sees only their own vaults. Admins manage users and quotas but never see note names or contents, in the UI or in the API.                                               |
-| 🗄️ **Safety net built in**      | A mandatory 7-day trash, per-vault version history of up to 90 days, a ZIP export of any vault (even "as it was on date X"), and the ability to rebuild the server from any device.                        |
-| 🎛️ **Sync your way**            | Live, periodic or manual sync per device. Optional, per-category sync of `.obsidian` settings. Large attachments can be limited to Wi-Fi only.                                                             |
-| 🐳 **One command to self-host** | `docker compose up` gives you two containers: the app and Postgres. Reference setups cover LAN, Tailscale, Cloudflare Tunnel and Caddy with Let's Encrypt.                                                 |
-| 🌍 **Built to be shared**       | English and Italian out of the box, light and dark themes, SemVer releases, and every major and minor release named after a famous clone.                                                                  |
+## 📸 A quick tour
 
-## How it works
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/screenshots/conflicts.webp" alt="A conflict shown side by side, with Keep mine, Keep incoming, Keep both and Edit and merge" /><br/><sub><b>Conflicts, side by side.</b> Both versions are saved; you pick or merge.</sub></td>
+    <td width="50%"><img src="docs/assets/screenshots/vault.webp" alt="A vault's devices, each with its sync state" /><br/><sub><b>Every device, every state.</b> All safe, needs attention, or blocked, at a glance.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/screenshots/history.webp" alt="File history and the trash with restore buttons" /><br/><sub><b>History and trash.</b> Bring back any version or any deleted file.</sub></td>
+    <td width="50%" align="center"><img src="docs/assets/screenshots/mobile.webp" alt="The dashboard on a phone" width="260" /><br/><sub><b>Works on the phone, too.</b> The dashboard adapts to any screen.</sub></td>
+  </tr>
+</table>
+
+## 🚀 Quick start
+
+You need a machine with Docker. Your phones also need **HTTPS**: Tailscale, Cloudflare Tunnel or a domain with Caddy all work, and [the self-hosting guide](docs/self-hosting.md) covers each one.
+
+**1. Grab two files** into an empty folder:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/davidemaggi/Kamino/main/docker/compose.image.yml
+curl -fsSL  https://raw.githubusercontent.com/davidemaggi/Kamino/main/docker/image.env.example -o .env
+```
+
+**2. Fill in `.env`.** Set `KAMINO_PUBLIC_URL` and `KAMINO_DB_PASSWORD`, then generate the master key:
+
+```bash
+docker run --rm ghcr.io/davidemaggi/kamino:latest keys generate   # paste the output into KAMINO_MASTER_KEY
+```
+
+**3. Start it** and open the setup link to create the first admin:
+
+```bash
+docker compose -f compose.image.yml up -d
+docker compose -f compose.image.yml logs kamino | grep setup
+```
+
+> [!IMPORTANT]
+> **Keep a copy of the master key somewhere off the server**, for example in a password manager. Without it, the data on the server can't be read. That is on purpose: it's what makes a stolen dump useless. Your devices still keep their own copies, so nothing is lost.
+
+### Install the plugin
+
+Until Kamino is listed in the Obsidian community store, install it with [BRAT](https://github.com/TfTHacker/obsidian42-brat):
+
+1. In Obsidian, go to **Settings → Community plugins → Browse**, then install and enable **BRAT**.
+2. Run **BRAT: Add a beta plugin for testing** and paste `davidemaggi/Kamino`.
+3. Enable Kamino, open its settings, enter your server address and sign in. To add more devices, use a QR code or a pairing link.
+
+> [!NOTE]
+> The plugin needs a Kamino server and an account on it. It talks only to the server you configure: no telemetry, no third parties.
+
+## 🔧 How it works
 
 ```mermaid
 flowchart LR
@@ -63,7 +113,7 @@ flowchart LR
     subgraph "Your server (docker compose)"
         S[Kamino server<br/>REST + WebSocket]
         P[(PostgreSQL<br/>change journal)]
-        B[(Encrypted blob storage<br/>filesystem or S3)]
+        B[(Encrypted blobs<br/>filesystem or S3)]
     end
     D1 <-->|HTTPS + WSS| S
     D2 <-->|HTTPS + WSS| S
@@ -72,125 +122,65 @@ flowchart LR
     S --- B
 ```
 
-- **A change journal instead of a black box.** Every accepted change gets a sequence number in an append-only journal per vault. Each device remembers the last number it applied, so it can always ask for everything after N. The server always knows exactly how far behind each device is.
-- **Whole-file versions with stable identity.** Renames and moves keep a file's history. Every change records the version it was based on, so conflicts are detected reliably, and automatic three-way merge can come later without changing the protocol.
-- **Idempotent by design.** Every operation can be retried safely. A change counts as "synced" only after the server confirms it is stored durably.
-- **Envelope encryption.** A per-vault data key, wrapped by a master key you provide as a Docker secret. If the key is wrong, the server refuses to start rather than corrupting anything.
+- **A change journal, not a black box.** Every accepted change gets a sequence number in an append-only journal for its vault. Each device remembers the last number it applied, so it can always ask "what's new since N?", and the server always knows how far behind each device is.
+- **Versions with a stable identity.** Renames and moves keep a file's history. Every change states which version it was based on, so conflicts are detected reliably and never resolved by silently overwriting.
+- **Safe to retry.** Every operation is idempotent. A change counts as synced only after the server confirms it's stored durably.
+- **Envelope encryption.** Each vault has its own data key, wrapped by a master key you provide. If the key is wrong, the server refuses to start rather than corrupting anything.
 
 Want the details? Read the [sync protocol](docs/03-sync-protocol.md) and the [threat model](docs/04-security-threat-model.md).
 
-## Quick start
-
-> [!NOTE]
-> These commands start the server foundations: health checks, version endpoint and master-key verification. Sync itself lands in milestones M1 and M2.
-
-```bash
-git clone https://github.com/davidemaggi/Kamino.git
-cd Kamino
-
-# 1. Configure: set KAMINO_DB_PASSWORD (URL-safe characters only) in docker/.env
-cp docker/.env.example docker/.env
-
-# 2. Build the image and generate a master key; keep a copy somewhere safe and offline
-docker build -f docker/Dockerfile -t kamino:local .
-mkdir -p docker/secrets
-docker run --rm kamino:local keys generate > docker/secrets/kamino_master_key
-# Windows PowerShell 5.1: use  | Out-File -Encoding ascii  instead of  >  (see docs/self-hosting.md)
-
-# 3. Start Kamino + Postgres
-docker compose -f docker/compose.lan.yml up -d
-
-# 4. Check it's alive
-curl http://localhost:8080/health/ready
-curl http://localhost:8080/version
-```
-
-See [docs/self-hosting.md](docs/self-hosting.md) for Tailscale, Cloudflare Tunnel and Caddy + Let's Encrypt setups.
-
-> [!IMPORTANT]
-> **Guard your master key.** Without it, the data on the server cannot be recovered. That is by design: it is what makes a stolen dump useless. Your devices still hold their copies, and Kamino can rebuild a server from any of them.
-
-## Kamino vs. the alternatives
+## ⚖️ Kamino vs. the alternatives
 
 |                                          |    Kamino    |   Git-based sync   | CouchDB-based plugins |   Obsidian Sync   |
 | ---------------------------------------- | :----------: | :----------------: | :-------------------: | :---------------: |
 | Self-hosted                              |      ✅      |         ✅         |          ✅           |        ❌         |
 | Free                                     |      ✅      |         ✅         |          ✅           | ❌ (subscription) |
-| Real-time                                |      ✅      |         ❌         |          ✅           |        ✅         |
+| Near real-time                           |      ✅      |         ❌         |          ✅           |        ✅         |
 | Painless on mobile                       |      ✅      |         ❌         |          ⚠️           |        ✅         |
 | Side-by-side conflict resolution         |      ✅      | ⚠️ (merge markers) |          ⚠️           |        ⚠️         |
 | Multi-user, with admins blind to content |      ✅      |         ❌         |          ⚠️           |        n/a        |
-| Pair a device by QR                      |      ✅      |         ❌         |          ⚠️           |        ❌         |
+| Pair a device with a QR code             |      ✅      |         ❌         |          ⚠️           |        ❌         |
 | End-to-end encryption                    | ❌ (at rest) |         ⚠️         |          ✅           |        ✅         |
 
-Kamino deliberately chooses **encryption at rest over end-to-end encryption**. The server can read your notes, which is what makes the web diff view, ZIP export and future server-side merge possible. A database or storage dump on its own is still useless. If you need protection from the person running the server, an E2EE tool is the better fit.
+Kamino deliberately uses **encryption at rest instead of end-to-end encryption**. The server can read your notes, and that's what makes the browser diff view, ZIP exports and server-side checks possible. A database or storage dump on its own is still useless. If you need protection from whoever runs the server, an end-to-end encrypted tool is a better fit.
 
-## Roadmap
+## 🏷️ Release names
 
-| Milestone | What it brings                                                                              | Status  |
-| --------- | ------------------------------------------------------------------------------------------- | ------- |
-| **M0**    | Monorepo, CI, Docker, server foundations, master-key verification, plugin and web skeletons | ✅ done |
-| **UI**    | Design system and screens                                                                   | ⏳      |
-| **M1**    | Single-device sync: upload a vault, get it back intact                                      | ⏳      |
-| **M2**    | Multi-device real-time sync, sync modes, `.obsidian` categories                             | ⏳      |
-| **M3**    | Conflicts, trash and version history                                                        | ⏳      |
-| **M4**    | User web dashboard: devices, conflicts, ZIP export, 2FA                                     | ⏳      |
-| **M5**    | Admin, quotas, email/SMTP                                                                   | ⏳      |
-| **M6**    | QR code and magic-link pairing                                                              | ⏳      |
-| **M7**    | Hardening, backups, key rotation → **1.0.0 "Ash"**                                          | ⏳      |
+Every major and minor release is named after a famous clone, and the first letter follows the major version: 1.x starts with A, 2.x with B. **1.0 is "Ash"**, after _Alien_. Next up: Alison, Boba, Cody, Dolly… See [docs/release-names.md](docs/release-names.md).
 
-Full plan: [docs/06-roadmap.md](docs/06-roadmap.md).
+## 📚 Documentation
 
-### Release names
+- **Running a server:** [Self-hosting guide](docs/self-hosting.md), covering LAN, tunnels, Caddy, backups, key rotation, updates and diagnostics.
+- **Design docs** (in Italian): [Vision](docs/00-vision.md) · [Requirements](docs/01-requirements.md) · [Architecture](docs/02-architecture.md) · [Sync protocol](docs/03-sync-protocol.md) · [Threat model](docs/04-security-threat-model.md) · [Data model](docs/05-data-model.md) · [Roadmap](docs/06-roadmap.md) · [ADRs](docs/adr/)
 
-Every MAJOR and MINOR release is named after a famous clone. The first letter follows the major version: 1.x is A, 2.x is B, and so on. Everything up to and including 1.0 is called **Ash**, after _Alien_. After that come names like Alison, Boba, Cody, Dolly… See [docs/release-names.md](docs/release-names.md).
+## 🛠️ Development
 
-## Tech stack
+TypeScript (strict) everywhere, in a pnpm + Turborepo monorepo:
 
-**TypeScript (strict) everywhere.** The monorepo uses pnpm and Turborepo.
-
-- **Server:** Fastify, Drizzle ORM, PostgreSQL and pg-boss.
-- **Web:** React, Vite, Tailwind, shadcn/ui, TanStack Query and react-i18next.
-- **Plugin:** the Obsidian API, built with esbuild. It runs on mobile, with no Node or Electron APIs.
-- **Tests:** Vitest, fast-check, Playwright and Testcontainers.
-
-```
-apps/server     API, WebSocket, jobs, crypto
-apps/web        web dashboard
-apps/plugin     Obsidian plugin
-packages/       shared protocol, sync logic, branding
-docs/           design docs and ADRs
-```
-
-## Documentation
-
-The design docs are in Italian.
-
-[Vision](docs/00-vision.md) · [Requirements](docs/01-requirements.md) · [Architecture](docs/02-architecture.md) · [Sync protocol](docs/03-sync-protocol.md) · [Threat model](docs/04-security-threat-model.md) · [Data model](docs/05-data-model.md) · [Roadmap](docs/06-roadmap.md) · [Glossary](docs/glossary.md) · [ADRs](docs/adr/)
-
-## Development
-
-Requires Node ≥ 22.12 (24 LTS recommended), pnpm 10 and Docker for the integration tests.
+- **Server:** Fastify, Drizzle, PostgreSQL and pg-boss.
+- **Web:** React, Vite, Tailwind, TanStack Query and react-i18next.
+- **Plugin:** the Obsidian API only, built with esbuild, with no Node or Electron APIs so it runs on mobile.
+- **Tests:** Vitest, fast-check (property-based sync tests), Playwright and Testcontainers.
 
 ```bash
 pnpm install
 pnpm build
-pnpm test        # Vitest; DB tests spin up Postgres via Testcontainers
-pnpm lint && pnpm typecheck
+pnpm test                          # integration tests start Postgres with Testcontainers (needs Docker)
+pnpm --filter @kamino/web dev      # dashboard with fake data at http://localhost:5173
 ```
 
-Conventions (Conventional Commits, changesets, TDD) are described in [CLAUDE.md](CLAUDE.md).
+Requires Node ≥ 22.12 and pnpm 10. Conventions (Conventional Commits, changesets, TDD) are in [CLAUDE.md](CLAUDE.md).
 
-## Contributing
+## 🤝 Contributing
 
-Kamino is still taking shape. Issues, ideas and feedback are very welcome. Larger pull requests are best discussed in an issue first, while the foundations settle.
+Bug reports, ideas and pull requests are welcome. For anything larger than a small fix, please open an issue first so we can agree on the approach. If sync ever misbehaves, the plugin's **Copy diagnostics** command produces a report with no file names or contents, ready to paste into an issue.
 
-## License
+## 📄 License
 
-[MIT](LICENSE) © Davide Maggi
+[AGPL-3.0](LICENSE) © Davide Maggi. You can use, modify and self-host Kamino freely. If you offer a modified version as a service, you must share its source code.
 
 ---
 
 <div align="center">
-<sub>"Kamino" is a code name. The public name may change before 1.0. Not affiliated with Obsidian or Lucasfilm.</sub>
+<sub>Not affiliated with Obsidian or Lucasfilm.</sub>
 </div>

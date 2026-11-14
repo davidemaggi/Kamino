@@ -253,9 +253,12 @@
     "addDevice": "Aggiungi un dispositivo"
   },
   "vault": {
-    "files": "{{count}} file",
-    "devices": "{{count}} dispositivi",
-    "conflicts": "{{count}} conflitti",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} file",
+    "devices_one": "{{count}} dispositivo",
+    "devices_other": "{{count}} dispositivi",
+    "conflicts_one": "{{count}} conflitto",
+    "conflicts_other": "{{count}} conflitti",
     "space": "{{total}} · storico {{history}} · cestino {{trash}}",
     "tabs": {
       "devices": "Dispositivi",

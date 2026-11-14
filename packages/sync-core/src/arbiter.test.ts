@@ -102,6 +102,75 @@ describe("arbiter: put (03 §5.3)", () => {
     expect(s.versions.has("v3")).toBe(false);
   });
 
+  // rc.9: Obsidian rewrites its configuration on every device; those conflicts never ended.
+  describe("configuration folder: the last write wins, the other stays in the history", () => {
+    it("a stale put on {config}/ becomes the head, no conflict", () => {
+      const s = store();
+      one(s, put("f", "{config}/app.json", null, H1, "v1"));
+      one(s, put("f", "{config}/app.json", "v1", H2, "v2"));
+      const r = one(s, put("f", "{config}/app.json", "v1", H1, "v3"), "d2");
+      expect(r).toMatchObject({ status: "accepted", fileId: "f", versionId: "v3" });
+      expect(s.conflicts.size).toBe(0);
+      expect(s.files.get("f")).toMatchObject({ headVersionId: "v3", headHash: H1 });
+      expect(s.versions.has("v2")).toBe(true);
+    });
+
+    it("an open conflict on {config}/ is closed by the next put", () => {
+      const s = store();
+      one(s, put("f", "{config}/app.json", null, H1, "v1"));
+      one(s, put("f", "{config}/app.json", "v1", H2, "v2"));
+      // Opened before this rule (rc.9): a resolution may not come any more.
+      s.conflicts.set("c", {
+        conflictId: "c",
+        fileId: "f",
+        kind: "concurrent_edit",
+        baseVersionId: "v1",
+        headVersionId: "v1",
+        candidates: ["v2"],
+        status: "open",
+      });
+      const r = one(s, put("f", "{config}/app.json", "v1", H1, "v3"));
+      expect(r).toMatchObject({ status: "accepted", versionId: "v3" });
+      expect(s.conflicts.get("c")!.status).not.toBe("open");
+      expect(s.journal.at(-1)).toMatchObject({
+        type: "conflict_resolved",
+        conflictId: "c",
+        versionId: "v3",
+      });
+    });
+
+    it("a new {config}/ file at a taken path becomes a version of that file", () => {
+      const s = store();
+      one(s, put("f", "{config}/app.json", null, H1, "v1"));
+      const r = one(s, put("g", "{config}/app.json", null, H2, "v2"), "d2");
+      expect(r).toMatchObject({ status: "accepted", fileId: "f", versionId: "v2" });
+      expect(s.files.has("g")).toBe(false);
+      expect(s.files.get("f")).toMatchObject({ headVersionId: "v2", headHash: H2 });
+    });
+
+    it("notes still open conflicts", () => {
+      const s = store();
+      one(s, put("f", "a.md", null, H1, "v1"));
+      one(s, put("f", "a.md", "v1", H2, "v2"));
+      expect(one(s, put("f", "a.md", "v1", H1, "v3")).status).toBe("conflict");
+    });
+  });
+
+  it("a new file at a taken path with the same content joins that file", () => {
+    const s = store();
+    one(s, put("f", "Nota.md", null, H1, "v1"));
+    const head = s.head;
+    const r = one(s, put("g", "nota.md", null, H1, "v2"), "d2");
+    expect(r).toEqual({
+      status: "accepted",
+      seq: head,
+      fileId: "f",
+      versionId: "v1",
+      path: "Nota.md",
+    });
+    expect(s.conflicts.size).toBe(0);
+  });
+
   it("an edit resurrects a deleted file, next to it if the path was taken (C-06)", () => {
     const s = store();
     const a = put("f", "a.md", null);

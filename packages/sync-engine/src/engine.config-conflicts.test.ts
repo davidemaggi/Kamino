@@ -56,25 +56,46 @@ describe("configuration files", () => {
     expect(pcFs.text(".obsidian/app.json")).toBe('{"phone":true}');
   });
 
-  it("different content on two devices: one conflict, closed for good once resolved", async () => {
+  // rc.10: Obsidian rewrites community-plugins.json & co. with its own list on every device.
+  it("different content on two devices: the last write wins, the other stays in the history", async () => {
     const server = new FakeServer();
     const pcFs = new MemoryFs();
-    pcFs.put(".obsidian/app.json", '{"pc":true}');
+    pcFs.put(".obsidian/community-plugins.json", '["a"]');
     const phoneFs = new MemoryFs();
-    phoneFs.put(".obsidian/app.json", '{"phone":true}');
+    phoneFs.put(".obsidian/community-plugins.json", '["b"]');
     const pc = await Engine.open(deps(server, pcFs, "pc"));
     await pc.syncNow();
     const phone = await Engine.open(deps(server, phoneFs, "phone"));
     await phone.syncNow();
-    const [c] = phone.conflicts();
-    const head = (await phone.conflictDetail(c!.id, false))!.head;
-    expect(await phone.resolve([{ id: c!.id, choice: "incoming", head }])).toEqual(["ok"]);
-    for (let i = 0; i < 3; i++) {
-      await phone.syncNow();
-      await pc.syncNow();
-    }
     expect(phone.conflicts()).toEqual([]);
+    await pc.syncNow();
     expect(pc.conflicts()).toEqual([]);
-    expect(phoneFs.text(".obsidian/app.json")).toBe('{"pc":true}');
+    expect(server.files().get("{config}/community-plugins.json")).toBe('["b"]');
+    expect(pcFs.text(".obsidian/community-plugins.json")).toBe('["b"]');
+    // Both rewrite on an old base: still no conflict.
+    pcFs.put(".obsidian/community-plugins.json", '["a"]');
+    pc.localChange();
+    phoneFs.put(".obsidian/community-plugins.json", '["c"]');
+    phone.localChange();
+    await pc.syncNow();
+    await phone.syncNow();
+    await pc.syncNow();
+    expect(pc.conflicts()).toEqual([]);
+    expect(phone.conflicts()).toEqual([]);
+    expect(pcFs.text(".obsidian/community-plugins.json")).toBe('["c"]');
+    expect(phoneFs.text(".obsidian/community-plugins.json")).toBe('["c"]');
+  });
+
+  it("notes still open a conflict", async () => {
+    const server = new FakeServer();
+    const pcFs = new MemoryFs();
+    pcFs.put("Note.md", "pc");
+    const phoneFs = new MemoryFs();
+    phoneFs.put("Note.md", "phone");
+    const pc = await Engine.open(deps(server, pcFs, "pc"));
+    await pc.syncNow();
+    const phone = await Engine.open(deps(server, phoneFs, "phone"));
+    await phone.syncNow();
+    expect(phone.conflicts()).toHaveLength(1);
   });
 });

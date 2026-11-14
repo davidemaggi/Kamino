@@ -12,7 +12,7 @@ import type {
   ResolveOp,
 } from "@kamino/protocol";
 import { ALWAYS_EXCLUDED, globMatch } from "./exclusions.js";
-import { collisionKey, conflictSiblingPath, isCanonical } from "./paths.js";
+import { CONFIG_PREFIX, collisionKey, conflictSiblingPath, isCanonical } from "./paths.js";
 
 /** Server-side file or folder (current state). */
 export interface FileRecord {
@@ -271,10 +271,15 @@ function decidePut(view: ArbiterView, op: PutOp, ctx: ArbiterCtx): Decision {
     const bad = pathError(op.path);
     if (bad) return reject(bad);
     const other = view.liveAt(collisionKey(op.path));
-    if (other)
-      return other.kind === "folder"
-        ? reject("path_taken", other.path)
-        : conflictOn(view, other, "both_created", op, ctx);
+    if (other) {
+      if (other.kind === "folder") return reject("path_taken", other.path);
+      // The same content, or a configuration file: one file, not two. The device adopts the
+      // file it collided with (the result names it).
+      if (other.headVersionId !== null && op.contentHash === other.headHash)
+        return accept(other.fileId, other.path, [], other.headVersionId);
+      if (isConfig(op.path)) return lastWriteWins(view, other, op);
+      return conflictOn(view, other, "both_created", op, ctx);
+    }
     const file: FileRecord = {
       fileId: op.fileId,
       kind: "file",
@@ -319,7 +324,42 @@ function decidePut(view: ArbiterView, op: PutOp, ctx: ArbiterCtx): Decision {
   // device takes the head as its base; no new version, so the head and any open resolution stay.
   if (f.headVersionId !== null && op.contentHash === f.headHash)
     return accept(f.fileId, f.path, [], f.headVersionId);
+  if (isConfig(f.path)) return lastWriteWins(view, f, op);
   return conflictOn(view, f, "concurrent_edit", op, ctx);
+}
+
+/** Obsidian rewrites these files by itself on every device: a conflict there never ends. */
+const isConfig = (path: string) => path.startsWith(`${CONFIG_PREFIX}/`);
+
+/**
+ * Configuration files (rc.10): the last write to arrive becomes the head, whatever its base. The
+ * head it replaces stays in the history (C-02: nothing thrown away); an open conflict (from
+ * before this rule) closes with the new head.
+ */
+function lastWriteWins(view: ArbiterView, f: FileRecord, op: PutOp): Decision {
+  const mutations: Mutation[] = [
+    versionOf(f.fileId, op),
+    headOf(f.fileId, op),
+    putJournal("file_put", f.fileId, f.path, op),
+  ];
+  const open = view.openConflict(f.fileId);
+  if (open)
+    mutations.push(
+      { type: "resolveConflict", conflictId: open.conflictId },
+      {
+        type: "journal",
+        entry: {
+          type: "conflict_resolved",
+          fileId: f.fileId,
+          kind: "file",
+          path: f.path,
+          conflictId: open.conflictId,
+          versionId: op.versionId,
+          contentHash: op.contentHash,
+        },
+      },
+    );
+  return accept(f.fileId, f.path, mutations, op.versionId);
 }
 
 function decideMove(view: ArbiterView, op: MoveOp): Decision {

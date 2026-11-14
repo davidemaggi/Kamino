@@ -397,7 +397,22 @@
     "retentionLowerTitle": "Ridurre lo storico?",
     "retentionLowerText": "Le versioni più vecchie di {{count}} giorni verranno eliminate e non si potranno più ripristinare.",
     "retentionLowerConfirm": "Riduci",
-    "zipChoice": "Che cosa scaricare"
+    "zipChoice": "Che cosa scaricare",
+    "sync": "Cosa sincronizzare",
+    "syncHint": "Valgono per tutti i dispositivi che usano le impostazioni del vault. Le note e gli allegati si sincronizzano sempre.",
+    "syncConfig": "Cartella di configurazione di Obsidian",
+    "syncCategories": {
+      "base": "Impostazioni di base",
+      "appearance": "Aspetto e temi",
+      "hotkeys": "Scorciatoie",
+      "pluginList": "Elenco dei plugin attivi",
+      "plugins": "Plugin installati e loro impostazioni"
+    },
+    "syncPluginsHint": "Per avere i plugin su un altro dispositivo servono entrambe le voci sui plugin.",
+    "syncExclusions": "Esclusioni",
+    "syncExclusionsHint": "Un pattern per riga, per esempio Archivio/**",
+    "syncReload": "I dispositivi ricevono le modifiche alla configurazione e propongono di ricaricare Obsidian per applicarle.",
+    "syncSave": "Salva le impostazioni di sincronizzazione"
   },
   "admin": {
     "users": {

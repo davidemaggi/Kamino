@@ -20,6 +20,15 @@ if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
     }) as MediaQueryList;
 }
 
+// Nor ResizeObserver (Radix measures the checkbox with it): a no-op is enough for tests.
+if (typeof window !== "undefined" && typeof window.ResizeObserver !== "function") {
+  window.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 export const server = setupServer(...handlers);
 
 beforeAll(() => server.listen({ onUnhandledFrame: "bypass" }));

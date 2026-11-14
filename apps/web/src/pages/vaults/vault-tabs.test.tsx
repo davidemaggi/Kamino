@@ -53,6 +53,28 @@ describe("Vault settings", () => {
     await waitFor(() => expect(ud.vaults.find((v) => v.id === "v-notes")!.retentionDays).toBe(60));
   });
 
+  it("sync settings: turn on the plugins and add an exclusion", async () => {
+    signInAs("demo");
+    await renderRoute("/vaults/v-notes?tab=settings");
+    fireEvent.click(await screen.findByLabelText("Elenco dei plugin attivi"));
+    fireEvent.click(screen.getByLabelText("Plugin installati e loro impostazioni"));
+    const box = screen.getByLabelText("Esclusioni");
+    fireEvent.change(box, {
+      target: { value: `${(box as HTMLTextAreaElement).value}\nPrivato/**` },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Salva le impostazioni di sincronizzazione" }),
+    );
+    await waitFor(() => expect(ud.syncSettings.get("v-notes")?.patterns).toContain("Privato/**"));
+    expect(ud.syncSettings.get("v-notes")!.config).toEqual({
+      base: false,
+      appearance: false,
+      hotkeys: false,
+      pluginList: true,
+      plugins: true,
+    });
+  });
+
   it("ZIP: outside the history window shows the error", async () => {
     signInAs("demo");
     const spy = vi.spyOn(api, "downloadZip");

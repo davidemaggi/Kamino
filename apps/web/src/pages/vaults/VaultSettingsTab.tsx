@@ -14,6 +14,7 @@ import { Input } from "../../components/ui/input.js";
 import { Label } from "../../components/ui/label.js";
 import { formatDateTime } from "../../lib/format.js";
 import { ErrorText } from "../auth/AuthCard.js";
+import { VaultSyncSettings } from "./VaultSyncSettings.js";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -163,6 +164,10 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
             </Button>
           </div>
         </form>
+      </Section>
+
+      <Section title={t("vaultSettings.sync")}>
+        <VaultSyncSettings vaultId={vault.id} />
       </Section>
 
       <Section title={t("vaultSettings.zip")}>

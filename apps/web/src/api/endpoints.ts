@@ -1,4 +1,5 @@
 import {
+  SyncSettings,
   type ConflictSummary,
   AdminUser,
   AdminUserList,
@@ -82,6 +83,13 @@ export const api = {
   vault: (id: string) => request(Vault, `/vaults/${encodeURIComponent(id)}`),
   updateVault: (id: string, body: VaultPatch) =>
     request(Vault, `/vaults/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  vaultSyncSettings: (id: string) =>
+    request(SyncSettings, `/vaults/${encodeURIComponent(id)}/sync-settings`),
+  setVaultSyncSettings: (id: string, body: SyncSettings) =>
+    request(SyncSettings, `/vaults/${encodeURIComponent(id)}/sync-settings`, {
+      method: "PUT",
+      body,
+    }),
   deleteVault: (id: string, confirmName: string) =>
     requestVoid(`/vaults/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirmName } }),
   downloadZip: (id: string, at?: string) =>

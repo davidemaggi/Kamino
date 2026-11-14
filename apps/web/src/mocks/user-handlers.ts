@@ -2,6 +2,8 @@ import { PROTOCOL_ACTION } from "@kamino/brand";
 import {
   ResolveAllRequest,
   ResolveRequest,
+  DEFAULT_SYNC_SETTINGS,
+  SyncSettings,
   VaultDelete,
   VaultPatch,
   DevicePatch,
@@ -82,6 +84,21 @@ export const vaultDetailHandlers = [
     if (b.data.retentionDays !== undefined)
       v.retentionDays = Math.min(b.data.retentionDays, v.maxRetentionDays);
     return unauthorized() ?? HttpResponse.json(v);
+  }),
+  http.get(`${API}/vaults/:id/sync-settings`, ({ params }) => {
+    const v = ud.vaults.find((x) => x.id === params["id"]);
+    if (!v) return unauthorized() ?? fail(404, "not_found");
+    return unauthorized() ?? HttpResponse.json(ud.syncSettings.get(v.id) ?? DEFAULT_SYNC_SETTINGS);
+  }),
+  http.put(`${API}/vaults/:id/sync-settings`, async ({ request, params }) => {
+    const deny = unauthorized();
+    if (deny) return deny;
+    const v = ud.vaults.find((x) => x.id === params["id"]);
+    if (!v) return fail(404, "not_found");
+    const b = SyncSettings.safeParse(await json(request));
+    if (!b.success) return fail(400, "invalid_request");
+    ud.syncSettings.set(v.id, b.data);
+    return HttpResponse.json(b.data);
   }),
   http.delete(`${API}/vaults/:id`, async ({ request, params }) => {
     const deny = unauthorized();

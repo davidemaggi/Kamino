@@ -21,11 +21,14 @@ export const CHUNK_SIZE = 4 * 1024 * 1024;
 const SESSION_TTL_MS = 24 * 3_600_000;
 /** A `complete` that crashed mid-way leaves its claim; after this long another call may take over. */
 const CLAIM_TTL_MS = 15 * 60_000;
+/** Parallel `size` calls when `blobs/check` verifies that stored files are really there. */
+const STORE_CHECKS = 16;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export class TransferError extends Error {
   constructor(
-    readonly code: "file_too_large" | "hash_mismatch" | "not_found" | "invalid_request",
+    readonly code:
+      "file_too_large" | "hash_mismatch" | "not_found" | "invalid_request" | "blob_missing",
     readonly status: number,
   ) {
     super(code);
@@ -61,7 +64,16 @@ export class UploadService {
       .select({ blobId: blobs.blobId })
       .from(blobs)
       .where(and(eq(blobs.vaultId, vc.vaultId), inArray(blobs.blobId, [...ids.keys()])));
-    const present = new Set(rows.map((r) => r.blobId));
+    const present = new Set<string>();
+    // A row whose file is gone from storage counts as missing: the client re-uploads it.
+    const rowIds = rows.map((r) => r.blobId);
+    for (let i = 0; i < rowIds.length; i += STORE_CHECKS) {
+      const batch = rowIds.slice(i, i + STORE_CHECKS);
+      const sizes = await Promise.all(batch.map((b) => this.store.size(blobKeyOf(vc.vaultId, b))));
+      batch.forEach((b, j) => {
+        if (sizes[j] !== null) present.add(b);
+      });
+    }
     return hashes.filter((h) => !present.has(vc.blobId(h)));
   }
 
@@ -190,7 +202,7 @@ export class UploadService {
       throw new TransferError("invalid_request", 409);
     }
     const storeKey = blobKeyOf(vc.vaultId, s.blobId);
-    let outcome: "stored" | "exists" | "mismatch" | "gone";
+    let outcome: "stored" | "exists" | "repaired" | "mismatch" | "gone";
     try {
       outcome = await this.db.transaction(async (tx) => {
         // Shared lock on the vault row: a deletion waits for this blob or this blob sees it.
@@ -205,7 +217,9 @@ export class UploadService {
           .select({ blobId: blobs.blobId })
           .from(blobs)
           .where(and(eq(blobs.vaultId, vc.vaultId), eq(blobs.blobId, s.blobId)));
-        if (exists) return "exists";
+        // The row is there but its file is gone from storage: store it again (repair).
+        const lost = exists !== undefined && (await this.store.size(storeKey)) === null;
+        if (exists && !lost) return "exists";
         const key = blobKey(vc.keys.content, s.salt);
         const ids = { vaultId: vc.vaultId, blobId: s.blobId };
         const sha = createHash("sha256");
@@ -233,6 +247,7 @@ export class UploadService {
           await this.store.delete(storeKey);
           return "mismatch";
         }
+        if (lost) return "repaired";
         await tx.insert(blobs).values({
           vaultId: vc.vaultId,
           blobId: s.blobId,

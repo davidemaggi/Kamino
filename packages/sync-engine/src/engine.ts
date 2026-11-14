@@ -235,6 +235,8 @@ export class Engine {
   private timerGen = 0;
   private retrying = false;
   private netFailed = false;
+  /** `repairBlobs` ran in this session. */
+  private blobsRepaired = false;
   private attempt = 0;
   private stopReason: StopReason | null = null;
   private unreachableSince: number | null = null;
@@ -867,6 +869,15 @@ export class Engine {
     await this.settled();
     await this.flush();
     if (this.stopReason) return;
+    if (!this.blobsRepaired && !this.netFailed) {
+      try {
+        await this.repairBlobs();
+        this.blobsRepaired = true;
+      } catch (e) {
+        // Paused or offline: tried again at the next cycle.
+        if (!(e instanceof Paused)) this.log("blob_repair_failed");
+      }
+    }
     await this.report();
     if (this.netFailed) this.scheduleRetry();
     else this.attempt = 0;
@@ -1134,59 +1145,77 @@ export class Engine {
     this.changed();
   }
 
+  /** Uploads the blobs the server lacks, from the files on disk that have that content. */
+  private async uploadMissing(missing: string[]): Promise<void> {
+    if (missing.length === 0) return;
+    const vaultId = this.d.vaultId;
+    const byHash = new Map<string, { path: string; size: number }>();
+    for (const [path, c] of Object.entries(this.scanner.cache))
+      byHash.set(c.hash, { path, size: c.size });
+    for (const hash of missing) {
+      const src = byHash.get(hash);
+      // Paused or stopped: the batch waits, resent identical later (I6).
+      if (this.pausedFlag || this.closed) throw new Paused();
+      // Not on disk any more: the commit answers blob_missing, the next cycle decides.
+      if (!src) continue;
+      if (await this.networkHolds(src.path, src.size)) {
+        this.waiting.set(src.path, {
+          path: src.path,
+          size: src.size,
+          direction: "upload",
+          reason: "network",
+        });
+        continue;
+      }
+      if (this.tooBig(src.size)) {
+        // Never lost: it stays on disk and in the queue (blob_missing), shown as deferred.
+        this.waiting.set(src.path, {
+          path: src.path,
+          size: src.size,
+          direction: "upload",
+          reason: "size",
+        });
+        continue;
+      }
+      try {
+        await this.transfers.upload(vaultId, src.path, hash, src.size, () => {});
+      } catch (e) {
+        if (e instanceof SourceChanged) continue;
+        if (e instanceof ApiError && e.kind === "http") {
+          this.log(`upload_failed_${e.code ?? e.status ?? ""}`);
+          if (e.code) this.lastError = e.code;
+          // Rate limited or a server error: try again with backoff, not only at the next change.
+          if (e.status === 429 || (e.status ?? 0) >= 500) this.netFailed = true;
+          continue;
+        }
+        if (!(e instanceof ApiError)) {
+          // The file couldn't be read: the next scan reports it.
+          this.log("upload_read_failed");
+          continue;
+        }
+        throw e;
+      }
+    }
+  }
+
+  /**
+   * Once per session: content the server confirmed but whose blob it lost from storage (it
+   * answers blob_missing to the other devices) is uploaded again from here, if we have it.
+   */
+  private async repairBlobs(): Promise<void> {
+    const hashes = new Set<string>();
+    for (const e of Object.values(this.st.durable.index))
+      if (e.confirmed && e.localHash !== null && e.localHash === e.baseHash && !e.pendingWrite)
+        hashes.add(e.localHash);
+    if (hashes.size === 0) return;
+    await this.uploadMissing(await this.api.missing(this.d.vaultId, [...hashes]));
+  }
+
   /** blobs/check → upload of what's missing → commit (03 §5). */
   private async push(fx: Extract<Effect, { type: "push" }>): Promise<ClientEvent> {
     const vaultId = this.d.vaultId;
     const missing = fx.hashes.length > 0 ? await this.api.missing(vaultId, fx.hashes) : [];
-    if (missing.length > 0) {
-      const byHash = new Map<string, { path: string; size: number }>();
-      for (const [path, c] of Object.entries(this.scanner.cache))
-        byHash.set(c.hash, { path, size: c.size });
-      for (const hash of missing) {
-        const src = byHash.get(hash);
-        // Paused or stopped: the batch waits, resent identical later (I6).
-        if (this.pausedFlag || this.closed) throw new Paused();
-        // Not on disk any more: the commit answers blob_missing, the next cycle decides.
-        if (!src) continue;
-        if (await this.networkHolds(src.path, src.size)) {
-          this.waiting.set(src.path, {
-            path: src.path,
-            size: src.size,
-            direction: "upload",
-            reason: "network",
-          });
-          continue;
-        }
-        if (this.tooBig(src.size)) {
-          // Never lost: it stays on disk and in the queue (blob_missing), shown as deferred.
-          this.waiting.set(src.path, {
-            path: src.path,
-            size: src.size,
-            direction: "upload",
-            reason: "size",
-          });
-          continue;
-        }
-        try {
-          await this.transfers.upload(vaultId, src.path, hash, src.size, () => {});
-        } catch (e) {
-          if (e instanceof SourceChanged) continue;
-          if (e instanceof ApiError && e.kind === "http") {
-            this.log(`upload_failed_${e.code ?? e.status ?? ""}`);
-            if (e.code) this.lastError = e.code;
-            // Rate limited or a server error: try again with backoff, not only at the next change.
-            if (e.status === 429 || (e.status ?? 0) >= 500) this.netFailed = true;
-            continue;
-          }
-          if (!(e instanceof ApiError)) {
-            // The file couldn't be read: the next scan reports it.
-            this.log("upload_read_failed");
-            continue;
-          }
-          throw e;
-        }
-      }
-    }
+    await this.uploadMissing(missing);
     const r = await this.api.commit(vaultId, fx.ops);
     this.lastConfirmedAt = this.d.clock.now();
     return { type: "pushResult", requestId: fx.requestId, results: r.results, head: r.head };

@@ -154,3 +154,23 @@ describe("configuration files", () => {
     expect(phone.conflicts()).toHaveLength(1);
   });
 });
+
+describe("blobs lost by the server", () => {
+  // rc.10: a blob gone from storage left the other devices retrying a broken download forever.
+  it("a device that has the content uploads it again, then the others get it", async () => {
+    const server = new FakeServer();
+    const pcFs = new MemoryFs();
+    pcFs.put("Note.md", "hello");
+    await (await Engine.open(deps(server, pcFs, "pc"))).syncNow();
+    const hash = [...server.content.keys()][0]!;
+    server.loseBlob(hash);
+    const phoneFs = new MemoryFs();
+    const phone = await Engine.open(deps(server, phoneFs, "phone"));
+    await phone.syncNow();
+    expect(phoneFs.text("Note.md")).toBeUndefined();
+    // The next session on the pc puts it back.
+    await (await Engine.open(deps(server, pcFs, "pc"))).syncNow();
+    await phone.syncNow();
+    expect(phoneFs.text("Note.md")).toBe("hello");
+  });
+});

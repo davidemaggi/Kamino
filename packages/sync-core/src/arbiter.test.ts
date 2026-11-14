@@ -80,6 +80,28 @@ describe("arbiter: put (03 §5.3)", () => {
     expect([...s.versions.values()].filter((v) => v.hash === H2)).toHaveLength(2);
   });
 
+  // rc.8: two devices wrote the same configuration ({}) on old bases; each put opened a conflict
+  // that nothing could close for good. The same content as the head is no conflict.
+  it("a stale put with the head's content is accepted as the head, without a conflict", () => {
+    const s = store();
+    const a = put("f", "a.md", null, H1, "v1");
+    one(s, a);
+    one(s, put("f", "a.md", "v1", H2, "v2"));
+    const head = s.head;
+    const r = one(s, put("f", "a.md", "v1", H2, "v3"), "d2");
+    expect(r).toEqual({
+      status: "accepted",
+      seq: head,
+      fileId: "f",
+      versionId: "v2",
+      path: "a.md",
+    });
+    expect(s.conflicts.size).toBe(0);
+    expect(s.head).toBe(head);
+    expect(s.files.get("f")).toMatchObject({ headVersionId: "v2", headHash: H2 });
+    expect(s.versions.has("v3")).toBe(false);
+  });
+
   it("an edit resurrects a deleted file, next to it if the path was taken (C-06)", () => {
     const s = store();
     const a = put("f", "a.md", null);

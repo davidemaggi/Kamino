@@ -99,6 +99,26 @@ describe("client", () => {
     expect(s.durable.sent).toHaveLength(1);
   });
 
+  // rc.8: the server accepts a stale put that has the head's content as the head itself; the
+  // device must take that version as its base, or its next edit goes up on an unknown base.
+  it("a put accepted as the server's head takes the head's version as base", () => {
+    const store = new MemoryStore();
+    let { state: s, ops } = push(joined(), store, [scanItem("a.md", H1)]);
+    const fileId = (ops[0] as FileOp).fileId;
+    const v1 = s.durable.index[fileId]!.base!;
+    store.blobs.add(H2);
+    const other = { type: "put", opId: "o1", fileId, versionId: "v2", path: "a.md" } as const;
+    store.commit([{ ...other, baseVersionId: v1, contentHash: H2, size: 1, mtime: 0 }], "d2");
+    ({ state: s, ops } = push(s, store, [scanItem("a.md", H2)]));
+    expect(ops).toMatchObject([{ type: "put", baseVersionId: v1, contentHash: H2 }]);
+    expect(store.conflicts.size).toBe(0);
+    expect(s.durable.index[fileId]).toMatchObject({ base: "v2", head: "v2", baseHash: H2 });
+    ({ ops } = push(s, store, [scanItem("a.md", H1)]));
+    expect(ops).toMatchObject([{ type: "put", baseVersionId: "v2" }]);
+    expect(store.conflicts.size).toBe(0);
+    expect(store.files.get(fileId)!.headHash).toBe(H1);
+  });
+
   it("new, modified, renamed and deleted files become ops; accepted results update the index", () => {
     const store = new MemoryStore();
     let { state: s, ops } = push(joined(), store, [scanItem("a.md", H1)]);

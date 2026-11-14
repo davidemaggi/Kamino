@@ -1564,17 +1564,24 @@ function applyResult(c: Ctx, op: Op, r: OpResult): void {
 }
 
 /** Idempotent: the same result may arrive from the response and from the journal. */
-function onAccepted(c: Ctx, e: Entry, op: FileOp, res: Pick<AcceptedResult, "seq" | "path">): void {
+function onAccepted(
+  c: Ctx,
+  e: Entry,
+  op: FileOp,
+  res: Pick<AcceptedResult, "seq" | "path" | "versionId">,
+): void {
   const wasConfirmed = e.confirmed;
   e.confirmed = true;
   // A both_created loser whose put went through as a file of its own (the other file left the
   // path meanwhile): its content is safe there, the old conflict is not this file's any more.
   if (!wasConfirmed && e.conflictId) clearConflict(e);
   if (op.type === "put") {
-    e.base = op.versionId;
+    // The server's version: the op's own, or the head when the content was already the head's.
+    const v = res.versionId ?? op.versionId;
+    e.base = v;
     e.baseHash = op.contentHash;
     if (res.seq >= e.headSeq) {
-      e.head = op.versionId;
+      e.head = v;
       e.headHash = op.contentHash;
       e.headSeq = res.seq;
       e.headDeleted = false;

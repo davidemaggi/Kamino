@@ -4,7 +4,7 @@ import { PLUGIN_ID, PRODUCT_NAME } from "@kamino/brand";
 import { pluginVersion } from "./build-constants.js";
 
 /** Lowest Obsidian version we support; recorded in versions.json too. */
-export const MIN_APP_VERSION = "1.5.0";
+export const MIN_APP_VERSION = "1.8.7";
 
 export function buildManifest(version = pluginVersion()) {
   return {

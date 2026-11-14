@@ -18,7 +18,7 @@ export const OTHER_DELAY_MS = 1_500;
  * caught by the full scan of the next cycle.
  */
 export class Watcher {
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  private timer: number | null = null;
   private stopped = false;
 
   constructor(
@@ -43,8 +43,8 @@ export class Watcher {
   private schedule(path: string): void {
     if (this.stopped) return;
     const active = this.app.workspace.getActiveFile()?.path === path;
-    if (this.timer !== null) clearTimeout(this.timer);
-    this.timer = setTimeout(
+    if (this.timer !== null) window.clearTimeout(this.timer);
+    this.timer = window.setTimeout(
       () => {
         this.timer = null;
         if (!this.stopped) this.target()?.localChange();
@@ -79,7 +79,7 @@ export class Watcher {
     window.addEventListener("online", resume);
     return () => {
       this.stopped = true;
-      if (this.timer !== null) clearTimeout(this.timer);
+      if (this.timer !== null) window.clearTimeout(this.timer);
       document.removeEventListener("visibilitychange", resume);
       window.removeEventListener("online", resume);
     };

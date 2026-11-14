@@ -45,7 +45,7 @@ export class ObsidianFs implements VaultFs {
     private readonly pluginDir: string,
     opts: { fetch?: FetchLike | undefined; stateDir?: string } = {},
   ) {
-    this.adapter = app.vault.adapter as Adapter;
+    this.adapter = app.vault.adapter;
     this.app = app;
     this.fetchFn =
       "fetch" in opts
@@ -234,7 +234,7 @@ export class ObsidianFs implements VaultFs {
           o += c.length;
         }
         // `all` owns its whole buffer: no extra copy (I4).
-        await this.adapter.writeBinary(tmp, all.buffer as ArrayBuffer);
+        await this.adapter.writeBinary(tmp, all.buffer);
       }
       if (h.digest() !== want) {
         await this.adapter.remove(tmp);

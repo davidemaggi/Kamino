@@ -52,7 +52,7 @@ describe("watchPairingEvents", () => {
     expect(Notice.shown).toEqual([
       "Un nuovo dispositivo chiede di collegarsi. Tocca per rispondere.",
     ]);
-    Notice.last!.noticeEl.click();
+    Notice.last!.messageEl.click();
     expect(ctx.openAddDevice).toHaveBeenCalledWith(
       expect.objectContaining({ deviceName: "Pixel" }),
     );

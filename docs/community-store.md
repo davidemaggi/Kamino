@@ -13,36 +13,26 @@ Finché il plugin non è nello store si installa con BRAT ([self-hosting §8](se
 | la release non è una pre-release | da 1.0.0 in poi; le versioni con suffisso (`-rc.N`) restano pre-release e lo store le ignora |
 | `id` senza "obsidian", minuscolo, unico | `kamino-sync` (test in `@kamino/brand`); nessun altro plugin usa "kamino" |
 | `name` senza "Obsidian" e senza "Plugin" | `Kamino` |
-| la descrizione nella voce coincide con quella del manifest | sì (`write-manifest.ts`) |
 | README che dichiara account esterni e uso della rete | sezione "Install the plugin" del README: serve un server Kamino e un account, nessuna telemetria |
 | licenza nel repository | AGPL-3.0 |
 | niente `innerHTML`, stili inline, scorciatoie predefinite, `console.log` | verificato a mano il 2026-11-14 |
 
 ## Procedura
 
-1. Fork di [`obsidianmd/obsidian-releases`](https://github.com/obsidianmd/obsidian-releases).
-2. In fondo a `community-plugins.json` aggiungere:
+Non si apre più una PR su `obsidianmd/obsidian-releases`: si invia dal portale [community.obsidian.md](https://community.obsidian.md) ([guida ufficiale](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin)). Serve l'account Obsidian del committente, quindi questo passo lo fa lui.
 
-   ```json
-   {
-     "id": "kamino-sync",
-     "name": "Kamino",
-     "author": "Davide Maggi",
-     "description": "Self-hosted sync for your vaults across desktop and mobile.",
-     "repo": "davidemaggi/Kamino"
-   }
-   ```
+1. Entrare in [community.obsidian.md](https://community.obsidian.md) con l'account Obsidian.
+2. Collegare l'account GitHub al profilo: così il portale verifica che il repository `davidemaggi/Kamino` è del committente.
+3. Aggiungere il plugin indicando il repository. Il portale legge il `manifest.json` in testa al branch principale (id, nome, descrizione) e la release con lo stesso tag.
+4. La revisione automatica mostra nel portale cosa va corretto. Ogni correzione richiede una nuova release con versione incrementata. Finché ci sono errori il plugin non si installa da Obsidian.
+5. Testo per la descrizione o per eventuali domande dei revisori:
 
-3. Aprire la PR con il template "Community Plugin" e spuntare la checklist. Titolo: `Add plugin: Kamino`.
-4. Un bot controlla subito manifest, release e voce; poi arriva la revisione del codice (di solito settimane). Le correzioni richieste si pubblicano con una nuova release, poi si commenta nella PR.
+   > Kamino is a self-hosted sync system for Obsidian vaults. This plugin syncs a vault with a Kamino server the user runs (Docker image `ghcr.io/davidemaggi/kamino`), on desktop and mobile. It needs an account on that server and talks only to it: no telemetry, no third-party services.
+   >
+   > - `vault.adapter` is used on purpose: sync must read and write files the Vault API doesn't index (the configuration folder, when the user opts in, and the plugin's own state with atomic writes).
+   > - `fetch` is used only on local resource URLs, to stream large local files while hashing them; network calls use `requestUrl` and a WebSocket.
 
-## Testo per la PR
-
-> Kamino is a self-hosted sync system for Obsidian vaults. This plugin syncs a vault with a Kamino server the user runs (Docker image `ghcr.io/davidemaggi/kamino`), on desktop and mobile. It needs an account on that server and talks only to it: no telemetry, no third-party services.
->
-> Notes for the review:
-> - `vault.adapter` is used on purpose: sync must read and write files the Vault API doesn't index (the configuration folder, when the user opts in, and the plugin's own state with atomic writes).
-> - `fetch` is used only on local resource URLs, to stream large local files while hashing them; network calls use `requestUrl` and a WebSocket.
+Il README compare in un estratto nella scheda pubblica: le immagini con percorso relativo (`docs/assets/screenshots/…`) vengono riscritte dal portale.
 
 ## Dopo l'approvazione
 

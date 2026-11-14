@@ -138,6 +138,13 @@ export class FakeServer {
     };
   }
 
+  /** The blob's file vanishes from storage while the server still lists it (rc.10). */
+  private readonly lost = new Set<string>();
+  loseBlob(hash: string): void {
+    this.content.delete(hash);
+    this.lost.add(hash);
+  }
+
   /** Another device's put, straight into the store. */
   async remotePut(
     deviceId: string,
@@ -162,7 +169,8 @@ export class FakeServer {
     let g: RegExpExecArray | null;
     if (r.method === "POST" && path === "/vaults/v/blobs/check") {
       const { hashes } = r.json as { hashes: string[] };
-      return { status: 200, json: { missing: hashes.filter((h) => !this.store.blobs.has(h)) } };
+      const missing = hashes.filter((h) => !this.store.blobs.has(h) || this.lost.has(h));
+      return { status: 200, json: { missing } };
     }
     if (r.method === "POST" && path === "/vaults/v/uploads") {
       const b = r.json as { contentHash: string; size: number };
@@ -194,12 +202,13 @@ export class FakeServer {
       if (data.length !== s.size || (await sha256Hex(once(data))) !== s.hash)
         return err(422, "hash_mismatch");
       this.content.set(s.hash, data);
+      this.lost.delete(s.hash);
       this.store.blobs.add(s.hash);
       return { status: 200, json: { contentHash: s.hash, size: s.size } };
     }
     if (r.method === "GET" && (g = m(/^\/vaults\/v\/blobs\/(\w+)$/))) {
       const data = this.content.get(g[1]!);
-      if (!data) return err(404, "not_found");
+      if (!data) return err(404, this.lost.has(g[1]!) ? "blob_missing" : "not_found");
       const rm = /^bytes=(\d+)-(\d+)$/.exec(r.headers?.range ?? "");
       if (!rm || data.length === 0) return { status: 200, body: data };
       const start = Number(rm[1]);

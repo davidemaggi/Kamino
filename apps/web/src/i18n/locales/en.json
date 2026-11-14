@@ -1,12 +1,20 @@
 {
   "about": {
     "title": "About",
+    "intro": "Version of the server you are connected to. Include these details when you report a problem.",
     "version": "Version",
-    "codename": "Codename",
-    "protocol": "Protocol",
+    "codename": "Release name",
+    "protocol": "Sync protocol",
+    "protocolOne": "v{{v}}",
+    "protocolRange": "v{{min}} to v{{max}}",
     "commit": "Build",
-    "loading": "Loading...",
-    "error": "Could not load version information."
+    "buildDate": "Build date",
+    "copy": "Copy details",
+    "copied": "Details copied",
+    "copyFailed": "Copying is not available on this connection: select the text by hand.",
+    "loading": "Loading version information",
+    "error": "Could not load version information.",
+    "errorHint": "Check that the server is reachable, then reload the page."
   },
   "theme": {
     "label": "Theme",

@@ -77,7 +77,7 @@ export const authHandlers = [
       codename: "Ash",
       protocol: { min: 1, max: 1 },
       commit: "dev",
-      buildDate: new Date(0).toISOString(),
+      buildDate: "2026-11-14T09:30:00.000Z",
     }),
   ),
   http.get(`${API}/setup/status`, () => HttpResponse.json({ needed: db.users.length === 0 })),

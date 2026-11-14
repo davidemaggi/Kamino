@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nextProvider } from "react-i18next";
 import { createI18n } from "../i18n/index.js";
@@ -45,6 +45,21 @@ describe("AboutPage", () => {
     renderAbout("it");
     expect(await screen.findByText("0.1.0")).toBeTruthy();
     expect(screen.getByText("Versione")).toBeTruthy();
+  });
+
+  it("formats the protocol, shortens the commit hash and copies the details", async () => {
+    const full = { ...info, protocol: { min: 1, max: 2 }, commit: "abc1234def5678901234" };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify(full), { status: 200 }))),
+    );
+    const writeText = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    renderAbout("en");
+    expect(await screen.findByText("v1 to v2")).toBeTruthy();
+    expect(screen.getByText("abc1234")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Copy details" }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("commit abc1234def5678901234"));
   });
 
   it("shows an error message when /version fails", async () => {

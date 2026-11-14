@@ -1,12 +1,20 @@
 {
   "about": {
     "title": "Informazioni",
+    "intro": "Versione del server a cui sei collegato. Allega questi dettagli quando segnali un problema.",
     "version": "Versione",
-    "codename": "Nome in codice",
-    "protocol": "Protocollo",
+    "codename": "Nome della release",
+    "protocol": "Protocollo di sincronizzazione",
+    "protocolOne": "v{{v}}",
+    "protocolRange": "da v{{min}} a v{{max}}",
     "commit": "Build",
-    "loading": "Caricamento...",
-    "error": "Impossibile caricare le informazioni sulla versione."
+    "buildDate": "Data della build",
+    "copy": "Copia i dettagli",
+    "copied": "Dettagli copiati",
+    "copyFailed": "Copia non disponibile su questa connessione: seleziona il testo a mano.",
+    "loading": "Caricamento delle informazioni sulla versione",
+    "error": "Impossibile caricare le informazioni sulla versione.",
+    "errorHint": "Controlla che il server sia raggiungibile, poi ricarica la pagina."
   },
   "theme": {
     "label": "Tema",

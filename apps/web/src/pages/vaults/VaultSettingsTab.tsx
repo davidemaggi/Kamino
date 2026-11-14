@@ -2,7 +2,7 @@ import type { Vault } from "@kamino/protocol";
 import { PRODUCT_SLUG } from "@kamino/brand";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "../../api/endpoints.js";
@@ -14,12 +14,29 @@ import { Input } from "../../components/ui/input.js";
 import { Label } from "../../components/ui/label.js";
 import { formatDateTime } from "../../lib/format.js";
 import { ErrorText } from "../auth/AuthCard.js";
-import { VaultSyncSettings } from "./VaultSyncSettings.js";
+import { VaultConfigSync, VaultSyncExclusions } from "./VaultSyncSettings.js";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  danger,
+  children,
+}: {
+  title: string;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  const id = useId();
   return (
-    <section className="bg-card space-y-3 rounded-xl border p-4">
-      <h2 className="font-serif text-lg font-semibold">{title}</h2>
+    <section
+      aria-labelledby={danger ? id : undefined}
+      className={`bg-card space-y-3 rounded-xl border p-4 ${danger ? "border-destructive/60" : ""}`}
+    >
+      <h2
+        id={id}
+        className={`font-serif text-lg font-semibold ${danger ? "text-destructive" : ""}`}
+      >
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -167,7 +184,7 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
       </Section>
 
       <Section title={t("vaultSettings.sync")}>
-        <VaultSyncSettings vaultId={vault.id} />
+        <VaultSyncExclusions vaultId={vault.id} />
       </Section>
 
       <Section title={t("vaultSettings.zip")}>
@@ -217,7 +234,10 @@ export function VaultSettingsTab({ vault }: { vault: Vault }) {
         </form>
       </Section>
 
-      <Section title={t("vaultSettings.danger")}>
+      <Section title={t("vaultSettings.danger")} danger>
+        <p className="text-muted-foreground text-sm">{t("vaultSettings.dangerHint")}</p>
+        <VaultConfigSync vaultId={vault.id} />
+        <hr className="border-border" />
         <Button
           variant="destructive"
           onClick={() => {

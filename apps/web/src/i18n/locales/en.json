@@ -402,7 +402,6 @@
     "syncHint": "They apply to every device that uses the vault settings. Notes and attachments are always synced.",
     "syncConfig": "Obsidian configuration folder",
     "syncBeta": "Beta",
-    "syncBetaHint": "Beta feature. If two devices change the same file, the last change to arrive wins; the other stays in the history and can be restored.",
     "syncCategories": {
       "base": "Core settings",
       "appearance": "Appearance and themes",
@@ -414,7 +413,13 @@
     "syncExclusions": "Exclusions",
     "syncExclusionsHint": "One pattern per line, for example Archive/**",
     "syncReload": "Devices receive configuration changes and offer to reload Obsidian to apply them.",
-    "syncSave": "Save sync settings"
+    "dangerHint": "These actions affect every device of the vault or can't be undone.",
+    "syncConfigRisk": "Beta feature. Every change to these files reaches every device that uses the vault settings: a wrong plugin or setting spreads everywhere. If two devices change the same file, the last change to arrive wins; the other stays in the history and can be restored.",
+    "syncSaveExclusions": "Save exclusions",
+    "syncSaveConfig": "Save configuration",
+    "syncConfigConfirmTitle": "Sync the Obsidian configuration?",
+    "syncConfigConfirmText": "Settings, themes or plugins from one device will reach every other device that uses the vault settings. Desktop-only plugins don't work on mobile. Earlier versions stay in the history.",
+    "syncConfigConfirm": "Turn on"
   },
   "admin": {
     "users": {

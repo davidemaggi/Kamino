@@ -53,26 +53,49 @@ describe("Vault settings", () => {
     await waitFor(() => expect(ud.vaults.find((v) => v.id === "v-notes")!.retentionDays).toBe(60));
   });
 
-  it("sync settings: turn on the plugins and add an exclusion", async () => {
+  it("sync settings: an exclusion leaves the configuration folder alone", async () => {
     signInAs("demo");
     await renderRoute("/vaults/v-notes?tab=settings");
-    fireEvent.click(await screen.findByLabelText("Elenco dei plugin attivi"));
-    fireEvent.click(screen.getByLabelText("Plugin installati e loro impostazioni"));
-    const box = screen.getByLabelText("Esclusioni");
+    const box = await screen.findByLabelText("Esclusioni");
     fireEvent.change(box, {
       target: { value: `${(box as HTMLTextAreaElement).value}\nPrivato/**` },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Salva le impostazioni di sincronizzazione" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Salva le esclusioni" }));
     await waitFor(() => expect(ud.syncSettings.get("v-notes")?.patterns).toContain("Privato/**"));
-    expect(ud.syncSettings.get("v-notes")!.config).toEqual({
-      base: false,
-      appearance: false,
-      hotkeys: false,
-      pluginList: true,
-      plugins: true,
-    });
+    expect(Object.values(ud.syncSettings.get("v-notes")!.config).some(Boolean)).toBe(false);
+  });
+
+  it("danger zone: turning on the configuration folder asks first", async () => {
+    signInAs("demo");
+    await renderRoute("/vaults/v-notes?tab=settings");
+    const danger = await screen.findByRole("region", { name: "Zona pericolosa" });
+    fireEvent.click(await within(danger).findByLabelText("Elenco dei plugin attivi"));
+    fireEvent.click(within(danger).getByLabelText("Plugin installati e loro impostazioni"));
+    const save = within(danger).getByRole("button", { name: "Salva la configurazione" });
+    // Cancel: nothing saved.
+    fireEvent.click(save);
+    let dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Annulla" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(ud.syncSettings.get("v-notes")?.config.plugins ?? false).toBe(false);
+    // Confirm: saved.
+    fireEvent.click(save);
+    dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Attiva" }));
+    await waitFor(() =>
+      expect(ud.syncSettings.get("v-notes")!.config).toEqual({
+        base: false,
+        appearance: false,
+        hotkeys: false,
+        pluginList: true,
+        plugins: true,
+      }),
+    );
+    // Turning one off doesn't ask.
+    fireEvent.click(within(danger).getByLabelText("Elenco dei plugin attivi"));
+    fireEvent.click(save);
+    await waitFor(() => expect(ud.syncSettings.get("v-notes")!.config.pluginList).toBe(false));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("ZIP: outside the history window shows the error", async () => {

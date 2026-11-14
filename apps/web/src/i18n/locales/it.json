@@ -402,7 +402,6 @@
     "syncHint": "Valgono per tutti i dispositivi che usano le impostazioni del vault. Le note e gli allegati si sincronizzano sempre.",
     "syncConfig": "Cartella di configurazione di Obsidian",
     "syncBeta": "Beta",
-    "syncBetaHint": "Funzione in beta. Se due dispositivi cambiano lo stesso file, vince l'ultima modifica arrivata; l'altra resta nello storico e si può ripristinare.",
     "syncCategories": {
       "base": "Impostazioni di base",
       "appearance": "Aspetto e temi",
@@ -414,7 +413,13 @@
     "syncExclusions": "Esclusioni",
     "syncExclusionsHint": "Un pattern per riga, per esempio Archivio/**",
     "syncReload": "I dispositivi ricevono le modifiche alla configurazione e propongono di ricaricare Obsidian per applicarle.",
-    "syncSave": "Salva le impostazioni di sincronizzazione"
+    "dangerHint": "Queste azioni toccano tutti i dispositivi del vault o non si possono annullare.",
+    "syncConfigRisk": "Funzione in beta. Ogni modifica a questi file arriva su tutti i dispositivi che usano le impostazioni del vault: un plugin o un'impostazione sbagliata si propaga ovunque. Se due dispositivi cambiano lo stesso file vince l'ultima modifica arrivata; l'altra resta nello storico e si può ripristinare.",
+    "syncSaveExclusions": "Salva le esclusioni",
+    "syncSaveConfig": "Salva la configurazione",
+    "syncConfigConfirmTitle": "Sincronizzare la configurazione di Obsidian?",
+    "syncConfigConfirmText": "Impostazioni, temi o plugin di un dispositivo arriveranno su tutti gli altri che usano le impostazioni del vault. Plugin solo per desktop non funzionano su mobile. Le versioni precedenti restano nello storico.",
+    "syncConfigConfirm": "Attiva"
   },
   "admin": {
     "users": {

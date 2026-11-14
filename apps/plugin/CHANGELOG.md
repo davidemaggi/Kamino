@@ -1,5 +1,11 @@
 # @kamino/plugin
 
+## 1.0.1
+
+### Patch Changes
+
+- Plugin releases carry GitHub artifact attestations, and the repository root holds `manifest.json` and `versions.json`, as the Obsidian community store requires.
+
 ## 1.0.0
 
 ### Major Changes

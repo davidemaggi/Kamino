@@ -10,6 +10,9 @@ on:
 
 permissions:
   contents: write
+  # Artifact attestations (provenance of main.js/styles.css), asked for by the community store.
+  id-token: write
+  attestations: write
 
 concurrency:
   group: release-plugin
@@ -46,6 +49,13 @@ jobs:
             echo "Tag $TAG already exists: bump the version first (pnpm release:version)." >&2
             exit 1
           fi
+      - name: Attest the release assets
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            apps/plugin/dist/main.js
+            apps/plugin/dist/manifest.json
+            apps/plugin/dist/styles.css
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}

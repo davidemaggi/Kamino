@@ -401,6 +401,8 @@
     "sync": "Cosa sincronizzare",
     "syncHint": "Valgono per tutti i dispositivi che usano le impostazioni del vault. Le note e gli allegati si sincronizzano sempre.",
     "syncConfig": "Cartella di configurazione di Obsidian",
+    "syncBeta": "Beta",
+    "syncBetaHint": "Funzione in beta. Se due dispositivi cambiano lo stesso file, vince l'ultima modifica arrivata; l'altra resta nello storico e si può ripristinare.",
     "syncCategories": {
       "base": "Impostazioni di base",
       "appearance": "Aspetto e temi",

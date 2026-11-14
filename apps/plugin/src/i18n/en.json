@@ -44,7 +44,7 @@
     "exclusionsDesc": "One pattern per line, for example Archive/**",
     "invalidGlobs": "Invalid patterns, ignored: {list}",
     "alwaysExcluded": "Always excluded: this plugin's data, window state (workspace), cache.",
-    "configDir": "Configuration folder ({dir})",
+    "configDir": "Configuration folder ({dir}) · Beta",
     "useVaultDefault": "Use the vault settings",
     "categories": {
       "core": "Core settings",
@@ -53,7 +53,7 @@
       "enabledPlugins": "List of enabled plugins",
       "installedPlugins": "Installed plugins and their settings"
     },
-    "configNote": "Incoming changes to this folder are not applied right away: you will be offered to restart Obsidian.",
+    "configNote": "Beta feature. If two devices change the same file, the last change to arrive wins; the other stays in the history and can be restored. Incoming changes to this folder are not applied right away: you will be offered to restart Obsidian.",
     "about": "About",
     "cancel": "Cancel",
     "confirmUnlink": "Unlink",

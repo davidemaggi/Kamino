@@ -1552,7 +1552,9 @@ function applyResult(c: Ctx, op: Op, r: OpResult): void {
   }
   const e = c.s.durable.index[op.fileId];
   if (!e) return;
-  if (res.status === "accepted") onAccepted(c, e, op, res);
+  if (res.status === "accepted" && op.type === "put" && res.fileId !== op.fileId)
+    adoptAccepted(c, e, op, res);
+  else if (res.status === "accepted") onAccepted(c, e, op, res);
   else if (res.status === "conflict") {
     // A resolution's own put (A4) joins the same conflict: nothing new to tell the user.
     const quiet = e.resolving !== null && e.conflictId === res.conflictId;
@@ -1561,6 +1563,42 @@ function applyResult(c: Ctx, op: Op, r: OpResult): void {
     if (op.type === "put") e.candidate = { versionId: op.versionId, hash: op.contentHash };
     if (!quiet) c.fx.push({ type: "notify", kind: "conflict", fileId: e.fileId });
   } else onRejected(c, e, op, res);
+}
+
+/**
+ * A new file the server took as a version of the file already at its path (same content, or a
+ * configuration file, rc.10): from now on this entry is that file.
+ */
+function adoptAccepted(
+  c: Ctx,
+  e: Entry,
+  op: Extract<FileOp, { type: "put" }>,
+  res: Pick<AcceptedResult, "seq" | "path" | "versionId" | "fileId">,
+): void {
+  const index = c.s.durable.index;
+  const t = index[res.fileId];
+  if (!t) {
+    delete index[e.fileId];
+    e.fileId = res.fileId;
+    index[res.fileId] = e;
+    onAccepted(c, e, op, res);
+    return;
+  }
+  if (onDisk(t)) {
+    // The server's file is on disk here apart from this one: it catches up, this copy goes
+    // (its content is on the server now).
+    if (res.seq >= t.headSeq) {
+      t.head = res.versionId ?? op.versionId;
+      t.headHash = op.contentHash;
+      t.headSeq = res.seq;
+      t.headDeleted = false;
+    }
+    catchUp(c, t);
+    trash(c, e);
+    return;
+  }
+  adoptLocal(c, e, t);
+  onAccepted(c, t, op, res);
 }
 
 /** Idempotent: the same result may arrive from the response and from the journal. */
@@ -1714,7 +1752,14 @@ function applyEntry(c: Ctx, entry: JournalEntry): boolean {
     if (e && entry.type === "conflict_opened" && entry.conflictId !== undefined) {
       e.conflictId = entry.conflictId;
       if (own.type === "put") e.candidate = { versionId: own.versionId, hash: own.contentHash };
-    } else if (e) onAccepted(c, e, own, { seq: entry.seq, path: entry.path });
+    } else if (e && own.type === "put" && entry.fileId !== own.fileId)
+      adoptAccepted(c, e, own, {
+        seq: entry.seq,
+        path: entry.path,
+        fileId: entry.fileId,
+        ...(entry.versionId === undefined ? {} : { versionId: entry.versionId }),
+      });
+    else if (e) onAccepted(c, e, own, { seq: entry.seq, path: entry.path });
     return true;
   }
   // This device's own entries go through the same rules: the journal positions make them no-ops

@@ -44,7 +44,7 @@
     "exclusionsDesc": "Un pattern per riga, per esempio Archivio/**",
     "invalidGlobs": "Pattern non validi, ignorati: {list}",
     "alwaysExcluded": "Sempre esclusi: i dati di questo plugin, lo stato delle finestre (workspace), la cache.",
-    "configDir": "Cartella di configurazione ({dir})",
+    "configDir": "Cartella di configurazione ({dir}) · Beta",
     "useVaultDefault": "Usa le impostazioni del vault",
     "categories": {
       "core": "Impostazioni di base",
@@ -53,7 +53,7 @@
       "enabledPlugins": "Elenco dei plugin attivi",
       "installedPlugins": "Plugin installati e loro impostazioni"
     },
-    "configNote": "Le modifiche in arrivo per questa cartella non si applicano subito: ti verrà proposto di riavviare Obsidian.",
+    "configNote": "Funzione in beta. Se due dispositivi cambiano lo stesso file, vince l'ultima modifica arrivata; l'altra resta nello storico e si può ripristinare. Le modifiche in arrivo per questa cartella non si applicano subito: ti verrà proposto di riavviare Obsidian.",
     "about": "Informazioni",
     "cancel": "Annulla",
     "confirmUnlink": "Scollega",

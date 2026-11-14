@@ -401,6 +401,8 @@
     "sync": "What to sync",
     "syncHint": "They apply to every device that uses the vault settings. Notes and attachments are always synced.",
     "syncConfig": "Obsidian configuration folder",
+    "syncBeta": "Beta",
+    "syncBetaHint": "Beta feature. If two devices change the same file, the last change to arrive wins; the other stays in the history and can be restored.",
     "syncCategories": {
       "base": "Core settings",
       "appearance": "Appearance and themes",

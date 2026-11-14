@@ -91,6 +91,7 @@ Le operazioni di un batch sono elaborate **in ordine** e ciascuna è **atomica s
 3. `fileId` noto, `baseVersionId` = versione corrente → **accettata**.
 4. `fileId` noto, versione corrente = **tombstone** → **accettata come resurrezione** (la modifica vince sulla cancellazione, C-06); voce di journal `file_restored` e notifica informativa ai dispositivi.
 5. `fileId` noto, `baseVersionId` ≠ versione corrente → **conflitto `concurrent_edit`**. Se per quel file esiste già un conflitto aperto, la versione si aggiunge alle candidate.
+   - Eccezioni ([ADR-0018](adr/0018-configurazione-vince-l-ultimo.md)): stesso contenuto della versione corrente → accettata come quella versione. File `{config}/…` → vince l'ultima scrittura (la precedente resta nello storico, un conflitto aperto si chiude). Le stesse eccezioni valgono per la regola 2 (il file esistente viene adottato).
 6. Il `path` di un `put` su file esistente è informativo: se il file è stato spostato nel frattempo vale il path del server (restituito nell'esito).
 
 **`move`**

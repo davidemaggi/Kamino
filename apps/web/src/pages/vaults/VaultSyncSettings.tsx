@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "../../api/endpoints.js";
 import { errorMessage } from "../../api/errors.js";
+import { Badge } from "../../components/ui/badge.js";
 import { Button } from "../../components/ui/button.js";
 import { Checkbox } from "../../components/ui/checkbox.js";
 import { Label } from "../../components/ui/label.js";
@@ -48,7 +49,11 @@ export function VaultSyncSettings({ vaultId }: { vaultId: string }) {
     <form onSubmit={(e) => void save(e)} className="space-y-4">
       <p className="text-muted-foreground text-sm">{t("vaultSettings.syncHint")}</p>
       <fieldset className="space-y-2">
-        <legend className="mb-2 text-sm font-medium">{t("vaultSettings.syncConfig")}</legend>
+        <legend className="mb-2 flex items-center gap-2 text-sm font-medium">
+          {t("vaultSettings.syncConfig")}
+          <Badge variant="outline">{t("vaultSettings.syncBeta")}</Badge>
+        </legend>
+        <p className="text-muted-foreground text-sm">{t("vaultSettings.syncBetaHint")}</p>
         {CONFIG_CATEGORIES.map((c) => (
           <div key={c} className="flex items-center gap-2">
             <Checkbox

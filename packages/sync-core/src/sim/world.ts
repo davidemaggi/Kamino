@@ -831,7 +831,16 @@ export class World {
 
     // Nothing leaves the live state unless a user removed or overwrote it somewhere, or a device
     // keeps it locally on purpose (a conflicted copy, an excluded file).
+    // Configuration files (rc.10): the last write wins, the replaced head stays in the history
+    // (still among the versions checked here), even if the file moved out of the folder later.
+    const wasConfig = new Set(
+      this.store.journal.filter((j) => j.path.startsWith("{config}/")).map((j) => j.fileId),
+    );
+    const lwwContent = new Set(
+      [...this.store.versions.values()].filter((v) => wasConfig.has(v.fileId)).map((v) => v.hash),
+    );
     for (const v of this.store.versions.values()) {
+      if (lwwContent.has(v.hash)) continue;
       if (!this.userRemoved.has(v.hash) && !liveContents.has(v.hash) && !kept.has(v.hash))
         out.push(`content ${v.hash} left the server's live files without any user removing it`);
     }

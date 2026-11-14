@@ -1,5 +1,12 @@
 # @kamino/plugin
 
+## 1.0.0-rc.11
+
+### Patch Changes
+
+- d8d0ace: Obsidian configuration JSON files (plugin lists, settings, plugin data) rewritten by Obsidian from a stale memory are merged with the version that arrived from another device, instead of replacing it (ADR-0020).
+- b370030: Once per session the plugin checks that the server still has the content of the files it confirmed, and uploads again whatever the server lost, so the other devices can download it.
+
 ## 1.0.0-rc.10
 
 ### Patch Changes

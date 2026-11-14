@@ -1,5 +1,11 @@
 # @kamino/server
 
+## 1.0.0-rc.11
+
+### Patch Changes
+
+- b73468a: A blob whose file is missing from storage now answers 404 `blob_missing` instead of breaking the download mid-stream; `blobs/check` reports it as missing and the next upload of the same content repairs it.
+
 ## 1.0.0-rc.10
 
 ### Patch Changes

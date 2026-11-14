@@ -54,14 +54,28 @@ export class ConflictService {
     const { binary, ...base } = s.summary;
     if (!binary) {
       const [mineText, incomingText] = await Promise.all([
-        this.history.text(vc, s.mine.blobId, s.mine.size),
-        this.history.text(vc, s.incoming.blobId, s.incoming.size),
+        this.textOrNull(vc, s.mine),
+        this.textOrNull(vc, s.incoming),
       ]);
       if (mineText !== null && incomingText !== null)
         return { ...base, binary: false, mineText, incomingText };
     }
     const meta = (x: Side): BinaryMeta => ({ size: x.size, mime: s.mime, previewUrl: null });
     return { ...base, binary: true, mineFile: meta(s.mine), incomingFile: meta(s.incoming) };
+  }
+
+  /**
+   * A side whose object is missing from the store (e.g. a data directory moved without its
+   * blobs) is shown like a binary one: the choice still works, only the preview is gone.
+   */
+  private async textOrNull(vc: VaultCrypto, x: Side): Promise<string | null> {
+    try {
+      return await this.history.text(vc, x.blobId, x.size);
+    } catch (e) {
+      const err = e as { code?: string; name?: string };
+      if (err.code === "ENOENT" || err.name === "NoSuchKey") return null;
+      throw e;
+    }
   }
 
   /** Finds which of the user's vaults holds `conflictId` (ids are unique per vault). */

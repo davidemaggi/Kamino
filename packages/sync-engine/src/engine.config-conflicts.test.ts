@@ -86,6 +86,61 @@ describe("configuration files", () => {
     expect(phoneFs.text(".obsidian/community-plugins.json")).toBe('["c"]');
   });
 
+  // rc.10 on iOS: the phone got the list with a new plugin, then Obsidian rewrote the file from
+  // the list it held in memory since startup, and the last write won (ADR-0020).
+  it("Obsidian rewriting a JSON file from a stale memory merges with what arrived", async () => {
+    const server = new FakeServer();
+    const pcFs = new MemoryFs();
+    pcFs.put(".obsidian/community-plugins.json", '["kamino"]');
+    const phoneFs = new MemoryFs();
+    phoneFs.put(".obsidian/community-plugins.json", '["kamino"]');
+    const pc = await Engine.open(deps(server, pcFs, "pc"));
+    await pc.syncNow();
+    let reloads = 0;
+    const phoneDeps = () => ({
+      ...deps(server, phoneFs, "phone"),
+      onConfigApplied: () => reloads++,
+    });
+    let phone = await Engine.open(phoneDeps());
+    await phone.syncNow();
+    const sync = async (e: Engine) => {
+      e.localChange();
+      await e.syncNow();
+    };
+    // The Mac enables Excalidraw; the phone receives the list.
+    pcFs.put(".obsidian/community-plugins.json", '["kamino","excalidraw"]');
+    await sync(pc);
+    await phone.syncNow();
+    expect(phoneFs.text(".obsidian/community-plugins.json")).toBe('["kamino","excalidraw"]');
+    // Obsidian on the phone rewrites the list it knew: Excalidraw stays.
+    phoneFs.put(".obsidian/community-plugins.json", '[\n  "kamino"\n]');
+    reloads = 0;
+    await sync(phone);
+    await pc.syncNow();
+    // Nothing new of its own: the file is the Mac's again, and no new version goes up.
+    const both = '["kamino","excalidraw"]';
+    expect(phoneFs.text(".obsidian/community-plugins.json")).toBe(both);
+    expect(server.files().get("{config}/community-plugins.json")).toBe(both);
+    expect(pcFs.text(".obsidian/community-plugins.json")).toBe(both);
+    expect(reloads).toBe(1);
+    // Still stale (no reload yet), and it enables a plugin of its own: both kept.
+    phoneFs.put(".obsidian/community-plugins.json", '["kamino","dataview"]');
+    await sync(phone);
+    expect(phoneFs.text(".obsidian/community-plugins.json")).toBe(
+      '[\n  "kamino",\n  "dataview",\n  "excalidraw"\n]',
+    );
+    // After a reload Obsidian knows the whole list: turning Excalidraw off holds.
+    await phone.stop();
+    phone = await Engine.open(phoneDeps());
+    await phone.syncNow();
+    phoneFs.put(".obsidian/community-plugins.json", '["kamino","dataview"]');
+    await sync(phone);
+    await pc.syncNow();
+    expect(pcFs.text(".obsidian/community-plugins.json")).toBe('["kamino","dataview"]');
+    expect(phone.conflicts()).toEqual([]);
+    expect(pc.conflicts()).toEqual([]);
+  });
+
   it("notes still open a conflict", async () => {
     const server = new FakeServer();
     const pcFs = new MemoryFs();

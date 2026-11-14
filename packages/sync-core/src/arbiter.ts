@@ -315,6 +315,10 @@ function decidePut(view: ArbiterView, op: PutOp, ctx: ArbiterCtx): Decision {
       [versionOf(f.fileId, op), headOf(f.fileId, op), putJournal("file_put", f.fileId, f.path, op)],
       op.versionId,
     );
+  // Already the head's content (two devices wrote the same thing): nothing to arbitrate. The
+  // device takes the head as its base; no new version, so the head and any open resolution stay.
+  if (f.headVersionId !== null && op.contentHash === f.headHash)
+    return accept(f.fileId, f.path, [], f.headVersionId);
   return conflictOn(view, f, "concurrent_edit", op, ctx);
 }
 

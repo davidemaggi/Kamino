@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { PRODUCT_NAME } from "@kamino/brand";
-import { releaseInfo, releaseNotes, updateVersions } from "../scripts/release.js";
+import { releaseInfo, releaseNotes, updateVersions, writeRootFiles } from "../scripts/release.js";
+import { buildManifest } from "../scripts/write-manifest.js";
 
 const registry = {
   entries: [
@@ -22,6 +23,7 @@ describe("plugin release helpers (M7c C3)", () => {
     writeFileSync(join(dir, "release-names.json"), JSON.stringify(registry));
     return {
       pluginRoot: dir,
+      repoRoot: dir,
       registryFile: join(dir, "release-names.json"),
     };
   }
@@ -50,6 +52,19 @@ describe("plugin release helpers (M7c C3)", () => {
   it("refuses a release whose version is missing from versions.json", () => {
     const p = fixture("0.3.0", { "0.2.0": "1.5.0" });
     expect(() => releaseInfo(p, "1.5.0")).toThrow(/versions\.json/);
+  });
+
+  // The Obsidian community store reads manifest.json and versions.json from the repo root.
+  it("writes manifest.json and versions.json at the repo root, for the community store", () => {
+    const p = fixture("1.0.0", { "1.0.0-rc.1": "1.5.0", "1.0.0": "1.5.0" });
+    writeRootFiles(p);
+    expect(JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"))).toEqual(
+      buildManifest("1.0.0"),
+    );
+    expect(JSON.parse(readFileSync(join(dir, "versions.json"), "utf8"))).toEqual({
+      "1.0.0-rc.1": "1.5.0",
+      "1.0.0": "1.5.0",
+    });
   });
 
   it("release notes: the version's section of the changelog", () => {

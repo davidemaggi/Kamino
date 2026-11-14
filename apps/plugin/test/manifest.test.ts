@@ -89,4 +89,10 @@ describe("plugin build output", () => {
       /require[(]\s*["'](?:node:)?(?:fs|path|crypto|os|net|http|https|child_process|electron)["']\s*[)]/;
     expect(bundle).not.toMatch(forbidden);
   });
+
+  // Community store: the copies at the repo root follow the plugin (written by release:version).
+  it("repo-root manifest.json and versions.json match the plugin's", () => {
+    expect(JSON.parse(read("../../manifest.json"))).toEqual(manifest);
+    expect(JSON.parse(read("../../versions.json"))).toEqual(JSON.parse(read("versions.json")));
+  });
 });

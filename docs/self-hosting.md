@@ -191,7 +191,7 @@ Plugin e server possono avere versioni diverse: la compatibilità dipende solo d
 
 ## 8. Installare il plugin (BRAT)
 
-Finché il plugin non è nello store di Obsidian si installa con [BRAT](https://github.com/TfTHacker/obsidian42-brat):
+Finché il plugin non è nello store di Obsidian (procedura in [community-store.md](community-store.md)) si installa con [BRAT](https://github.com/TfTHacker/obsidian42-brat):
 
 1. In Obsidian: Impostazioni → Plugin della community → Sfoglia → installa e attiva **BRAT**.
 2. Comando "BRAT: Add a beta plugin for testing", indirizzo del repository GitHub del progetto; BRAT scarica `main.js`, `manifest.json` e `styles.css` dall'ultima release e li aggiorna da solo.
@@ -199,7 +199,7 @@ Finché il plugin non è nello store di Obsidian si installa con [BRAT](https://
 
 Su telefono e tablet il server deve essere raggiungibile in HTTPS (scenari tunnel o Caddy).
 
-Le release si pubblicano a mano dal workflow **Release plugin** (GitHub Actions, solo da `main`), dopo `pnpm release:version` (changesets aggiorna versioni e changelog, `versions.json` riceve la nuova voce). Le versioni 0.x e quelle con un suffisso (per esempio `1.0.0-rc.1`, release candidate) sono marcate come pre-release: in BRAT si può indicare la versione esatta da installare.
+Le release si pubblicano a mano dal workflow **Release plugin** (GitHub Actions, solo da `main`), dopo `pnpm release:version` (changesets aggiorna versioni e changelog, `versions.json` riceve la nuova voce e viene copiato con `manifest.json` nella radice del repository, dove lo legge lo store). Le versioni 0.x e quelle con un suffisso (per esempio `1.0.0-rc.1`, release candidate) sono marcate come pre-release: in BRAT si può indicare la versione esatta da installare.
 
 ## 9. Log e diagnostica
 

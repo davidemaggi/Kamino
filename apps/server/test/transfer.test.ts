@@ -201,6 +201,29 @@ describe.skipIf(dockerUnavailable)("uploads and downloads", () => {
     ).toBe(true);
   });
 
+  // rc.10: a blob row whose file was gone from storage answered 200 and then broke the stream;
+  // the plugin retried the truncated download forever.
+  it("a blob whose file is gone: 404 blob_missing, reported missing, repaired by a re-upload", async () => {
+    const hash = sha(CONTENT);
+    const first = await upload(CONTENT, [0, 1, 2, 3]);
+    await d.call("POST", `${base()}/uploads/${first}/complete`);
+    for (const f of filesUnder(t.dirs.blobs)) rmSync(f);
+    const r = await d.call("GET", `${base()}/blobs/${hash}`);
+    expect(r.statusCode).toBe(404);
+    expect(r.json().error.code).toBe("blob_missing");
+    expect((await d.call("POST", `${base()}/blobs/check`, { hashes: [hash] })).json()).toEqual({
+      missing: [hash],
+    });
+    const second = await upload(CONTENT, [0, 1, 2, 3]);
+    expect((await d.call("POST", `${base()}/uploads/${second}/complete`)).statusCode).toBe(200);
+    const again = await d.call("GET", `${base()}/blobs/${hash}`);
+    expect(again.statusCode).toBe(200);
+    expect(again.rawPayload.equals(CONTENT)).toBe(true);
+    expect((await d.call("POST", `${base()}/blobs/check`, { hashes: [hash] })).json()).toEqual({
+      missing: [],
+    });
+  });
+
   it("an existing blob is never rewritten by a second upload of the same content", async () => {
     const first = await upload(CONTENT, [0, 1, 2, 3]);
     await d.call("POST", `${base()}/uploads/${first}/complete`);

@@ -4,7 +4,13 @@ import { and, eq } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { Readable } from "node:stream";
 import { AuthError } from "../auth/service.js";
-import { CHUNK_SIZE, readPlain, TransferError, type UploadService } from "../blobs/uploads.js";
+import {
+  blobKeyOf,
+  CHUNK_SIZE,
+  readPlain,
+  TransferError,
+  type UploadService,
+} from "../blobs/uploads.js";
 import type { BlobStore } from "../blobs/store.js";
 import type { Db } from "../db/client.js";
 import { blobs } from "../db/schema.js";
@@ -126,6 +132,9 @@ export function transferRoutes(
           .from(blobs)
           .where(and(eq(blobs.vaultId, vc.vaultId), eq(blobs.blobId, id)));
         if (!row) throw new TransferError("not_found", 404);
+        // Checked before the 200: a file gone from storage would break the stream mid-way.
+        if ((await store.size(blobKeyOf(vc.vaultId, id))) === null)
+          throw new TransferError("blob_missing", 404);
         const range = parseRange(req.headers.range, row.size);
         if (req.headers.range !== undefined && !range && row.size > 0) {
           void reply.header("content-range", `bytes */${row.size}`);

@@ -23,3 +23,4 @@ Una ADR non si modifica dopo l'accettazione: se la decisione cambia, se ne scriv
 | [0016](0016-codemirror-merge.md) | `@codemirror/merge` per diff e merge in web e plugin | Accettata |
 | [0017](0017-http-per-scritture-ws-per-push.md) | HTTP per le scritture, WebSocket per il push | Accettata |
 | [0018](0018-configurazione-vince-l-ultimo.md) | Cartella di configurazione: vince l'ultima scrittura | Accettata |
+| [0019](0019-sincronizzazione-forzata.md) | Sincronizzazione forzata da un dispositivo | Accettata |

@@ -175,12 +175,12 @@ export function decide(view: ArbiterView, op: Op, ctx: ArbiterCtx): Decision {
   }
 }
 
-function versionOf(fileId: string, op: PutOp): Mutation {
+function versionOf(fileId: string, op: PutOp, base = op.baseVersionId): Mutation {
   return {
     type: "version",
     fileId,
     versionId: op.versionId,
-    baseVersionId: op.baseVersionId,
+    baseVersionId: base,
     hash: op.contentHash,
     size: op.size,
     mtime: op.mtime,
@@ -273,6 +273,8 @@ function decidePut(view: ArbiterView, op: PutOp, ctx: ArbiterCtx): Decision {
     const other = view.liveAt(collisionKey(op.path));
     if (other) {
       if (other.kind === "folder") return reject("path_taken", other.path);
+      if (op.archive) return archive(other, op);
+      if (op.force) return forceWins(view, other, op);
       // The same content, or a configuration file: one file, not two. The device adopts the
       // file it collided with (the result names it).
       if (other.headVersionId !== null && op.contentHash === other.headHash)
@@ -302,6 +304,8 @@ function decidePut(view: ArbiterView, op: PutOp, ctx: ArbiterCtx): Decision {
     );
   }
   if (f.kind === "folder") return reject("path_invalid");
+  if (op.archive) return archive(f, op);
+  if (op.force && !f.deleted) return forceWins(view, f, op);
   if (f.deleted) {
     // C-06: an edit wins over a deletion. Restored at its path, or next to it if taken meanwhile.
     const other = view.liveAt(collisionKey(f.path));
@@ -337,29 +341,65 @@ const isConfig = (path: string) => path.startsWith(`${CONFIG_PREFIX}/`);
  * before this rule) closes with the new head.
  */
 function lastWriteWins(view: ArbiterView, f: FileRecord, op: PutOp): Decision {
-  const mutations: Mutation[] = [
-    versionOf(f.fileId, op),
-    headOf(f.fileId, op),
-    putJournal("file_put", f.fileId, f.path, op),
-  ];
+  return accept(
+    f.fileId,
+    f.path,
+    [
+      // Based on the head it replaces, whatever the op's base: the history undoes a put by
+      // going back to its version's base.
+      versionOf(f.fileId, op, f.headVersionId),
+      headOf(f.fileId, op),
+      putJournal("file_put", f.fileId, f.path, op),
+      ...closeOpen(view, f, op.versionId, op.contentHash),
+    ],
+    op.versionId,
+  );
+}
+
+/** An open conflict on `f` closes with `versionId` as the outcome. */
+function closeOpen(view: ArbiterView, f: FileRecord, versionId: string, hash: string): Mutation[] {
   const open = view.openConflict(f.fileId);
-  if (open)
-    mutations.push(
-      { type: "resolveConflict", conflictId: open.conflictId },
-      {
-        type: "journal",
-        entry: {
-          type: "conflict_resolved",
-          fileId: f.fileId,
-          kind: "file",
-          path: f.path,
-          conflictId: open.conflictId,
-          versionId: op.versionId,
-          contentHash: op.contentHash,
-        },
+  if (!open) return [];
+  return [
+    { type: "resolveConflict", conflictId: open.conflictId },
+    {
+      type: "journal",
+      entry: {
+        type: "conflict_resolved",
+        fileId: f.fileId,
+        kind: "file",
+        path: f.path,
+        conflictId: open.conflictId,
+        versionId,
+        contentHash: hash,
       },
+    },
+  ];
+}
+
+/**
+ * Forced sync, source (ADR-0019): its content wins. Already the head's: no new version, but an
+ * open conflict still closes with the head.
+ */
+function forceWins(view: ArbiterView, f: FileRecord, op: PutOp): Decision {
+  if (f.headVersionId !== null && op.contentHash === f.headHash)
+    return accept(
+      f.fileId,
+      f.path,
+      closeOpen(view, f, f.headVersionId, f.headHash),
+      f.headVersionId,
     );
-  return accept(f.fileId, f.path, mutations, op.versionId);
+  return lastWriteWins(view, f, op);
+}
+
+/**
+ * Forced sync, target (ADR-0019): the device's content becomes a version in the history of the
+ * server's file, which stays as it is. The device takes the head as its base.
+ */
+function archive(f: FileRecord, op: PutOp): Decision {
+  if (f.headVersionId === null) return reject("not_found");
+  const mutations: Mutation[] = op.contentHash === f.headHash ? [] : [versionOf(f.fileId, op)];
+  return accept(f.fileId, f.path, mutations, f.headVersionId);
 }
 
 function decideMove(view: ArbiterView, op: MoveOp): Decision {

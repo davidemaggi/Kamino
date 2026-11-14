@@ -1,5 +1,12 @@
 # @kamino/web
 
+## 1.0.0-rc.11
+
+### Patch Changes
+
+- 3ee5e84: The About page is aligned with the rest of the app: the details are in a card with the logo, the protocol and the build date are readable, the commit is shortened, and a button copies everything for a bug report. Loading and errors use the standard skeleton and alert.
+- f08ac08: Vault settings: syncing the Obsidian configuration folder moves to the danger zone, and turning a category on asks for confirmation.
+
 ## 1.0.0-rc.10
 
 ### Patch Changes

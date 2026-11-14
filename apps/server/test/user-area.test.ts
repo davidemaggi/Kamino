@@ -1,4 +1,6 @@
 import {
+  DEFAULT_SYNC_SETTINGS,
+  type SyncSettings,
   ConflictDetail,
   ConflictList,
   FileList,
@@ -162,6 +164,26 @@ describe.skipIf(dockerUnavailable)("user area routes", () => {
     expect((await t.call(mario, "GET", `/vaults/${vaultId}/zip`)).statusCode).toBe(200);
   });
 
+  // rc.8: the plugin's "Use the vault settings" follows defaults that only a device could set.
+  it("the owner reads and changes the vault's sync settings; devices follow", async () => {
+    const { mario, mac, vaultId } = await world();
+    const url = `/vaults/${vaultId}/sync-settings`;
+    expect((await t.call(mario, "GET", url)).json()).toEqual(DEFAULT_SYNC_SETTINGS);
+    const next: SyncSettings = {
+      config: { base: true, appearance: false, hotkeys: false, pluginList: true, plugins: true },
+      patterns: [...DEFAULT_SYNC_SETTINGS.patterns, "Privato/**"],
+    };
+    const r = await t.call(mario, "PUT", url, next);
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual(next);
+    expect((await mac.call("GET", "/device/settings")).json().effective).toEqual(next);
+    const changes = (await mac.call("GET", `/vaults/${vaultId}/changes?after=0`)).json() as {
+      entries: { type: string }[];
+    };
+    expect(changes.entries.at(-1)?.type).toBe("vault_settings_changed");
+    expect((await t.call(mario, "PUT", url, { config: {} })).statusCode).toBe(400);
+  });
+
   it("answers 404 to everyone else, admins included (T-02)", async () => {
     const { luigi, vaultId } = await world();
     const conflictId = (await t.db.$client<{ id: string }[]>`select id from conflicts`)[0]!.id;
@@ -175,6 +197,8 @@ describe.skipIf(dockerUnavailable)("user area routes", () => {
       ["GET", `/vaults/${vaultId}/trash`],
       ["GET", `/conflicts/${conflictId}`],
       ["GET", `/vaults/${vaultId}/zip`],
+      ["GET", `/vaults/${vaultId}/sync-settings`],
+      ["PUT", `/vaults/${vaultId}/sync-settings`, DEFAULT_SYNC_SETTINGS],
       ["GET", `/vaults/not-a-uuid`],
     ] as const) {
       const r = await t.call(luigi, method, url, body);

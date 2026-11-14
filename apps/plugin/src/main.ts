@@ -3,6 +3,7 @@ import { PROTOCOL_VERSION, type DevicePlatform } from "@kamino/protocol";
 import { DEFAULT_THRESHOLDS, describeStatus } from "@kamino/status";
 import { addIcon, apiVersion, getIconIds, Notice, Platform, Plugin } from "obsidian";
 import { BRAND_ICON, BRAND_ICON_SVG } from "./ui/brand-icon.js";
+import { ConfigReloadPrompt } from "./ui/config-reload.js";
 import { APP_CODENAME, APP_VERSION } from "./build-info.js";
 import { loadText, saveText } from "./diagnostics/file.js";
 import { DiagnosticLog } from "./diagnostics/log.js";
@@ -140,6 +141,13 @@ export default class SyncPlugin extends Plugin {
         notice: (msg) => new Notice(msg),
         reloadText: m.settings.reloadToApply,
       });
+      // S-12: Obsidian's own reload command (desktop and mobile).
+      const configReload = new ConfigReloadPrompt(m.configReload, () => {
+        const commands = (
+          this.app as unknown as { commands?: { executeCommandById(id: string): boolean } }
+        ).commands;
+        if (!commands?.executeCommandById("app:reload")) window.location.reload();
+      });
       const host = new EngineHost({
         current: () => {
           const link = real.link();
@@ -178,6 +186,7 @@ export default class SyncPlugin extends Plugin {
           return { mode: s.mode, periodicMinutes: s.periodicMinutes };
         },
         onPairing: (msg) => real.receive(msg),
+        onConfigApplied: () => configReload.configApplied(),
         log: (code) => diag.add(code),
       });
       this.host = host;

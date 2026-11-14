@@ -1,5 +1,5 @@
 import { DEFAULT_SYNC_SETTINGS } from "@kamino/protocol";
-import type { ClientConfig } from "@kamino/sync-core";
+import { ALL_CONFIG, type ClientConfig } from "@kamino/sync-core";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { Engine, type EngineDeps } from "./engine.js";
@@ -218,6 +218,46 @@ describe("engine", () => {
       at: new Date(0).toISOString(),
       ignorable: true,
     });
+    await e.syncNow();
+    expect(told).toBe(1);
+  });
+
+  // S-12: Obsidian reads its configuration folder only at startup, so the host proposes a reload
+  // when something there changes because of another device. Notes don't count.
+  it("tells its host when a remote change lands in the configuration folder", async () => {
+    const server = new FakeServer();
+    const fs = new MemoryFs();
+    let told = 0;
+    const e = await Engine.open({
+      ...deps(server, fs),
+      config: { ...config(), settings: { ...DEFAULT_SYNC_SETTINGS, config: ALL_CONFIG } },
+      onConfigApplied: () => told++,
+    });
+    await server.remotePut(
+      "dev-b",
+      { opId: "o1", fileId: "f1", versionId: "v1", path: "n.md", baseVersionId: null, mtime: 5 },
+      "a note",
+    );
+    await e.syncNow();
+    expect(fs.text("n.md")).toBe("a note");
+    expect(told).toBe(0);
+    await server.remotePut(
+      "dev-b",
+      {
+        opId: "o2",
+        fileId: "f2",
+        versionId: "v2",
+        path: "{config}/plugins/calendar/data.json",
+        baseVersionId: null,
+        mtime: 6,
+      },
+      "{}",
+    );
+    await e.syncNow();
+    expect(fs.text(".obsidian/plugins/calendar/data.json")).toBe("{}");
+    expect(told).toBe(1);
+    // A local change in the configuration folder is the user's own: no proposal.
+    fs.put(".obsidian/plugins/calendar/data.json", '{"a":1}');
     await e.syncNow();
     expect(told).toBe(1);
   });

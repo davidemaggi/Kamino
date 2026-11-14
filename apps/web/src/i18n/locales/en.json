@@ -397,7 +397,22 @@
     "retentionLowerTitle": "Shorten the history?",
     "retentionLowerText": "Versions older than {{count}} days will be deleted and can no longer be restored.",
     "retentionLowerConfirm": "Shorten",
-    "zipChoice": "What to download"
+    "zipChoice": "What to download",
+    "sync": "What to sync",
+    "syncHint": "They apply to every device that uses the vault settings. Notes and attachments are always synced.",
+    "syncConfig": "Obsidian configuration folder",
+    "syncCategories": {
+      "base": "Core settings",
+      "appearance": "Appearance and themes",
+      "hotkeys": "Hotkeys",
+      "pluginList": "List of enabled plugins",
+      "plugins": "Installed plugins and their settings"
+    },
+    "syncPluginsHint": "To get plugins on another device, turn on both plugin options.",
+    "syncExclusions": "Exclusions",
+    "syncExclusionsHint": "One pattern per line, for example Archive/**",
+    "syncReload": "Devices receive configuration changes and offer to reload Obsidian to apply them.",
+    "syncSave": "Save sync settings"
   },
   "admin": {
     "users": {

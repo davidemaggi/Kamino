@@ -1,4 +1,10 @@
-import { ResolveAllRequest, ResolveRequest, VaultDelete, VaultPatch } from "@kamino/protocol";
+import {
+  ResolveAllRequest,
+  ResolveRequest,
+  SyncSettings,
+  VaultDelete,
+  VaultPatch,
+} from "@kamino/protocol";
 import { and, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { requireUser } from "../auth/http.js";
@@ -14,9 +20,10 @@ import { HistoryService } from "../history/service.js";
 import { zipFileName, zipStream } from "../history/zip.js";
 import { ApiError, notFound } from "../http/errors.js";
 import type { Hub } from "../realtime/hub.js";
-import type { SyncService } from "../sync/commit.js";
+import { WEB_AUTHOR, type SyncService } from "../sync/commit.js";
 import { ownedVault } from "../vaults/access.js";
 import { deleteVault } from "../vaults/delete.js";
+import { SettingsService } from "../vaults/settings.js";
 import type { Vault, VaultService } from "../vaults/service.js";
 import type { SystemConfigService } from "../system/config.js";
 import { parse } from "./auth.js";
@@ -46,6 +53,7 @@ export function userAreaRoutes(deps: {
   const maxDays = async () => (await config.effective()).maxRetentionDays;
   const history = new HistoryService(db, store, now, maxDays);
   const conflictsSvc = new ConflictService(db, store, vaultsSvc);
+  const settings = new SettingsService(db, vaultsSvc, now);
   // M7a A2 (T-13): the expensive web operations, per user. Generous for a person, tight for a script.
   const limiter = new RateLimiter<"zip" | "write">(
     { zip: { max: 10, windowMs: 15 * 60_000 }, write: { max: 60, windowMs: 60_000 } },
@@ -88,6 +96,24 @@ export function userAreaRoutes(deps: {
       const o = await owned(req, reply, req.params.id);
       if (!o) return reply;
       return vaultDto(db, vaultsSvc, o.vault, await maxDays());
+    });
+
+    // The defaults every device follows unless it overrides them; before rc.8 only a
+    // device could change them, so the plugin's "use the vault settings" had nothing to follow.
+    app.get<{ Params: IdParams }>("/vaults/:id/sync-settings", async (req, reply) => {
+      const o = await owned(req, reply, req.params.id);
+      if (!o) return reply;
+      return settings.vaultSettings(o.vault.id);
+    });
+
+    app.put<{ Params: IdParams }>("/vaults/:id/sync-settings", async (req, reply) => {
+      const o = await owned(req, reply, req.params.id);
+      if (!o) return reply;
+      limiter.check("write", o.userId);
+      const b = parse(SyncSettings, req, reply);
+      if (!b) return reply;
+      await settings.setVaultSettings(o.vault.id, WEB_AUTHOR, b);
+      return settings.vaultSettings(o.vault.id);
     });
 
     app.patch<{ Params: IdParams }>("/vaults/:id", async (req, reply) => {

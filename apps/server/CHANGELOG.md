@@ -1,5 +1,11 @@
 # @kamino/server
 
+## 1.0.0-rc.8
+
+### Patch Changes
+
+- d34b0c0: The web app can change what a vault syncs by default (configuration folder categories and exclusions), so "Use the vault settings" in the plugin follows choices the owner can actually make.
+
 ## 1.0.0-rc.7
 
 ### Patch Changes

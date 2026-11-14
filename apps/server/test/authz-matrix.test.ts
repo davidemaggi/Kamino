@@ -87,6 +87,8 @@ const MATRIX: Record<string, { kind: Kind; own?: true }> = {
   "GET /api/v1/vaults/:id": { kind: "user", own: true },
   "PATCH /api/v1/vaults/:id": { kind: "user", own: true },
   "DELETE /api/v1/vaults/:id": { kind: "user", own: true },
+  "GET /api/v1/vaults/:id/sync-settings": { kind: "user", own: true },
+  "PUT /api/v1/vaults/:id/sync-settings": { kind: "user", own: true },
   "GET /api/v1/vaults/:id/files": { kind: "user", own: true },
   "GET /api/v1/files/:id/versions": { kind: "user", own: true },
   "GET /api/v1/versions/:id": { kind: "user", own: true },

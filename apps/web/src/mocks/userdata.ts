@@ -1,4 +1,4 @@
-import type { BinaryMeta, ConflictDetail, Device, Vault } from "@kamino/protocol";
+import type { BinaryMeta, ConflictDetail, Device, SyncSettings, Vault } from "@kamino/protocol";
 
 // Fake user-area data (dev/tests only), shared by every signed-in user.
 const NOW = Date.UTC(2026, 10, 8, 10, 0);
@@ -53,6 +53,7 @@ interface UserData {
   pairings: FakePairing[];
   staleNext: boolean;
   seq: number;
+  syncSettings: Map<string, SyncSettings>;
 }
 
 export const ud: UserData = {
@@ -66,6 +67,7 @@ export const ud: UserData = {
   pairings: [],
   staleNext: false,
   seq: 0,
+  syncSettings: new Map(),
 };
 
 const swatch = (color: string): BinaryMeta => ({
@@ -87,6 +89,7 @@ export function seedUserData(preset: "default" | "quota-almost-full" = "default"
   ud.seq = 0;
   ud.staleNext = false;
   ud.pairings = [];
+  ud.syncSettings = new Map();
   const vault = (id: string, name: string, level: Vault["level"], o: Partial<Vault>): Vault => ({
     id,
     name,

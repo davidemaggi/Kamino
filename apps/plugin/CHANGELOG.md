@@ -1,5 +1,11 @@
 # @kamino/plugin
 
+## 1.0.0-rc.8
+
+### Patch Changes
+
+- 75ee631: When another device changes Obsidian's configuration folder (plugins, appearance, settings), the plugin shows a notice with a "Reload now" button, since Obsidian reads that folder only at startup.
+
 ## 1.0.0-rc.7
 
 No changes in this release.

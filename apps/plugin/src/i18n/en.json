@@ -1,4 +1,8 @@
 {
+  "configReload": {
+    "text": "Another device changed Obsidian's configuration (plugins, appearance or settings). Reload Obsidian to apply it.",
+    "button": "Reload now"
+  },
   "ribbon": { "status": "Sync status" },
   "settings": {
     "title": "Settings",

@@ -53,6 +53,7 @@ export class Notice {
     Notice.shown.push(message);
     Notice.last = this;
   }
+  hide(): void {}
 }
 
 export const Platform = { isMobile: false, isDesktop: true, isIosApp: false };

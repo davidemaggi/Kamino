@@ -37,6 +37,8 @@ export interface EngineHostOptions {
   mode?: () => { mode: SyncMode; periodicMinutes: number };
   /** Pairing news from the realtime channel (03 §10). */
   onPairing?: (message: PairingMessage) => void;
+  /** S-12: another device changed the configuration folder here. */
+  onConfigApplied?: () => void;
 }
 
 /** One engine per link: opened when the device is linked, stopped when it is unlinked. */
@@ -104,7 +106,6 @@ export class EngineHost {
         return;
       }
       this.current = engine;
-      this.current = engine;
       this.off = engine.onChange(() => this.emit());
       if (!known) {
         engine.pause();
@@ -145,6 +146,7 @@ export class EngineHost {
       ...(o.wifiOnly ? { wifiOnly: o.wifiOnly } : {}),
       ...(o.mode ? { mode: o.mode() } : {}),
       ...(o.onPairing ? { onPairing: o.onPairing } : {}),
+      ...(o.onConfigApplied ? { onConfigApplied: o.onConfigApplied } : {}),
     });
   }
 

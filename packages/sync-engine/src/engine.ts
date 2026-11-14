@@ -63,6 +63,11 @@ export interface EngineDeps {
   client?: { pluginVersion: string; platform: string };
   /** A `vault_settings_changed` entry arrived: the host reads the settings again (E10). */
   onSettingsChanged?: () => void;
+  /**
+   * S-12: a change from another device landed in the configuration folder. Obsidian reads it only
+   * at startup: the host proposes a reload.
+   */
+  onConfigApplied?: () => void;
   /** Pairing news from the socket (03 §10): the host shows it, the engine ignores it. */
   onPairing?: (message: PairingMessage) => void;
   /** Without streaming (`fs.streaming === false`), files over this size wait (E3, 100 MB). */
@@ -1220,8 +1225,19 @@ export class Engine {
       }
     }
     if (this.stopReason) return;
-    await this.noteEcho(fx, "ok" in ev && ev.ok);
+    const ok = "ok" in ev && ev.ok;
+    await this.noteEcho(fx, ok);
     await this.dispatch(ev);
+    if (ok && this.inConfig(fx)) this.d.onConfigApplied?.();
+  }
+
+  /** The effect touched the configuration folder (S-12). */
+  private inConfig(fx: FileEffect): boolean {
+    const paths = fx.type === "rename" ? [fx.from, fx.to] : [fx.path];
+    return paths.some((p) => {
+      const n = normalizePath(p, this.d.config.configDir);
+      return n.ok && n.path.startsWith("{config}/");
+    });
   }
 
   /** Computed once per state (I7: it walks the whole index). */

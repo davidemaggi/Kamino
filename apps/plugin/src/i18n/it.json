@@ -1,4 +1,8 @@
 {
+  "configReload": {
+    "text": "Un altro dispositivo ha cambiato la configurazione di Obsidian (plugin, aspetto o impostazioni). Ricarica Obsidian per applicarla.",
+    "button": "Ricarica ora"
+  },
   "ribbon": { "status": "Stato della sincronizzazione" },
   "settings": {
     "title": "Impostazioni",

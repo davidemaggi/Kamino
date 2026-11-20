@@ -2,7 +2,7 @@
 # Build from the repository root: docker build -f docker/Dockerfile -t kamino:local .
 
 # ---- build: install the workspace, build web + server, prune to a prod deployment ----
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 RUN corepack enable
 WORKDIR /repo
 # Dependency manifests first so the install layer is cached across source edits.
@@ -31,7 +31,7 @@ RUN pnpm --filter @kamino/server deploy --prod --config.inject-workspace-package
 # ---- node-slim: the official node binary, stripped of debug symbols (~18 MB smaller) ----
 # Same Alpine release as the runtime stage, so the binary links against matching libs.
 # strip removes debug symbols, so native crash reports are less informative.
-FROM node:24-alpine3.24 AS node-slim
+FROM node:26-alpine3.24 AS node-slim
 RUN apk add --no-cache binutils && strip /usr/local/bin/node
 
 # ---- runtime ----
